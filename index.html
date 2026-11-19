@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#050a06">
+  <meta name="description" content="A multiplayer hacking game in your browser. Race, duel, defend, and pull off heists in a fake terminal.">
+  <title>Root Access</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-screen="menu">
+  <div class="crt" aria-hidden="true"></div>
+
+  <!-- MENU -->
+  <section id="screen-menu" class="screen">
+    <pre class="logo" aria-label="Root Access">
+ ____             _       _
+|  _ \ ___   ___ | |_    / \   ___ ___ ___  ___ ___
+| |_) / _ \ / _ \| __|  / _ \ / __/ __/ _ \/ __/ __|
+|  _ &lt; (_) | (_) | |_  / ___ \ (_| (_|  __/\__ \__ \
+|_| \_\___/ \___/ \__|/_/   \_\___\___\___||___/___/</pre>
+    <p class="tagline">a multiplayer hacking game <span class="dim">· every hack is fake, the fun is real</span></p>
+
+    <div class="panel menu-panel">
+      <label class="field">
+        <span>&gt; handle</span>
+        <input id="nameInput" maxlength="14" autocomplete="off" spellcheck="false">
+      </label>
+      <div class="field">
+        <span>&gt; color</span>
+        <div id="colorPick" class="colors"></div>
+      </div>
+
+      <div class="menu-actions">
+        <button id="createBtn" class="primary">Create room</button>
+        <div class="join-row">
+          <input id="codeInput" maxlength="4" placeholder="CODE" aria-label="Room code" autocomplete="off" spellcheck="false">
+          <button id="joinBtn">Join</button>
+        </div>
+        <button id="practiceBtn">Practice vs bots</button>
+        <button id="howBtn">How to play</button>
+      </div>
+
+      <p id="netStatus" class="net-status"></p>
+      <p id="menuMsg" role="status"></p>
+    </div>
+  </section>
+
+  <!-- LOBBY -->
+  <section id="screen-lobby" class="screen" hidden>
+    <header class="topbar">
+      <span class="brand">ROOT ACCESS</span>
+      <span>ROOM <strong id="lobbyCode" class="room-code"></strong></span>
+      <button id="inviteBtn" class="mini-btn">Copy invite link</button>
+    </header>
+    <p id="lobbyNet" class="dim lobby-net"></p>
+    <div class="lobby-grid">
+      <div class="panel">
+        <h2>// OPERATORS <span id="lobbyCount" class="dim"></span></h2>
+        <ul id="lobbyPlayers" class="players"></ul>
+        <div id="lobbyActions" class="actions"></div>
+        <p id="lobbyStatus" class="dim"></p>
+      </div>
+      <div class="panel">
+        <h2>// MISSION</h2>
+        <div id="lobbyModes" class="modes"></div>
+      </div>
+      <div id="lobbyChat" class="panel chat-slot"></div>
+    </div>
+  </section>
+
+  <!-- GAME -->
+  <section id="screen-game" class="screen" hidden>
+    <header class="topbar">
+      <span class="brand">ROOT ACCESS</span>
+      <span id="gameMode"></span>
+      <span id="gameTimer"></span>
+      <span class="spacer"></span>
+      <span id="gameRoom" class="dim"></span>
+      <button id="gameAbort" class="mini-btn" hidden>End round</button>
+      <button id="gameLeave" class="mini-btn">Leave</button>
+    </header>
+    <div class="game-grid">
+      <div class="main-col">
+        <div id="stage"></div>
+        <div id="term"></div>
+      </div>
+      <aside class="side-col">
+        <div id="side" class="panel"></div>
+        <div id="gameChat" class="panel chat-slot"></div>
+      </aside>
+    </div>
+    <div id="countdown" hidden></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section id="screen-results" class="screen" hidden>
+    <div class="panel results-panel">
+      <h2>// MISSION REPORT</h2>
+      <p id="resultsSummary" class="summary"></p>
+      <ol id="resultsList" class="results"></ol>
+      <div id="resultsActions" class="actions"></div>
+    </div>
+  </section>
+
+  <!-- HOW TO PLAY -->
+  <dialog id="howDialog">
+    <h2>// HOW TO PLAY</h2>
+    <p>Everything happens in a pretend terminal. Type commands and press <kbd>Enter</kbd>. Type <code>help</code> any time to see what you can do. <kbd>Tab</kbd> auto-completes, and <kbd>↑</kbd>/<kbd>↓</kbd> bring back earlier commands.</p>
+    <h3>Terminal Race</h3>
+    <p>Everyone breaks into the same server through 5 layers: find a password, decrypt a file, crack a PIN, find a backdoor, then get root. First to root wins. Stuck? Type <code>hint</code>.</p>
+    <h3>Typing Duel</h3>
+    <p>Type the command shown, exactly, and press Enter to hit your target's firewall. Streaks hit harder. <kbd>Tab</kbd> switches target. Last firewall standing wins.</p>
+    <h3>Hack &amp; Defend</h3>
+    <p>Protect your 3 servers while stealing data from everyone else. <code>scan</code>, <code>breach</code>, <code>trace</code>, <code>kill</code>, and <code>patch</code> all cost CPU. Most data after 5 minutes wins.</p>
+    <h3>Co-op Heist</h3>
+    <p>Work as a team. Each person sees different clues, so <strong>talk in chat</strong>. The Infiltrator works the vault, the Analyst reads the files, and the Lookout keeps the alarm down. Crack all 3 stages before the alarm goes off.</p>
+    <p class="dim">Root Access is a game. None of these commands do anything to real computers.</p>
+    <button id="howClose" class="primary">Got it</button>
+  </dialog>
+
+  <div id="controls">
+    <button id="installBtn" type="button" hidden>Install</button>
+    <button id="muteBtn" type="button" aria-label="Mute">🔊</button>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

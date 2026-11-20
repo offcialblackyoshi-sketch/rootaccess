@@ -7,6 +7,7 @@ import { randomRoomCode, setPath } from './shared.js';
 const PREFIX = 'ra-room-';
 const HB = 'ra-hb-';
 const STALE_MS = 8000;
+const ABANDONED_MS = 60000;
 
 // Memory fallback if localStorage is blocked (Practice still works).
 const memory = new Map();
@@ -51,6 +52,23 @@ export function createLocalNet() {
     const room = read(code);
     for (const cb of set) queueMicrotask(() => cb(room));
   };
+
+  // Tidy up rooms nobody has touched for a minute (e.g. a closed practice tab).
+  function collectGarbage() {
+    let keys = [];
+    try { keys = Object.keys(localStorage); } catch { return; }
+    const now = Date.now();
+    for (const k of keys.filter((x) => x.startsWith(PREFIX))) {
+      const code = k.slice(PREFIX.length);
+      const room = read(code);
+      const humans = Object.entries(room?.players || {}).filter(([, p]) => !p.bot);
+      const alive = humans.some(([id]) => now - Number(store.get(`${HB}${code}-${id}`) || 0) < ABANDONED_MS);
+      if (alive) continue;
+      store.del(k);
+      for (const hb of keys.filter((x) => x.startsWith(`${HB}${code}-`))) store.del(hb);
+    }
+  }
+  collectGarbage();
 
   window.addEventListener('storage', (e) => {
     if (e.key && e.key.startsWith(PREFIX)) notify(e.key.slice(PREFIX.length));
@@ -126,6 +144,22 @@ export function createLocalNet() {
       startHeartbeat(code);
     },
 
+    // Get back into a room after a page reload. Returns true if it worked.
+    async rejoin(code, player) {
+      let ok = false;
+      await mutate(code, (r) => {
+        if (!r) return undefined;
+        r.players = r.players || {};
+        if (r.players[uid]) { ok = true; return undefined; }
+        if (r.status !== 'lobby' || r.kicked?.[uid]) return undefined;
+        r.players[uid] = player;
+        ok = true;
+        return r;
+      });
+      if (ok) startHeartbeat(code);
+      return ok;
+    },
+
     watch(code, cb) {
       if (!listeners.has(code)) listeners.set(code, new Set());
       listeners.get(code).add(cb);
@@ -158,15 +192,11 @@ export function createLocalNet() {
       });
     },
 
-    // Best-effort synchronous leave for when the tab is closing.
+    // When the tab closes or reloads we keep the seat: other tabs remove us
+    // once our heartbeat goes quiet, and a reload can take the seat back.
     leaveNow(code) {
-      stopHeartbeat(code);
-      const r = read(code);
-      if (!r?.players) return;
-      delete r.players[uid];
-      const humans = Object.values(r.players).filter((p) => !p.bot);
-      if (humans.length) store.set(PREFIX + code, JSON.stringify(r));
-      else store.del(PREFIX + code);
+      clearInterval(heartbeats.get(code));
+      heartbeats.delete(code);
     },
   };
   return net;

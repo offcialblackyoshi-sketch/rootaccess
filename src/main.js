@@ -220,9 +220,36 @@ const chat = createChat({
 // ---------------------------------------------------------------------------
 // Room lifecycle
 // ---------------------------------------------------------------------------
+// Remember the room in this tab, so a reload puts you back in your seat.
+const SEAT_KEY = 'ra-seat';
+function rememberSeat(seat) {
+  try {
+    if (seat) sessionStorage.setItem(SEAT_KEY, JSON.stringify(seat));
+    else sessionStorage.removeItem(SEAT_KEY);
+  } catch { /* storage blocked: reloads just go to the menu */ }
+}
+
+async function resumeSeat() {
+  let seat = null;
+  try { seat = JSON.parse(sessionStorage.getItem(SEAT_KEY)); } catch { seat = null; }
+  if (!seat?.code) return false;
+  const net = seat.kind === 'online' ? (await getOnlineNet()).net : getLocalNet();
+  if (!net) return false;
+  const room = await net.getRoom(seat.code).catch(() => null);
+  const ok = room && await net.rejoin(seat.code, room.players?.[net.uid] || makePlayer(net, room)).catch(() => false);
+  if (!ok) {
+    rememberSeat(null);
+    menuMessage(`Couldn't get back into room ${seat.code}. The game may have started or the room closed.`, 'warn');
+    return false;
+  }
+  enterRoom(net, seat.code);
+  return true;
+}
+
 function enterRoom(net, code) {
   state.net = net;
   state.code = code;
+  rememberSeat({ code, kind: net.kind });
   state.room = null;
   state.shownResultsFor = null;
   chat.reset();
@@ -232,6 +259,7 @@ function enterRoom(net, code) {
 
 async function leaveRoom(message = '') {
   const { net, code } = state;
+  rememberSeat(null);
   if (state.unwatch) state.unwatch();
   state.unwatch = null;
   stopSession();
@@ -394,7 +422,7 @@ if (invited && isRoomCode(invited.toUpperCase())) {
   $('codeInput').value = invited.toUpperCase();
   menuMessage(`You've been invited to room ${invited.toUpperCase()}. Pick a name and press Join.`, 'ok');
 }
-connectOnline();
+connectOnline().then(() => (invited ? false : resumeSeat()));
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

@@ -181,6 +181,25 @@ await step('kick', async () => {
   await A.waitFor(`Object.keys(window.__ra.state.room.players).length === 3`);
 });
 
+await step('reload keeps your seat', async () => {
+  const uid = await B.eval('window.__ra.state.net.uid');
+  await B.goto(URL_BASE);
+  await B.waitFor(`document.body.dataset.screen === 'lobby'`, 8000, 'bob back in the lobby');
+  const room = await B.room();
+  check('reload keeps your seat: same player, same room, nobody duplicated',
+    (await B.eval('window.__ra.state.net.uid')) === uid && room.players[uid]?.name === 'bob' && Object.keys(room.players).length === 3);
+  // Leaving on purpose forgets the seat, so a reload goes to the menu.
+  await C.eval(`document.getElementById('leaveBtn').click()`);
+  await C.waitFor(`document.body.dataset.screen === 'menu'`);
+  await C.goto(URL_BASE);
+  await sleep(800);
+  check('reload after leaving goes to the menu', (await C.screen()) === 'menu');
+  await C.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await C.click('#joinBtn');
+  await C.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await A.waitFor(`Object.keys(window.__ra.state.room.players).length === 3`);
+});
+
 async function readyAndStart() {
   for (const t of [B, C]) {
     await t.waitFor(`!!document.getElementById('readyBtn')`);
@@ -281,7 +300,7 @@ await step('duel', async () => {
   await waitTerm(A, 'SHIELD UP');
   const shieldedHp = await aliceHp();
   await B.cmd(await snip(B));
-  await waitTerm(A, 'shield blocked');
+  await waitTerm(A, 'shield absorbed');
   check('duel power-up: SHIELD blocks a hit', (await aliceHp()) === shieldedHp);
   await sleep(8200); // let the shield wear off before the free-for-all
 
@@ -296,6 +315,12 @@ await step('duel', async () => {
       if (snip) await t.cmd(i % 9 === 4 ? snip + 'x' : snip);
     }
     await sleep(60);
+  }
+  if (process.env.DEBUG_DUEL) {
+    for (const t of [A, B, C]) {
+      const players = Object.values((await t.room()).players).map((p) => [p.name, p.s?.hp, p.s?.out]);
+      console.log(t.name, await t.screen(), JSON.stringify(players), (await t.termText()).split('\n').slice(-4).join(' | '));
+    }
   }
   for (const t of [A, B, C]) await t.waitFor(`document.body.dataset.screen === 'results'`, 15000, 'duel results');
   const duelResults = await B.eval(`document.getElementById('resultsList').innerText`);

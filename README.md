@@ -15,6 +15,16 @@ A multiplayer hacking game that runs in the browser and installs as an app on Ch
 
 Type `help` in any mode to see its commands. <kbd>Tab</kbd> auto-completes, and <kbd>↑</kbd>/<kbd>↓</kbd> bring back earlier commands. In Race, type `hint` if you get stuck.
 
+## Other features
+
+- **Tutorial:** a 2-minute guided lesson from the main menu, recommended for first-timers.
+- **Practice vs bots:** works offline. Bots can be set to easy, normal, or hard in the lobby.
+- **Host tools:** pick the round length (short, normal, or long), add or remove bots, and kick players.
+- **Settings (⚙):** text size, high contrast, reduced motion, scanlines on/off, volume, and key-click sounds.
+- **Keyboard:** <kbd>Esc</kbd> switches between the terminal and chat, <kbd>Ctrl</kbd>+<kbd>L</kbd> clears, <kbd>Ctrl</kbd>+<kbd>C</kbd> cancels a line, and <kbd>PageUp</kbd>/<kbd>PageDown</kbd> scroll.
+- **Reloading the page** while in a room puts you back in your seat.
+- **Results** show stats for each player: race layer times and hints used, duel speed (WPM) and accuracy, data stolen, and heist mistakes.
+
 ## Run it on your computer
 
 ```sh

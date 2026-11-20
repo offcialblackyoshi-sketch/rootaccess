@@ -72,6 +72,18 @@ export async function createFirebaseNet(config) {
       await armDisconnect(code);
     },
 
+    // Get back into a room after a page reload (the tab keeps its sign-in).
+    async rejoin(code, player) {
+      const room = (await D.get(roomRef(code))).val();
+      if (!room) return false;
+      if (!room.players?.[user.uid]) {
+        if (room.status !== 'lobby' || room.kicked?.[user.uid]) return false;
+        await D.set(roomRef(code, `players/${user.uid}`), player);
+      }
+      await armDisconnect(code);
+      return true;
+    },
+
     watch(code, cb) {
       return D.onValue(roomRef(code), (s) => cb(s.val()), () => cb(null));
     },

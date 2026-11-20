@@ -40,7 +40,7 @@ export const BONUS_SNIPPETS = {
 };
 export const POWERUPS = {
   repair: { label: 'REPAIR', desc: '+15 HP' },
-  shield: { label: 'SHIELD', desc: 'blocks hits for 8s' },
+  shield: { label: 'SHIELD', desc: 'absorbs the next hit within 8s' },
 };
 export const REPAIR_HP = 15;
 export const SHIELD_MS = 8000;
@@ -120,7 +120,7 @@ export default {
       } else {
         shieldUntil = ctx.now() + SHIELD_MS;
         ctx.update({ [`players/${me}/s/shieldUntil`]: shieldUntil });
-        term.print(`★ SHIELD UP for ${SHIELD_MS / 1000} seconds`, 'ok');
+        term.print(`★ SHIELD UP: absorbs the next hit (lasts ${SHIELD_MS / 1000} s)`, 'ok');
       }
       ctx.sfx.ok();
     }
@@ -209,10 +209,11 @@ export default {
         changes[`actions/${key}`] = null;
         const victim = ctx.player(a.to);
         if (!victim || victim.s?.out) continue;
-        // A shield blocks the hit completely.
-        const shielded = a.to === me ? shieldUntil > a.at : (victim.s?.shieldUntil || 0) > a.at;
-        if (shielded) {
-          if (a.to === me) term.printParts([['🛡 ', 'ok'], [`shield blocked ${ctx.player(a.from)?.name || '?'}'s packet`, 'ok']]);
+        // A shield absorbs ONE hit, then breaks (so shields can't be chained forever).
+        if (a.to === me && shieldUntil > a.at) {
+          shieldUntil = 0;
+          changes[`players/${me}/s/shieldUntil`] = 0;
+          term.printParts([['🛡 ', 'ok'], [`shield absorbed ${ctx.player(a.from)?.name || '?'}'s packet and broke`, 'ok']]);
           continue;
         }
         hpLocal[a.to] ??= victim.s?.hp ?? MAX_HP;

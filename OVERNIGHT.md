@@ -15,7 +15,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 9. [x] **Host tools:** kick a player, and choose the round length in the lobby.
 10. [x] **Sound polish:** optional key-click sounds, a countdown beep, and distinct alert sounds per mode.
 11. [x] **Duel power-ups:** occasional "bonus" snippets that repair your firewall or shield you.
-12. [ ] **Rejoining after a reload:** you keep your seat if you refresh during the lobby.
+12. [x] **Rejoining after a reload:** you keep your seat if you refresh during the lobby.
 
 ## Done
 
@@ -101,3 +101,13 @@ Each player on the Mission Report now has a stats line under their name:
 - Bonus commands are longer than normal ones and match their effect: repair commands read like patches and rebuilds, shield commands like shields and decoys.
 - Bots sometimes repair when below 50 HP.
 - **Verified:** a unit test checks there are no bonuses in the first 4 commands and about a 25% rate after that (measured over 4,000 draws), with both kinds appearing and all bonus commands unique. New end-to-end checks: Bob damages Alice, Alice types a forced REPAIR bonus and goes from 87 to the 100 HP cap, then types a SHIELD and Bob's next hit is blocked with her HP unchanged. A screenshot showed a REPAIR label over a shield-sounding command, so I split the commands by power-up before committing. 20/20 unit tests and 53/53 end-to-end checks pass.
+
+### 12. Rejoining after a reload (+ a Duel balance fix)
+- **Reload keeps your seat:** the tab remembers which room it's in. If you refresh, or Chrome reloads the tab, you go straight back to the same room as the same player with the same name and color, instead of landing on the menu.
+  - Same-computer rooms no longer remove you the moment the page unloads. Other tabs remove you only if your heartbeat stays quiet for 8 s, so a quick refresh mid-game also resumes your progress.
+  - Online rooms (Firebase) re-add you to the lobby after a reload. Mid-game you get a clear "couldn't get back in" message, because the game has moved on.
+  - Leaving on purpose forgets the room, so a reload after leaving goes to the menu.
+  - Same-computer rooms that nobody has touched for a minute, such as a closed Practice tab, are cleaned up automatically.
+- **Duel balance fix, found by testing:** with last round's power-ups, two fast typists could chain 8-second shields plus repairs forever, so a duel never ended. The earlier run had passed by luck. A shield now **absorbs one hit within 8 s and then breaks**. A debug dump in the end-to-end test showed the stalemate.
+- The README has a new "Other features" section covering everything added tonight.
+- **Verified:** new end-to-end checks reload Bob's tab in the lobby (same player, same room, no duplicate) and confirm that a reload after leaving goes to the menu. With the shield fix, the full 3-player duel finishes in about 11 s. 20/20 unit tests, and 55/55 end-to-end checks passing on two runs in a row.

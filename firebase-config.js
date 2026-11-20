@@ -19,4 +19,12 @@
 // This config is not a secret; it's safe to commit. The database rules
 // (database.rules.json) are what protect your data.
 
-export const firebaseConfig = null;
+export const firebaseConfig = {
+  apiKey: 'AIzaSyD9krCwC0j2_zn0fDrlLiLT3d3Gx4g_zYU',
+  authDomain: 'rootaccess-93f07.firebaseapp.com',
+  databaseURL: 'https://rootaccess-93f07-default-rtdb.firebaseio.com',
+  projectId: 'rootaccess-93f07',
+  storageBucket: 'rootaccess-93f07.firebasestorage.app',
+  messagingSenderId: '126865122810',
+  appId: '1:126865122810:web:074617937d03ae1b057043',
+};

@@ -104,7 +104,7 @@ async function connectOnline() {
   } else {
     state.onlineError = res.error;
     status.innerHTML = '';
-    status.append(el('span', { class: 'err' }, '● CAN’T CONNECT'), ` ${res.error}. Rooms will only work between tabs on this computer.`);
+    status.append(el('span', { class: 'err' }, '● CAN’T CONNECT'), ` ${String(res.error).replace(/\.+$/, '')}. Rooms will only work between tabs on this computer.`);
   }
 }
 window.addEventListener('online', connectOnline);

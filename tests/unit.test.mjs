@@ -110,14 +110,19 @@ test('PIN feedback', () => {
 test('heist puzzles are always solvable from the analyst files', () => {
   for (const seed of SEEDS) {
     const P = buildHeist(seed);
-    // Door: re-derive the code from the manual text the analyst sees.
+    // Door: re-derive the code by reading the manual like a player would.
     const manual = P.fs.manuals['keypads.txt'];
     const block = manual.split('MODEL ').find((b) => b.startsWith(P.model));
     const light = block.match(/If the (\w+) light/)[1];
-    const parity = block.match(/ends in an (\w+) digit/)[1];
+    const cond = block.match(/2\. Otherwise, if (.*), the code/)[1];
     const codes = [...block.matchAll(/code is (\d{4})/g)].map((m) => m[1]);
     const lastDigit = Number(P.serial.slice(-1));
-    const expected = P.lit.includes(light) ? codes[0] : (lastDigit % 2 === 0) === (parity === 'EVEN') ? codes[1] : codes[2];
+    const rule2 = cond.includes('EVEN') ? lastDigit % 2 === 0
+      : cond.includes('ODD') ? lastDigit % 2 === 1
+        : cond.includes('vowel') ? /[AEIOU]/.test(P.serial)
+          : cond.includes('two or more lights') ? P.lit.length >= 2
+            : assert.fail(`unknown rule: ${cond}`);
+    const expected = P.lit.includes(light) ? codes[0] : rule2 ? codes[1] : codes[2];
     assert.equal(P.doorCode, expected, `seed ${seed}`);
     // Login: the user's staff file has what the hint asks for.
     const file = Object.values(P.fs.staff).find((f) => f.includes(`Username: ${P.user}\n`));
@@ -125,15 +130,33 @@ test('heist puzzles are always solvable from the analyst files', () => {
     const born = file.match(/Born: (\d+)/)[1];
     const pet = file.match(/Pet: (\w+)/)[1].toLowerCase();
     const color = file.match(/Favorite color: (\w+)/)[1];
-    const fromHint = { "pet's name + year of birth": pet + born, "year of birth + pet's name": born + pet, "favorite color + pet's name": color + pet }[P.loginHint];
-    assert.equal(fromHint, P.password, `seed ${seed}`);
+    const dept = file.match(/Dept: (\w+)/)[1].toLowerCase();
+    const fromHint = {
+      "pet's name + year of birth": pet + born,
+      "year of birth + pet's name": born + pet,
+      "favorite color + pet's name": color + pet,
+      'department + year of birth': dept + born,
+      "pet's name + favorite color": pet + color,
+    }[P.loginHint];
+    assert.equal(fromHint, P.password, `seed ${seed}: ${P.loginHint}`);
     // Only one staff member has that username.
     assert.equal(Object.values(P.fs.staff).filter((f) => f.includes(`Username: ${P.user}\n`)).length, 1);
-    // Vault: night guards in the roster = dial number, which unscrambles the word.
-    const nights = (P.fs.security['roster.txt'].match(/NIGHT/g) || []).length;
-    assert.equal(nights, P.nightCount, `seed ${seed}`);
-    assert.equal(caesar(P.display, -nights), P.word);
+    // Vault: count what the procedure says to count; that unscrambles the word.
+    const proc = P.fs.security['vault.txt'];
+    const count = proc.includes('NIGHT shift') ? (P.fs.security['roster.txt'].match(/ NIGHT/g) || []).length
+      : proc.includes('DAY shift') ? (P.fs.security['roster.txt'].match(/ DAY/g) || []).length
+        : (P.fs.security['cameras.txt'].match(/OFFLINE/g) || []).length;
+    assert.equal(count, P.dial, `seed ${seed}: ${P.vaultSource}`);
+    assert.equal(caesar(P.display, -count), P.word);
+    assert.notEqual(P.display, P.word, 'display is scrambled');
   }
+});
+
+test('heist puzzles use every variant', () => {
+  const all = SEEDS.map(buildHeist);
+  assert.deepEqual([...new Set(all.map((p) => p.doorRule))].sort(), ['even', 'odd', 'twoLights', 'vowel']);
+  assert.equal(new Set(all.map((p) => p.hintType)).size, 5);
+  assert.deepEqual([...new Set(all.map((p) => p.vaultSource))].sort(), ['cameras', 'day', 'night']);
 });
 
 test('heist: a lookout fills in when a key role leaves', () => {

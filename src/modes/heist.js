@@ -27,23 +27,29 @@ export function buildHeist(seed) {
   const LIGHTS = ['RED', 'GREEN', 'BLUE', 'AMBER'];
   const models = r.shuffle(['KX-7', 'VR-2', 'ZT-9']);
   const model = models[0];
-  const lit = r.shuffle(LIGHTS).slice(0, r.int(1, 2));
+  const lit = r.shuffle(LIGHTS).slice(0, r.int(1, 3));
   const serialDigit = r.int(0, 9);
   const serial = r.code(4, 'ABCDEFGHJKLMNPQRSTUVWXYZ') + '-' + r.int(1, 9) + serialDigit;
   const pin4 = () => String(r.int(1000, 9999));
+  // Rule 2 of each keypad model checks something different.
+  const RULE2 = {
+    even: { text: 'the serial number ends in an EVEN digit', test: () => serialDigit % 2 === 0 },
+    odd: { text: 'the serial number ends in an ODD digit', test: () => serialDigit % 2 === 1 },
+    vowel: { text: 'the serial number contains a vowel (A, E, I, O or U)', test: () => /[AEIOU]/.test(serial) },
+    twoLights: { text: 'two or more lights are on', test: () => lit.length >= 2 },
+  };
   const manual = {};
   for (const m of models) {
-    manual[m] = { light: r.pick(LIGHTS), parity: r.pick(['even', 'odd']), codes: [pin4(), pin4(), pin4()] };
+    manual[m] = { light: r.pick(LIGHTS), rule2: r.pick(Object.keys(RULE2)), codes: [pin4(), pin4(), pin4()] };
   }
   const rule = manual[model];
-  const parityMatch = (serialDigit % 2 === 0) === (rule.parity === 'even');
-  const doorCode = lit.includes(rule.light) ? rule.codes[0] : parityMatch ? rule.codes[1] : rule.codes[2];
-  const manualText = ['KEYPAD OVERRIDE MANUAL (internal use only)', ''];
+  const doorCode = lit.includes(rule.light) ? rule.codes[0] : RULE2[rule.rule2].test() ? rule.codes[1] : rule.codes[2];
+  const manualText = ['KEYPAD OVERRIDE MANUAL (internal use only)', 'Check the rules in order. Use the FIRST one that matches.', ''];
   for (const m of [...models].sort()) {
     const x = manual[m];
     manualText.push(`MODEL ${m}`,
       `  1. If the ${x.light} light is on, the override code is ${x.codes[0]}.`,
-      `  2. Otherwise, if the serial number ends in an ${x.parity.toUpperCase()} digit, the code is ${x.codes[1]}.`,
+      `  2. Otherwise, if ${RULE2[x.rule2].text}, the code is ${x.codes[1]}.`,
       `  3. Otherwise, the code is ${x.codes[2]}.`, '');
   }
 
@@ -59,17 +65,38 @@ export function buildHeist(seed) {
   }));
   const victim = r.pick(staff);
   const user = `${victim.first[0]}.${victim.last}`;
-  const hintType = r.pick(['petyear', 'yearpet', 'colorpet']);
-  const loginHint = { petyear: "pet's name + year of birth", yearpet: "year of birth + pet's name", colorpet: "favorite color + pet's name" }[hintType];
-  const password = { petyear: victim.pet + victim.born, yearpet: victim.born + victim.pet, colorpet: victim.color + victim.pet }[hintType];
+  const LOGIN = {
+    petyear: ["pet's name + year of birth", (v) => v.pet + v.born],
+    yearpet: ["year of birth + pet's name", (v) => v.born + v.pet],
+    colorpet: ["favorite color + pet's name", (v) => v.color + v.pet],
+    deptyear: ['department + year of birth', (v) => v.dept.toLowerCase() + v.born],
+    petcolor: ["pet's name + favorite color", (v) => v.pet + v.color],
+  };
+  const hintType = r.pick(Object.keys(LOGIN));
+  const loginHint = LOGIN[hintType][0];
+  const password = LOGIN[hintType][1](victim);
 
   // ---- Stage 3: vault dial ----
+  // The dial number is a count the analyst has to work out from a file.
   const guardNames = r.shuffle(FIRST.map((f, i) => `${f[0].toUpperCase() + f.slice(1)} ${LAST[(i * 5) % LAST.length][0].toUpperCase()}.`)).slice(0, 9);
-  const nightCount = r.int(2, 6);
-  const shifts = r.shuffle([...Array(nightCount).fill('NIGHT'), ...Array(9 - nightCount).fill(null).map(() => r.pick(['DAY', 'SWING']))]);
+  const vaultSource = r.pick(['night', 'day', 'cameras']);
+  const dial = r.int(2, 6);
+  const countShift = vaultSource === 'day' ? 'DAY' : 'NIGHT';
+  const otherShifts = vaultSource === 'day' ? ['NIGHT', 'SWING'] : ['DAY', 'SWING'];
+  const shiftCount = vaultSource === 'cameras' ? r.int(2, 6) : dial;
+  const shifts = r.shuffle([...Array(shiftCount).fill(countShift), ...Array(9 - shiftCount).fill(null).map(() => r.pick(otherShifts))]);
   const roster = guardNames.map((g, i) => `${g.padEnd(12)} ${shifts[i]}`);
+  const camAreas = ['Lobby', 'Loading dock', 'Server room', 'Stairwell B', 'Parking', 'Roof', 'Corridor 3', 'Vault hall', 'Elevator'];
+  const offline = vaultSource === 'cameras' ? dial : r.int(1, 3);
+  const camStatus = r.shuffle([...Array(offline).fill('OFFLINE'), ...Array(9 - offline).fill('online')]);
+  const cams = camAreas.map((a, i) => `CAM ${i + 1}  ${a.padEnd(13)} ${camStatus[i]}`);
   const word = r.pick(WORDS).toUpperCase();
-  const display = caesar(word, nightCount);
+  const display = caesar(word, dial);
+  const procedure = {
+    night: 'Set the vault dial to the number of guards on the NIGHT shift (see roster.txt).',
+    day: 'Set the vault dial to the number of guards on the DAY shift (see roster.txt).',
+    cameras: 'Set the vault dial to the number of cameras that are OFFLINE right now (see cameras.txt).',
+  }[vaultSource];
 
   const fs = {
     'readme.txt': 'ANALYST TERMINAL\nThe Infiltrator will tell you what they see. Find the answer in these files and send it back in chat.\nTry: ls, cd, cat, grep',
@@ -77,12 +104,13 @@ export function buildHeist(seed) {
     staff: Object.fromEntries(staff.map((s) => [`${s.first}_${s.last}.txt`,
       `Name: ${s.first[0].toUpperCase() + s.first.slice(1)} ${s.last[0].toUpperCase() + s.last.slice(1)}\nUsername: ${s.first[0]}.${s.last}\nDept: ${s.dept}\nBorn: ${s.born}\nPet: ${s.pet[0].toUpperCase() + s.pet.slice(1)} (${s.petType})\nFavorite color: ${s.color}`])),
     security: {
-      'vault.txt': 'VAULT PROCEDURE\nSet the vault dial to the number of guards on the NIGHT shift (see roster.txt).\nThe display will then show the code word. Say it to open the vault.',
+      'vault.txt': `VAULT PROCEDURE\n${procedure}\nThe display will then show the code word. Say it to open the vault.`,
       'roster.txt': 'GUARD ROSTER -- THIS WEEK\n' + roster.join('\n'),
+      'cameras.txt': 'CAMERA STATUS\n' + cams.join('\n'),
     },
   };
 
-  return { model, lit, serial, doorCode, user, loginHint, password, display, nightCount, word, fs };
+  return { model, lit, serial, doorCode, doorRule: rule.rule2, user, loginHint, hintType, password, display, dial, vaultSource, word, fs };
 }
 
 // If the infiltrator or analyst leaves, a lookout takes over their job.
@@ -229,8 +257,8 @@ export default {
             if (Number.isNaN(n) || n < 0 || n > 25) return sh.print('usage: dial <0-25>', 'warn');
             await sh.progress('turning dial', 600);
             const shown = caesar(P.display, -n);
-            sh.print(`Display: ${shown}`, n === P.nightCount ? 'ok' : 'warn');
-            if (n === P.nightCount) {
+            sh.print(`Display: ${shown}`, n === P.dial ? 'ok' : 'warn');
+            if (n === P.dial) {
               dialed = true;
               sh.print('That looks like a word! Now:  open <word>', 'dim');
             } else {

@@ -7,7 +7,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 1. [x] **Players leaving mid-game:** the Heist infiltrator leaving shouldn't stall the crew, solo survivors should get a proper ending, and messages addressed to departed players should be cleaned up.
 2. [x] **Bot difficulty** (easy / normal / hard) chosen in the lobby, so Practice suits beginners.
 3. [x] **Race puzzle variety:** more cipher types (hex, atbash) and more places the password can hide (bash history, config files).
-4. [ ] **Heist puzzle variety:** more keypad rule types and different vault and login variants.
+4. [x] **Heist puzzle variety:** more keypad rule types and different vault and login variants.
 5. [ ] **Onboarding:** a guided first-run tutorial in Practice, and hints that become more specific the more you ask.
 6. [ ] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
 7. [ ] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
@@ -40,3 +40,9 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 - **Two new ciphers:** `hex` and `atbash` (the mirror alphabet), on top of caesar, base64, and reverse. Each has its own note explaining it. `decrypt` also accepts `rot`, `b64`, `rev`, and `mirror` as shortcuts, and gives a clear error when a file isn't valid for the chosen method.
 - That makes 15 possible combinations for the first two layers, so repeat games feel different.
 - **Verified:** the unit tests now check that, for 300 seeds, the current and old passwords are where the hint says, with the newer one dated later. They also check that every hiding place and cipher appears, and that no wrong method ever reveals the fragment by accident. Cipher round-trip tests now cover hex and atbash. The end-to-end race now finds the password with `grep <password> /`, so it works for any hiding place, and this run happened to solve a hex vault in the browser. 12/12 unit tests and 33/33 end-to-end checks pass.
+
+### 4. Heist puzzle variety
+- **Door:** rule 2 of each keypad model is now one of four checks: the serial ends in an even digit, ends in an odd digit, contains a vowel, or two or more lights are on. Up to 3 lights can be lit, and the manual now says "Use the FIRST rule that matches" to avoid arguments.
+- **Login:** 5 password formats instead of 3, adding "department + year of birth" and "pet's name + favorite color".
+- **Vault:** the dial number comes from one of three counts: guards on the NIGHT shift, guards on the DAY shift, or OFFLINE cameras in the new `security/cameras.txt`. The files that aren't the clue are always there too, so the Analyst has to read the procedure carefully.
+- **Verified:** the heist unit test now re-solves every puzzle for 300 seeds by reading the Analyst's files the way a player would: parsing the manual text, the staff record, and whichever count the procedure names. A new test checks that every variant actually comes up. This also caught a bug in my first draft, where the number of offline cameras could differ from the dial, and I fixed it before committing. 13/13 unit tests and 33/33 end-to-end checks pass, including a full heist in the browser.

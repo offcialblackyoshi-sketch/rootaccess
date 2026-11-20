@@ -297,7 +297,7 @@ await step('heist', async () => {
   const roles = {};
   for (const [k, t] of Object.entries(tabs)) roles[await t.eval(`window.__ra.state.room.players[window.__ra.state.net.uid].s.role`)] = t;
   check('heist: roles assigned', !!roles.infiltrator && !!roles.analyst && !!roles.lookout, Object.keys(roles).join(','));
-  const H = await A.eval(`import('./src/modes/heist.js').then(m => { const p = m.buildHeist(window.__ra.state.room.seed); return { doorCode: p.doorCode, password: p.password, nightCount: p.nightCount, word: p.word, model: p.model } })`);
+  const H = await A.eval(`import('./src/modes/heist.js').then(m => { const p = m.buildHeist(window.__ra.state.room.seed); return { doorCode: p.doorCode, password: p.password, dial: p.dial, word: p.word, model: p.model } })`);
   const I = roles.infiltrator, N = roles.analyst, L = roles.lookout;
 
   // Infiltrator can't read files; analyst can.
@@ -334,7 +334,7 @@ await step('heist', async () => {
   await waitTerm(I, 'Password hint');
   await I.cmd(`login ${H.password}`);
   await I.waitFor(`window.__ra.state.room.game.stage === 2`, 5000, 'stage 2');
-  await I.cmd(`dial ${H.nightCount}`);
+  await I.cmd(`dial ${H.dial}`);
   await waitTerm(I, H.word);
   await I.cmd(`open ${H.word.toLowerCase()}`);
   for (const t of [A, B, C]) await t.waitFor(`document.body.dataset.screen === 'results'`, 8000, 'heist results');

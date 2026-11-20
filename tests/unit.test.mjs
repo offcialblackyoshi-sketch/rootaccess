@@ -2,10 +2,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { makeRng, caesar, b64encode, b64decode, reverse } from '../src/rng.js';
+import { makeRng, caesar, b64encode, b64decode, reverse, atbash, hexEncode, hexDecode } from '../src/rng.js';
 import { Shell } from '../src/commands.js';
 import { setPath } from '../src/net/shared.js';
-import { buildRace, pinFeedback } from '../src/modes/race.js';
+import { buildRace, pinFeedback, decryptWith, encryptWith, CIPHERS } from '../src/modes/race.js';
 import { buildHeist, fillMissingRoles } from '../src/modes/heist.js';
 import { SNIPPETS } from '../src/modes/duel.js';
 import { score, startNodes, breachTime } from '../src/modes/defend.js';
@@ -37,6 +37,11 @@ test('ciphers round-trip', () => {
   assert.equal(b64decode(b64encode(s)), s);
   assert.equal(reverse(reverse(s)), s);
   assert.equal(b64decode('%%%not base64'), null);
+  assert.equal(atbash(atbash(s)), s);
+  assert.equal(atbash('ABC xyz'), 'ZYX cba');
+  assert.equal(hexDecode(hexEncode(s)), s);
+  assert.equal(hexDecode('zz'), null);
+  for (const c of CIPHERS) assert.equal(decryptWith(c, encryptWith(c, s, 7), 7), s, c);
 });
 
 test('race puzzles: same seed gives same puzzle', () => {
@@ -47,16 +52,34 @@ test('race puzzles: same seed gives same puzzle', () => {
 test('race puzzles are always solvable', () => {
   for (const seed of SEEDS) {
     const P = buildRace(seed);
-    // Layer 1: current password is in auth.log, the old one in the old log.
-    assert.match(P.fs.var.log['auth.log'], new RegExp(`password for ${P.target} changed to '${P.pass}'`));
-    assert.match(P.fs.var.log.old['auth.log.1'], new RegExp(`password for ${P.target} changed to '${P.oldPass}'`));
+    // Layer 1: the current password AND an older trap password are where the
+    // mission hint points, and the newer one is clearly dated later.
     assert.notEqual(P.pass, P.oldPass, `seed ${seed}`);
+    assert.ok(P.fs.home.guest['mission.txt'].includes(P.passHint));
+    if (P.passSpot === 'log') {
+      assert.match(P.fs.var.log['auth.log'], new RegExp(`Nov 14 .*password for ${P.target} changed to '${P.pass}'`));
+      assert.match(P.fs.var.log.old['auth.log.1'], new RegExp(`Nov 7 .*password for ${P.target} changed to '${P.oldPass}'`));
+    } else if (P.passSpot === 'config') {
+      const dir = P.fs.etc[P.target.slice(4)];
+      assert.match(dir['config.ini'], new RegExp(`password = ${P.pass}\nupdated = 2026-11-14`));
+      assert.match(dir['config.ini.bak'], new RegExp(`password = ${P.oldPass}\nupdated = 2026-11-07`));
+      assert.ok(!P.fs.var.log['auth.log'].includes(P.pass), 'password should only be in the config');
+    } else {
+      const box = P.fs.var.mail[P.target];
+      assert.ok(box.indexOf(P.oldPass) < box.indexOf(P.pass), 'newest email comes last');
+      assert.match(box, new RegExp(`Nov 14.*\nSubject: password reset\n\nYour password has been reset.\nNew password: ${P.pass}`));
+    }
     // Layer 2: decrypting with the method from the note reveals fragment A.
     const enc = P.targetHome['vault.enc'];
-    const dec = P.cipherType === 'caesar' ? caesar(enc, -P.shift) : P.cipherType === 'base64' ? b64decode(enc) : reverse(enc);
+    const dec = decryptWith(P.cipherType, enc, P.shift);
     assert.ok(dec.includes(`FRAGMENT A: ${P.fragA}`), `seed ${seed}`);
     assert.ok(!enc.includes(`FRAGMENT A: ${P.fragA}`), `seed ${seed}: file is not actually scrambled`);
     if (P.cipherType === 'caesar') assert.ok(P.targetHome['note.txt'].includes(String(P.shift)));
+    // Wrong methods never accidentally reveal the fragment.
+    for (const other of CIPHERS.filter((c) => c !== P.cipherType)) {
+      const wrong = decryptWith(other, enc, other === 'caesar' ? (P.shift + 1) % 26 : 0);
+      assert.ok(!wrong || !wrong.includes(`FRAGMENT A: ${P.fragA}`), `seed ${seed}: ${other} also works`);
+    }
     // Layer 3: 4 different digits.
     assert.match(P.pin, /^\d{4}$/);
     assert.equal(new Set(P.pin).size, 4);
@@ -68,6 +91,13 @@ test('race puzzles are always solvable', () => {
     // Layer 5: key is A-PIN-C.
     assert.equal(P.key, `${P.fragA}-${P.pin}-${P.fragC}`);
   }
+});
+
+test('race puzzles use every hiding place and cipher', () => {
+  const spots = new Set(SEEDS.map((s) => buildRace(s).passSpot));
+  const ciphers = new Set(SEEDS.map((s) => buildRace(s).cipherType));
+  assert.deepEqual([...spots].sort(), ['config', 'log', 'mail']);
+  assert.deepEqual([...ciphers].sort(), [...CIPHERS].sort());
 });
 
 test('PIN feedback', () => {

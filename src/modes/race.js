@@ -2,7 +2,7 @@
 // 5 layers: password → decrypt → PIN → backdoor → root. First to root wins.
 
 import { Shell } from '../commands.js';
-import { makeRng, WORDS, FIRST, LAST, HOSTS, caesar, b64encode, b64decode, reverse } from '../rng.js';
+import { makeRng, WORDS, FIRST, LAST, HOSTS, caesar, b64encode, b64decode, reverse, atbash, hexEncode, hexDecode } from '../rng.js';
 import { el, bar, fmtTime } from '../util.js';
 import { botParams, between } from '../bots.js';
 
@@ -41,25 +41,59 @@ export function buildRace(seed) {
     for (const [at, text] of special) lines.splice(at, 0, text);
     return lines.join('\n');
   };
+  // The password hides in one of three places. Each has an older, expired
+  // password nearby as a trap, so players must compare dates.
+  const passSpot = r.pick(['log', 'config', 'mail']);
   const decoyUser = r.pick(staff);
+  const decoyPass = `${words[2]}${r.int(10, 99)}`;
   const authLog = logLines(14, [
-    [r.int(8, 18), `Nov 14 ${time(13)} ${host} passwd[${r.int(1000, 9999)}]: password for ${target} changed to '${pass}'`],
-    [r.int(2, 6), `Nov 14 ${time(4)} ${host} passwd[${r.int(1000, 9999)}]: password for ${decoyUser} changed to '${words[2]}${r.int(10, 99)}'`],
+    ...(passSpot === 'log' ? [[r.int(8, 18), `Nov 14 ${time(13)} ${host} passwd[${r.int(1000, 9999)}]: password for ${target} changed to '${pass}'`]] : []),
+    [r.int(2, 6), `Nov 14 ${time(4)} ${host} passwd[${r.int(1000, 9999)}]: password for ${decoyUser} changed to '${decoyPass}'`],
   ]);
-  const oldLog = logLines(7, [
-    [r.int(5, 15), `Nov 7 ${time(9)} ${host} passwd[${r.int(1000, 9999)}]: password for ${target} changed to '${oldPass}'`],
-  ]);
+  const oldLog = logLines(7, passSpot === 'log'
+    ? [[r.int(5, 15), `Nov 7 ${time(9)} ${host} passwd[${r.int(1000, 9999)}]: password for ${target} changed to '${oldPass}'`]]
+    : []);
+  const service = target.slice(4);
+  const configDir = passSpot === 'config' ? {
+    [service]: {
+      'config.ini': `# ${service} service settings\n[account]\nuser = ${target}\npassword = ${pass}\nupdated = 2026-11-14\n\n[schedule]\nrun = nightly`,
+      'config.ini.bak': `# ${service} service settings (BACKUP)\n[account]\nuser = ${target}\npassword = ${oldPass}\nupdated = 2026-11-07\n\n[schedule]\nrun = nightly`,
+    },
+  } : {};
+  const mail = (to, date, subject, body) => `From: it-desk@${host}\nTo: ${to}\nDate: ${date}\nSubject: ${subject}\n\n${body}\n`;
+  const mailDir = passSpot === 'mail' ? {
+    mail: {
+      [target]: [
+        mail(target, 'Nov 7, 09:12', 'temporary password', `Hi! Your temporary password is: ${oldPass}\nIt will be replaced next week.`),
+        mail(target, 'Nov 12, 16:40', 'reminder', 'Please remember to change your password before Friday.'),
+        mail(target, 'Nov 14, 13:05', 'password reset', `Your password has been reset.\nNew password: ${pass}\nDelete this email!`),
+      ].join('\n-----\n'),
+      [decoyUser]: mail(decoyUser, 'Nov 14, 04:22', 'password reset', `Your password has been reset.\nNew password: ${decoyPass}`),
+    },
+  } : {};
+  const passHint = {
+    log: 'The logs in /var/log might help.',
+    config: 'Service settings usually live in /etc.',
+    mail: 'Maybe IT emailed it. Check /var/mail.',
+  }[passSpot];
+  const passTip = {
+    log: `Try:  grep ${target} /var/log   Watch the dates: the old password won't work.`,
+    config: 'Try:  grep password /etc   then cat the files it finds. One is an old backup.',
+    mail: `Try:  ls /var/mail   then  cat /var/mail/${target}   and read the NEWEST email.`,
+  }[passSpot];
 
   // ---- Layer 2: encrypted file ----
   const fragA = r.code(4, 'ABCDEFGHJKLMNPQRSTUVWXYZ');
   const plain = `TRANSFER LOG -- authorized by ${target}\nFRAGMENT A: ${fragA}\nkeep this safe`;
-  const cipherType = r.pick(['caesar', 'base64', 'reverse']);
+  const cipherType = r.pick(CIPHERS);
   const shift = r.int(3, 22);
-  const encrypted = cipherType === 'caesar' ? caesar(plain, shift) : cipherType === 'base64' ? b64encode(plain) : reverse(plain);
+  const encrypted = encryptWith(cipherType, plain, shift);
   const note = {
     caesar: `note to self: I rotated every letter in vault.enc forward by ${shift}.\nnobody will ever figure that out.`,
     base64: `note to self: vault.enc is just base64 encoded.\nnot real encryption but who's checking?`,
     reverse: `note to self: I wrote vault.enc completely backwards.\nnobody will think to reverse it.`,
+    hex: `note to self: vault.enc is written in hex (two characters per letter).\nlooks like gibberish to anyone else.`,
+    atbash: `note to self: I swapped every letter in vault.enc with its mirror (A<->Z, B<->Y...).\napparently that's called "atbash". ancient and unbreakable lol.`,
   }[cipherType];
 
   // ---- Layer 3: PIN (4 different digits) ----
@@ -89,6 +123,7 @@ export function buildRace(seed) {
     etc: {
       hosts: Object.entries(hosts).map(([n, h]) => `${h.ip}\t${n}`).join('\n') + `\n127.0.0.1\t${host}`,
       motd: `Welcome to ${host.toUpperCase()} -- authorized users only.\nAll activity is logged.`,
+      ...configDir,
     },
     var: {
       log: {
@@ -96,10 +131,11 @@ export function buildRace(seed) {
         'syslog': Array.from({ length: 14 }, () => noise(14, r.int(0, 23))).join('\n'),
         old: { 'auth.log.1': oldLog },
       },
+      ...mailDir,
     },
     home: {
       guest: {
-        'mission.txt': `MISSION: get root on ${host}.\nTarget account: ${target}\nStart by finding its CURRENT password. The logs in /var/log might help.\nThen: login ${target} <password>`,
+        'mission.txt': `MISSION: get root on ${host}.\nTarget account: ${target}\nStart by finding its CURRENT password. ${passHint}\nThen: login ${target} <password>`,
       },
       ...Object.fromEntries(staff.map((s) => [s, { '.locked': 'permission denied' }])),
     },
@@ -110,7 +146,29 @@ export function buildRace(seed) {
     'todo.txt': `- move the backdoor off ${netTarget} before the audit!!\n- buy coffee\n- change password again??`,
   };
 
-  return { host, target, pass, oldPass, fs, targetHome, cipherType, shift, encrypted, fragA, pin, hosts, netTarget, backdoor, honeypotHost, honeypot, fragC, key };
+  return { host, target, pass, oldPass, passSpot, passHint, passTip, fs, targetHome, cipherType, shift, encrypted, fragA, pin, hosts, netTarget, backdoor, honeypotHost, honeypot, fragC, key };
+}
+
+export const CIPHERS = ['caesar', 'base64', 'reverse', 'hex', 'atbash'];
+const METHOD_LIST = 'caesar N|base64|reverse|hex|atbash';
+const METHOD_ALIASES = { caesar: 'caesar', rot: 'caesar', base64: 'base64', b64: 'base64', reverse: 'reverse', rev: 'reverse', hex: 'hex', atbash: 'atbash', mirror: 'atbash' };
+
+export function encryptWith(type, text, shift = 0) {
+  if (type === 'caesar') return caesar(text, shift);
+  if (type === 'base64') return b64encode(text);
+  if (type === 'hex') return hexEncode(text);
+  if (type === 'atbash') return atbash(text);
+  return reverse(text);
+}
+
+// Returns the decoded text, or null if the input isn't valid for that method.
+export function decryptWith(type, text, shift = 0) {
+  if (type === 'caesar') return caesar(text, -shift);
+  if (type === 'base64') return b64decode(text);
+  if (type === 'hex') return hexDecode(text);
+  if (type === 'atbash') return atbash(text);
+  if (type === 'reverse') return reverse(text);
+  return null;
 }
 
 // Mastermind feedback for the PIN layer.
@@ -154,13 +212,13 @@ export default {
 
     const objectives = [
       `Find the CURRENT password for ${P.target} and log in:  login ${P.target} <password>`,
-      'Decrypt the file in your new home folder. Read the note first. Use:  decrypt <file> <caesar N | base64 | reverse>',
+      `Decrypt the file in your new home folder. Read the note first. Use:  decrypt <file> <${METHOD_LIST}>`,
       'Crack the 4-digit vault PIN (all digits are different):  crack <pin>',
       'Find the hidden backdoor. Read todo.txt, scan with nmap, then:  connect <host> <port>',
       'Put your fragments together (type "notes") and take over:  sudo <A>-<B>-<C>',
     ];
     const hints = [
-      `Try:  grep ${P.target} /var/log   Watch the dates: the old password won't work.`,
+      P.passTip,
       'cat note.txt tells you which method to use. For caesar, use the same number.',
       '"right spot" = correct digit in the correct place. "wrong spot" = digit is in the PIN somewhere else. Change one digit at a time.',
       `cat ~/todo.txt, then nmap ${P.netTarget}. Look for the port that isn't a normal service. Beware of honeypots on other hosts!`,
@@ -240,28 +298,20 @@ export default {
 
     sh.register('decrypt', {
       help: 'decrypt a file',
-      usage: 'decrypt <file> <caesar N|base64|reverse>',
-      complete: (i, p) => (i === 0 ? sh.completePath(p) : i === 1 ? ['caesar', 'base64', 'reverse'] : []),
+      usage: `decrypt <file> <${METHOD_LIST}>`,
+      complete: (i, p) => (i === 0 ? sh.completePath(p) : i === 1 ? CIPHERS : []),
       async run(args) {
         if (!need(1)) return;
         const [file, method, n] = args;
-        if (!file || !method) return sh.print('usage: decrypt <file> <caesar N|base64|reverse>', 'warn');
+        if (!file || !method) return sh.print(`usage: decrypt <file> <${METHOD_LIST}>`, 'warn');
         const content = sh.node(sh.resolve(file));
         if (typeof content !== 'string') return sh.print(`decrypt: ${file}: no such file`, 'err');
-        let out = null;
-        const m = method.toLowerCase();
-        if (m === 'caesar' || m === 'rot') {
-          const k = parseInt(n, 10);
-          if (Number.isNaN(k)) return sh.print('usage: decrypt <file> caesar <number>', 'warn');
-          out = caesar(content, -k);
-        } else if (m === 'base64' || m === 'b64') {
-          out = b64decode(content);
-          if (out === null) return sh.print('decrypt: that is not valid base64.', 'err');
-        } else if (m === 'reverse' || m === 'rev') {
-          out = reverse(content);
-        } else {
-          return sh.print(`decrypt: unknown method "${method}". Try caesar, base64 or reverse.`, 'err');
-        }
+        const m = METHOD_ALIASES[method.toLowerCase()];
+        if (!m) return sh.print(`decrypt: unknown method "${method}". Try: ${CIPHERS.join(', ')}.`, 'err');
+        const k = parseInt(n, 10);
+        if (m === 'caesar' && Number.isNaN(k)) return sh.print('usage: decrypt <file> caesar <number>', 'warn');
+        const out = decryptWith(m, content, k);
+        if (out === null) return sh.print(`decrypt: that file isn't valid ${m}.`, 'err');
         await sh.progress('decrypting', 900);
         sh.print(out);
         if (out.includes(`FRAGMENT A: ${P.fragA}`)) {

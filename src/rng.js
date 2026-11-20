@@ -85,3 +85,21 @@ export function b64decode(text) {
 export function reverse(text) {
   return [...text].reverse().join('');
 }
+
+// Mirror alphabet: A<->Z, B<->Y ... (applying it twice gives the original).
+export function atbash(text) {
+  return text.replace(/[a-z]/gi, (ch) => {
+    const base = ch <= 'Z' ? 65 : 97;
+    return String.fromCharCode(base + 25 - (ch.charCodeAt(0) - base));
+  });
+}
+
+export function hexEncode(text) {
+  return [...text].map((c) => c.charCodeAt(0).toString(16).padStart(2, '0')).join('');
+}
+
+export function hexDecode(text) {
+  const clean = text.replace(/\s+/g, '');
+  if (!/^([0-9a-f]{2})+$/i.test(clean)) return null;
+  return clean.match(/../g).map((h) => String.fromCharCode(parseInt(h, 16))).join('');
+}

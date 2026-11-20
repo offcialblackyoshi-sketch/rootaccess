@@ -188,8 +188,10 @@ await step('race', async () => {
   await waitTerm(B, 'EXPIRED');
   check('race: old password is rejected', true);
 
-  await A.cmd(`grep ${P.target} /var/log`);
-  await waitTerm(A, `changed to '${P.pass}'`);
+  await A.cmd('cat mission.txt');
+  await waitTerm(A, 'CURRENT password');
+  await A.cmd(`grep ${P.pass} /`);
+  await waitTerm(A, P.pass);
   await A.cmd(`login ${P.target} ${P.pass}`);
   await waitTerm(A, 'LAYER 2/5');
   await A.cmd('cat note.txt');

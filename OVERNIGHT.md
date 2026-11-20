@@ -6,7 +6,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 1. [x] **Players leaving mid-game:** the Heist infiltrator leaving shouldn't stall the crew, solo survivors should get a proper ending, and messages addressed to departed players should be cleaned up.
 2. [x] **Bot difficulty** (easy / normal / hard) chosen in the lobby, so Practice suits beginners.
-3. [ ] **Race puzzle variety:** more cipher types (hex, atbash) and more places the password can hide (bash history, config files).
+3. [x] **Race puzzle variety:** more cipher types (hex, atbash) and more places the password can hide (bash history, config files).
 4. [ ] **Heist puzzle variety:** more keypad rule types and different vault and login variants.
 5. [ ] **Onboarding:** a guided first-run tutorial in Practice, and hints that become more specific the more you ask.
 6. [ ] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
@@ -34,3 +34,9 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 - Practice no longer lets you pick Co-op Heist, which needs other humans. Its card says "create a room to play". The header now reads "PRACTICE" instead of "ROOM PRACTICE".
 - All tuning numbers live in one new file, `src/bots.js`, which is also cached for offline play.
 - **Verified:** a unit test checks that every mode gets harder with each level. End-to-end checks cover Practice starting on easy, the host switching to hard, and Heist being disabled. 33/33 pass, and I reviewed the lobby screenshot.
+
+### 3. Race puzzle variety
+- **Where the password hides (3 options):** the auth logs (as before), a service config file in `/etc/<service>/` with a `.bak` backup holding the old password, or IT emails in `/var/mail/<account>` where the newest email has the current password. Each spot has an older "trap" password nearby, so players still have to compare dates. The mission brief and `hint` point to the right place for each.
+- **Two new ciphers:** `hex` and `atbash` (the mirror alphabet), on top of caesar, base64, and reverse. Each has its own note explaining it. `decrypt` also accepts `rot`, `b64`, `rev`, and `mirror` as shortcuts, and gives a clear error when a file isn't valid for the chosen method.
+- That makes 15 possible combinations for the first two layers, so repeat games feel different.
+- **Verified:** the unit tests now check that, for 300 seeds, the current and old passwords are where the hint says, with the newer one dated later. They also check that every hiding place and cipher appears, and that no wrong method ever reveals the fragment by accident. Cipher round-trip tests now cover hex and atbash. The end-to-end race now finds the password with `grep <password> /`, so it works for any hiding place, and this run happened to solve a hex vault in the browser. 12/12 unit tests and 33/33 end-to-end checks pass.

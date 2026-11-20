@@ -32,6 +32,25 @@ export function duelStatsText(stats, ms) {
   return `${wpm} WPM · ${acc}% accuracy · ${stats.hits} hits`;
 }
 
+// Bonus snippets are longer, and grant a power-up instead of firing.
+// Each power-up has its own commands, so what you type matches what you get.
+export const BONUS_SNIPPETS = {
+  repair: ['sudo patch --firewall --restart all', 'rebuild-firewall --layers 3 --fast', 'rollback kernel --to safe-mode --now'],
+  shield: ['spin-up shield --nodes all --ttl 8s', 'deploy honeypot.cfg --mirror --silent', 'reroute traffic --via proxy-chain'],
+};
+export const POWERUPS = {
+  repair: { label: 'REPAIR', desc: '+15 HP' },
+  shield: { label: 'SHIELD', desc: 'blocks hits for 8s' },
+};
+export const REPAIR_HP = 15;
+export const SHIELD_MS = 8000;
+
+// After at least 4 normal snippets, each new one has a 25% chance to be a bonus.
+export function pickPowerup(rng, sinceLast) {
+  if (sinceLast < 4 || rng.next() >= 0.25) return null;
+  return rng.next() < 0.5 ? 'repair' : 'shield';
+}
+
 export default {
   id: 'duel',
   name: 'Typing Duel',
@@ -51,6 +70,9 @@ export default {
     const { term, me } = ctx;
     const rng = makeRng(`duel:${ctx.seed}:${me}`);
     let snippet = '';
+    let bonus = null;          // 'repair' | 'shield' when the current snippet is a power-up
+    let sinceBonus = 0;
+    let shieldUntil = 0;
     let streak = 0;
     let target = null;
     const stats = { hits: 0, misses: 0, chars: 0 };
@@ -60,12 +82,14 @@ export default {
 
     // ---- Stage ----
     const snippetEl = el('div', { class: 'snippet', 'aria-live': 'polite' });
+    const bonusEl = el('div', { class: 'bonus-label', hidden: true });
     const targetEl = el('span');
     const streakEl = el('span');
     const hpFill = el('div', { class: 'fill' });
     const hpText = el('span');
     ctx.stage.append(el('div', { class: 'stage-box' },
       el('div', { class: 'dim' }, 'TYPE THIS, THEN PRESS ENTER:'),
+      bonusEl,
       snippetEl,
       el('div', { class: 'duel-meta' }, targetEl, streakEl, el('span', { class: 'dim' }, 'Tab = switch target')),
       el('div', { class: 'meter', style: { marginTop: '8px' } }, el('span', {}, 'YOUR FIREWALL'), el('div', { class: 'track' }, hpFill), hpText)));
@@ -73,11 +97,32 @@ export default {
     const alive = () => ctx.players().filter((p) => !p.s?.out);
     const isOut = (id) => !!ctx.player(id)?.s?.out;
 
-    function nextSnippet() {
+    function nextSnippet(force = null) {
+      bonus = force || pickPowerup(rng, sinceBonus);
+      sinceBonus = bonus ? 0 : sinceBonus + 1;
+      const list = bonus ? BONUS_SNIPPETS[bonus] : SNIPPETS;
       let s;
-      do s = rng.pick(SNIPPETS); while (s === snippet);
+      do s = rng.pick(list); while (s === snippet);
       snippet = s;
+      bonusEl.hidden = !bonus;
+      bonusEl.textContent = bonus ? `★ BONUS: ${POWERUPS[bonus].label} (${POWERUPS[bonus].desc}) instead of attacking` : '';
+      snippetEl.classList.toggle('bonus', !!bonus);
+      snippetEl.dataset.kind = bonus || 'normal';
       renderSnippet();
+    }
+
+    function usePowerup(kind) {
+      if (kind === 'repair') {
+        hpLocal[me] ??= ctx.myState().hp ?? MAX_HP;
+        hpLocal[me] = Math.min(MAX_HP, hpLocal[me] + REPAIR_HP);
+        ctx.update({ [`players/${me}/s/hp`]: hpLocal[me] });
+        term.print(`★ REPAIR: firewall restored to ${hpLocal[me]} HP`, 'ok');
+      } else {
+        shieldUntil = ctx.now() + SHIELD_MS;
+        ctx.update({ [`players/${me}/s/shieldUntil`]: shieldUntil });
+        term.print(`★ SHIELD UP for ${SHIELD_MS / 1000} seconds`, 'ok');
+      }
+      ctx.sfx.ok();
     }
 
     function renderSnippet() {
@@ -125,7 +170,13 @@ export default {
     term.onCommand = (line) => {
       if (isOut(me)) return;
       if (!target || isOut(target)) pickTarget();
-      if (line === snippet) {
+      if (line === snippet && bonus) {
+        streak++;
+        stats.hits++;
+        stats.chars += snippet.length;
+        saveStats(me, stats);
+        usePowerup(bonus);
+      } else if (line === snippet) {
         if (!target) return;
         const dmg = 6 + Math.min(streak, 6);
         streak++;
@@ -158,6 +209,12 @@ export default {
         changes[`actions/${key}`] = null;
         const victim = ctx.player(a.to);
         if (!victim || victim.s?.out) continue;
+        // A shield blocks the hit completely.
+        const shielded = a.to === me ? shieldUntil > a.at : (victim.s?.shieldUntil || 0) > a.at;
+        if (shielded) {
+          if (a.to === me) term.printParts([['🛡 ', 'ok'], [`shield blocked ${ctx.player(a.from)?.name || '?'}'s packet`, 'ok']]);
+          continue;
+        }
         hpLocal[a.to] ??= victim.s?.hp ?? MAX_HP;
         hpLocal[a.to] = Math.max(0, hpLocal[a.to] - a.dmg);
         changes[`players/${a.to}/s/hp`] = hpLocal[a.to];
@@ -190,7 +247,7 @@ export default {
         ctx.side.append(el('div', { class: 'side-row' + (p.s?.out ? ' out' : '') + (p.id === target ? ' target' : '') },
           el('span', { class: 'dot', style: { background: p.color } }),
           el('span', { class: 'pname', style: { color: p.color } }, p.name + (p.id === me ? ' (you)' : '')),
-          el('span', { class: 'progress-text' }, p.s?.out ? 'DOWN' : `${hp} HP`),
+          el('span', { class: 'progress-text' }, p.s?.out ? 'DOWN' : `${(p.s?.shieldUntil || 0) > ctx.now() ? '🛡 ' : ''}${hp} HP`),
           canTarget ? el('button', { onclick: () => { target = p.id; renderMeta(); renderSide(); term.focus(); } }, 'aim') : null));
       }
     }
@@ -210,6 +267,13 @@ export default {
         if (now < b.next) continue;
         const len = 14 + Math.random() * 14;
         b.next = now + (len / ((b.wpm * 5) / 60)) * 1000;
+        const botHp = p.s?.hp ?? MAX_HP;
+        if (botHp < 50 && Math.random() < 0.12) {
+          hpLocal[p.id] ??= botHp;
+          hpLocal[p.id] = Math.min(MAX_HP, hpLocal[p.id] + REPAIR_HP);
+          ctx.update({ [`players/${p.id}/s/hp`]: hpLocal[p.id] });
+          continue;
+        }
         if (Math.random() < level.duelMiss) {
           b.streak = 0;
           b.stats.misses++;
@@ -246,6 +310,9 @@ export default {
     pickTarget();
     nextSnippet();
     renderMeta();
+    term.print('★ Every so often a BONUS command appears: type it to repair or shield yourself.', 'dim');
+    // Test hook: lets the automated tests force a power-up snippet.
+    if (window.__ra) window.__ra.duel = { force: (kind) => nextSnippet(kind) };
 
     return {
       onRoom() {

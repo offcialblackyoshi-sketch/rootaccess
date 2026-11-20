@@ -263,6 +263,28 @@ await step('duel', async () => {
   await B.waitFor(`window.__ra.state.room.mode === 'duel'`);
   await readyAndStart();
   await A.shot('04-duel.png');
+
+  // Power-ups: Bob hits Alice, Alice repairs, then shields and blocks a hit.
+  const snip = (t) => t.eval(`document.querySelector('.snippet').textContent`);
+  const aliceHp = () => A.eval(`window.__ra.state.room.players[window.__ra.state.net.uid].s.hp`);
+  for (let i = 0; i < 2; i++) { await B.cmd(await snip(B)); await sleep(150); }
+  await A.waitFor(`window.__ra.state.room.players[window.__ra.state.net.uid].s.hp < 100`, 5000, 'alice damaged');
+  const hurt = await aliceHp();
+  await A.eval(`window.__ra.duel.force('repair')`);
+  check('duel power-up: bonus snippet is labeled', (await A.eval(`document.querySelector('.bonus-label').textContent`)).includes('REPAIR'));
+  await A.shot('04b-duel-bonus.png');
+  await A.cmd(await snip(A));
+  await A.waitFor(`window.__ra.state.room.players[window.__ra.state.net.uid].s.hp === ${Math.min(100, hurt + 15)}`, 5000, 'repair applied');
+  check('duel power-up: REPAIR restores 15 HP', true, `${hurt} → ${await aliceHp()}`);
+  await A.eval(`window.__ra.duel.force('shield')`);
+  await A.cmd(await snip(A));
+  await waitTerm(A, 'SHIELD UP');
+  const shieldedHp = await aliceHp();
+  await B.cmd(await snip(B));
+  await waitTerm(A, 'shield blocked');
+  check('duel power-up: SHIELD blocks a hit', (await aliceHp()) === shieldedHp);
+  await sleep(8200); // let the shield wear off before the free-for-all
+
   let done = false;
   for (let i = 0; i < 200 && !done; i++) {
     for (const t of [A, B, C]) {

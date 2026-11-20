@@ -8,7 +8,7 @@ import { setPath } from '../src/net/shared.js';
 import { buildRace, pinFeedback, decryptWith, encryptWith, CIPHERS, raceHints, HINT_COST, raceStatsText } from '../src/modes/race.js';
 import { buildTutorial } from '../src/modes/tutorial.js';
 import { buildHeist, fillMissingRoles, heistStatsText } from '../src/modes/heist.js';
-import { SNIPPETS, duelStatsText } from '../src/modes/duel.js';
+import { SNIPPETS, duelStatsText, BONUS_SNIPPETS, pickPowerup } from '../src/modes/duel.js';
 import { score, startNodes, breachTime, defendStatsText } from '../src/modes/defend.js';
 import { botParams, BOT_LEVELS } from '../src/bots.js';
 import { normalizeSettings, defaultSettings } from '../src/settings.js';
@@ -290,6 +290,21 @@ test('countdown beeps: one per whole second shown', () => {
   assert.deepEqual(secondsCrossed(10100, 10050, 10), []);
   assert.deepEqual(secondsCrossed(10500, 9500, 10), [10]);
   assert.deepEqual(secondsCrossed(30000, 20000, 10), [], 'nothing before the last 10 seconds');
+});
+
+test('duel power-ups: never early, about 1 in 4 after that', () => {
+  const rng = makeRng(99);
+  for (let since = 0; since < 4; since++) {
+    for (let i = 0; i < 200; i++) assert.equal(pickPowerup(rng, since), null);
+  }
+  const picks = Array.from({ length: 4000 }, () => pickPowerup(rng, 4));
+  const rate = picks.filter(Boolean).length / picks.length;
+  assert.ok(rate > 0.2 && rate < 0.3, `bonus rate ${rate}`);
+  assert.ok(picks.includes('repair') && picks.includes('shield'));
+  const all = [...BONUS_SNIPPETS.repair, ...BONUS_SNIPPETS.shield];
+  assert.equal(new Set(all).size, all.length);
+  for (const s of all) assert.ok(!SNIPPETS.includes(s), 'bonus snippets are distinct');
+  for (const s of BONUS_SNIPPETS.shield) assert.ok(!/patch|rebuild|rollback/.test(s), 'shield commands read like shields');
 });
 
 test('duel snippets and defend scoring', () => {

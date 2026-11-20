@@ -278,6 +278,8 @@ h3 { font-size: 14px; margin: 14px 0 4px; color: var(--cyan); }
 .snippet .typed { color: var(--green); }
 .snippet .wrong { background: var(--red); color: #000; }
 .snippet .rest { color: #3f6f4b; }
+.snippet.bonus .rest { color: #8a7a3a; }
+.bonus-label { color: var(--amber); font-weight: bold; font-size: 13px; }
 .duel-meta { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 6px; font-size: 13px; }
 
 /* ---------------- Results ---------------- */

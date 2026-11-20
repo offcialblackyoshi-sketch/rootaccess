@@ -14,7 +14,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 8. [x] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
 9. [x] **Host tools:** kick a player, and choose the round length in the lobby.
 10. [x] **Sound polish:** optional key-click sounds, a countdown beep, and distinct alert sounds per mode.
-11. [ ] **Duel power-ups:** occasional "bonus" snippets that repair your firewall or shield you.
+11. [x] **Duel power-ups:** occasional "bonus" snippets that repair your firewall or shield you.
 12. [ ] **Rejoining after a reload:** you keep your seat if you refresh during the lobby.
 
 ## Done
@@ -93,3 +93,11 @@ Each player on the Mission Report now has a stats line under their name:
 - A sound error can never break the game. Each sound is counted, which lets the tests confirm sounds really play.
 - **Bug fix found in a screenshot:** in Practice, your color could match a bot's. Bots now always get different colors.
 - **Verified:** unit tests cover the countdown math (exactly one beep per second shown, nothing before the last 10 s) and volume clamping. New end-to-end checks confirm 3 countdown beeps plus "go" at the start of a practice duel, key clicks only after turning them on in Settings, and that practice bots never share your color. 19/19 unit tests and 50/50 end-to-end checks pass.
+
+### 11. Typing Duel power-ups
+- After at least 4 normal commands, each new one has a 1-in-4 chance to be a yellow **★ BONUS** command. Typing it gives a power-up **instead of attacking**, so there's a choice to make:
+  - **REPAIR:** +15 HP, up to 100.
+  - **SHIELD:** for 8 s, incoming packets are blocked ("🛡 shield blocked X's packet"). Opponents see 🛡 next to your HP.
+- Bonus commands are longer than normal ones and match their effect: repair commands read like patches and rebuilds, shield commands like shields and decoys.
+- Bots sometimes repair when below 50 HP.
+- **Verified:** a unit test checks there are no bonuses in the first 4 commands and about a 25% rate after that (measured over 4,000 draws), with both kinds appearing and all bonus commands unique. New end-to-end checks: Bob damages Alice, Alice types a forced REPAIR bonus and goes from 87 to the 100 HP cap, then types a SHIELD and Bob's next hit is blocked with her HP unchanged. A screenshot showed a REPAIR label over a shield-sounding command, so I split the commands by power-up before committing. 20/20 unit tests and 53/53 end-to-end checks pass.

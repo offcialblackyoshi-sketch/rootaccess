@@ -4,6 +4,7 @@
 import { Shell } from '../commands.js';
 import { makeRng, WORDS, FIRST, LAST, HOSTS, caesar, b64encode, b64decode, reverse } from '../rng.js';
 import { el, bar, fmtTime } from '../util.js';
+import { botParams, between } from '../bots.js';
 
 const LAYERS = ['RECON', 'DECRYPT', 'CRACK', 'PIVOT', 'ROOT'];
 const TIME_LIMIT = 12 * 60 * 1000;
@@ -397,9 +398,10 @@ export default {
         if (!p.bot) continue;
         const l = p.s?.layer || 0;
         if (l >= 5) continue;
-        botNext[p.id] ??= now + 30000 + Math.random() * 35000;
+        const layerMs = botParams(ctx.room.botLevel).raceLayerMs;
+        botNext[p.id] ??= now + between(layerMs);
         if (now >= botNext[p.id]) {
-          botNext[p.id] = now + 30000 + Math.random() * 35000;
+          botNext[p.id] = now + between(layerMs);
           ctx.update({ [`players/${p.id}/s`]: { layer: l + 1, at: now } });
         }
       }

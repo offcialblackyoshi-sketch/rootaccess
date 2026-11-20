@@ -9,6 +9,7 @@ import { buildRace, pinFeedback } from '../src/modes/race.js';
 import { buildHeist, fillMissingRoles } from '../src/modes/heist.js';
 import { SNIPPETS } from '../src/modes/duel.js';
 import { score, startNodes, breachTime } from '../src/modes/defend.js';
+import { botParams, BOT_LEVELS } from '../src/bots.js';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 7919 + 13);
 
@@ -145,6 +146,16 @@ test('setPath mimics Firebase paths', () => {
   setPath(o, 'x', { y: 1 });
   setPath(o, 'nothing/here', null);
   assert.deepEqual(o, { x: { y: 1 } });
+});
+
+test('bot levels get harder in every mode', () => {
+  const [easy, normal, hard] = BOT_LEVELS.map(botParams);
+  for (const [a, b] of [[easy, normal], [normal, hard]]) {
+    assert.ok(a.raceLayerMs[0] > b.raceLayerMs[0] && a.raceLayerMs[1] > b.raceLayerMs[1], 'race bots get faster');
+    assert.ok(a.duelWpm[1] <= b.duelWpm[0] + 2 && a.duelMiss > b.duelMiss, 'duel bots type faster and miss less');
+    assert.ok(a.defendBreach < b.defendBreach && a.defendKill < b.defendKill, 'defend bots act more');
+  }
+  assert.equal(botParams(undefined), normal, 'missing level falls back to normal');
 });
 
 test('duel snippets and defend scoring', () => {

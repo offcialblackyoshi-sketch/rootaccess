@@ -393,6 +393,12 @@ await step('practice', async () => {
   await D.click('#practiceBtn');
   await D.waitFor(`document.body.dataset.screen === 'lobby'`);
   const n = await D.eval(`Object.keys(window.__ra.state.room.players).length`);
+  check('practice: bots start on easy', (await D.eval(`window.__ra.state.room.botLevel`)) === 'easy');
+  await D.click('.bot-level [data-level="hard"]');
+  await D.waitFor(`window.__ra.state.room.botLevel === 'hard' && document.querySelector('.bot-level .selected').dataset.level === 'hard'`, 5000, 'hard selected');
+  await D.shot('11a-practice-lobby.png');
+  check('practice: host can switch bots to hard', true);
+  check('practice: heist (humans only) is disabled', await D.eval(`document.querySelector('.mode-card:nth-child(4)').disabled`));
   await D.click('.mode-card:nth-child(2)');
   await D.waitFor(`window.__ra.state.room.mode === 'duel'`);
   await D.click('#startBtn');

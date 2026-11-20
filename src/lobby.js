@@ -2,6 +2,7 @@
 import { MODES, MODE_ORDER } from './modes/index.js';
 import { el, playerList, COLORS, BOT_NAMES } from './util.js';
 import { randomSeed } from './rng.js';
+import { BOT_LEVELS } from './bots.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -14,6 +15,7 @@ export function renderLobby({ room, net, code, onLeave }) {
   const mode = MODES[room.mode] || MODES.race;
 
   $('lobbyCode').textContent = room.practice ? 'PRACTICE' : code;
+  $('lobbyCodeLabel').hidden = !!room.practice;
   $('inviteBtn').hidden = !!room.practice;
   $('lobbyNet').textContent = room.practice
     ? 'Offline practice against bots.'
@@ -43,19 +45,20 @@ export function renderLobby({ room, net, code, onLeave }) {
   for (const id of MODE_ORDER) {
     const m = MODES[id];
     const selected = room.mode === id;
+    const unavailable = room.practice && !m.bots; // needs other humans
     const card = el('button', {
       class: 'mode-card' + (selected ? ' selected' : ''),
-      disabled: !isHost && !selected,
+      disabled: (!isHost && !selected) || unavailable,
       'aria-pressed': selected ? 'true' : 'false',
       onclick: () => {
-        if (!isHost || selected) return;
+        if (!isHost || selected || unavailable) return;
         const changes = { mode: id };
         if (!m.bots) for (const b of bots) changes[`players/${b.id}`] = null;
         net.update(code, changes);
       },
     },
     el('div', { class: 'mode-name' }, m.name),
-    el('div', { class: 'mode-players' }, `${m.min}–${m.max} players${m.bots ? ' · bots OK' : ' · humans only'}`),
+    el('div', { class: 'mode-players' }, `${m.min}–${m.max} players${m.bots ? ' · bots OK' : ' · humans only'}${unavailable ? ' · create a room to play' : ''}`),
     el('div', { class: 'mode-blurb' }, m.blurb));
     modesEl.append(card);
   }
@@ -82,6 +85,20 @@ export function renderLobby({ room, net, code, onLeave }) {
     }, meP?.ready ? 'Not ready' : '✔ Ready'));
   }
   actions.append(el('button', { id: 'leaveBtn', onclick: onLeave }, 'Leave'));
+
+  // Bot difficulty (only matters when there are bots).
+  if (mode.bots && bots.length) {
+    const level = room.botLevel || 'normal';
+    actions.append(el('div', { class: 'bot-level', role: 'group', 'aria-label': 'Bot difficulty' },
+      el('span', { class: 'dim' }, 'Bots:'),
+      ...BOT_LEVELS.map((l) => el('button', {
+        class: 'mini-btn' + (l === level ? ' selected' : ''),
+        'data-level': l,
+        'aria-pressed': l === level ? 'true' : 'false',
+        disabled: !isHost && l !== level,
+        onclick: () => isHost && l !== level && net.update(code, { botLevel: l }),
+      }, l))));
+  }
   $('lobbyStatus').textContent = problem || (isHost ? 'Everyone is ready. Press START!' : 'Waiting for the host to start…');
 }
 

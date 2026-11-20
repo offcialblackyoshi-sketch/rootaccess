@@ -4,6 +4,7 @@
 
 import { Shell } from '../commands.js';
 import { el, fmtTime } from '../util.js';
+import { botParams } from '../bots.js';
 
 const TIME_LIMIT = 5 * 60 * 1000;
 const MAX_CPU = 10;
@@ -256,20 +257,24 @@ export default {
 
     // ---- Bots (run by the host) ----
     function runBots() {
+      const level = botParams(ctx.room.botLevel);
       for (const p of ctx.players()) {
         if (!p.bot) continue;
         const l = L(p.id);
         for (const [key, a] of actions()) {
           if (a.type !== 'breach' || a.to !== p.id || alerted.has(key)) continue;
           alerted.add(key);
-          if (Math.random() < 0.35 && spend(p.id, COST.kill)) killBreach(key, a);
+          if (Math.random() < level.defendKill && spend(p.id, COST.kill)) killBreach(key, a);
         }
         const weak = NODES.find((n) => l.nodes[n].fw <= 1 && l.nodes[n].data > 0);
-        if (weak && Math.random() < 0.25 && spend(p.id, COST.patch)) patchNode(p.id, weak);
-        if (l.cpu >= COST.breach && activeBreachesFrom(p.id).length < MAX_ACTIVE && Math.random() < 0.5) {
+        if (weak && Math.random() < level.defendPatch && spend(p.id, COST.patch)) patchNode(p.id, weak);
+        if (l.cpu >= COST.breach && activeBreachesFrom(p.id).length < MAX_ACTIVE && Math.random() < level.defendBreach) {
           const victims = others(p.id);
           if (!victims.length) continue;
-          const v = victims[Math.floor(Math.random() * victims.length)];
+          // Hard bots go after whoever is winning.
+          const v = level.defendTargetsLeader
+            ? victims.sort((x, y) => score(y.s) - score(x.s))[0]
+            : victims[Math.floor(Math.random() * victims.length)];
           const nodes = v.s?.nodes || {};
           const node = NODES.filter((n) => (nodes[n]?.data ?? 1) > 0).sort((x, y) => (nodes[x]?.fw ?? 0) - (nodes[y]?.fw ?? 0))[0] || 'web';
           spend(p.id, COST.breach);

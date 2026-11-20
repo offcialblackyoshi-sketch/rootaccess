@@ -3,6 +3,7 @@
 
 import { makeRng } from '../rng.js';
 import { el, fmtTime } from '../util.js';
+import { botParams, between } from '../bots.js';
 
 const MAX_HP = 100;
 const TIME_LIMIT = 4 * 60 * 1000;
@@ -191,11 +192,12 @@ export default {
       const now = ctx.now();
       for (const p of ctx.players()) {
         if (!p.bot || p.s?.out) continue;
-        const b = (bots[p.id] ??= { wpm: 28 + Math.random() * 20, next: now + 3000, streak: 0 });
+        const level = botParams(ctx.room.botLevel);
+        const b = (bots[p.id] ??= { wpm: between(level.duelWpm), next: now + 3000, streak: 0 });
         if (now < b.next) continue;
         const len = 14 + Math.random() * 14;
         b.next = now + (len / ((b.wpm * 5) / 60)) * 1000;
-        if (Math.random() < 0.12) { b.streak = 0; continue; }
+        if (Math.random() < level.duelMiss) { b.streak = 0; continue; }
         const opponents = alive().filter((o) => o.id !== p.id);
         if (!opponents.length) continue;
         const t = opponents[Math.floor(Math.random() * opponents.length)];

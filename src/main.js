@@ -158,7 +158,7 @@ $('codeInput').addEventListener('input', (e) => {
 $('practiceBtn').addEventListener('click', (e) => withBusy(e.target, async () => {
   const net = getLocalNet();
   const now = net.now();
-  const room = { hostId: net.uid, mode: 'race', status: 'lobby', createdAt: now, round: 0, practice: true };
+  const room = { hostId: net.uid, mode: 'race', status: 'lobby', createdAt: now, round: 0, practice: true, botLevel: 'easy' };
   room.players = {
     [net.uid]: { ...makePlayer(net, room), ready: true },
     'bot-a': { name: 'n3m0', color: '#ff4dd2', bot: true, ready: true, joinedAt: now + 1 },

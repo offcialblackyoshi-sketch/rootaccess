@@ -23,6 +23,15 @@ export const SNIPPETS = [
   'export PATH=$PATH:/opt/bin', 'ps aux | grep sshd', 'sudo rm -rf /tmp/cache', 'nslookup vault.corp',
 ];
 
+// "41 WPM · 93% accuracy · 12 hits" from a player's duel stats.
+export function duelStatsText(stats, ms) {
+  if (!stats || !(stats.hits + stats.misses)) return 'no shots fired';
+  const minutes = Math.max(ms, 1000) / 60000;
+  const wpm = Math.round(stats.chars / 5 / minutes);
+  const acc = Math.round((100 * stats.hits) / (stats.hits + stats.misses));
+  return `${wpm} WPM · ${acc}% accuracy · ${stats.hits} hits`;
+}
+
 export default {
   id: 'duel',
   name: 'Typing Duel',
@@ -43,8 +52,8 @@ export default {
     let snippet = '';
     let streak = 0;
     let target = null;
-    let shots = 0;
-    let misses = 0;
+    const stats = { hits: 0, misses: 0, chars: 0 };
+    const saveStats = (id, st) => ctx.update({ [`players/${id}/s/stats`]: { ...st } });
     const processed = new Set();
     const hpLocal = {}; // for players this browser controls
 
@@ -119,14 +128,17 @@ export default {
         if (!target) return;
         const dmg = 6 + Math.min(streak, 6);
         streak++;
-        shots++;
+        stats.hits++;
+        stats.chars += snippet.length;
+        saveStats(me, stats);
         ctx.push('actions', { type: 'hit', from: me, to: target, dmg, at: ctx.now() });
         const t = ctx.player(target);
         term.printParts([['► ', 'ok'], [snippet, 'cmd'], ['  →  ', 'dim'], [t?.name || '?', ''], [`  -${dmg}`, 'warn'], [streak >= 3 ? `  (streak ${streak})` : '', 'dim']]);
         ctx.sfx.fire();
       } else {
         streak = 0;
-        misses++;
+        stats.misses++;
+        saveStats(me, stats);
         term.printParts([['✖ ', 'err'], [line || '(empty)', 'err'], ['  packet dropped (typo). Streak lost.', 'dim']]);
         ctx.sfx.err();
       }
@@ -193,16 +205,24 @@ export default {
       for (const p of ctx.players()) {
         if (!p.bot || p.s?.out) continue;
         const level = botParams(ctx.room.botLevel);
-        const b = (bots[p.id] ??= { wpm: between(level.duelWpm), next: now + 3000, streak: 0 });
+        const b = (bots[p.id] ??= { wpm: between(level.duelWpm), next: now + 3000, streak: 0, stats: { hits: 0, misses: 0, chars: 0 } });
         if (now < b.next) continue;
         const len = 14 + Math.random() * 14;
         b.next = now + (len / ((b.wpm * 5) / 60)) * 1000;
-        if (Math.random() < level.duelMiss) { b.streak = 0; continue; }
+        if (Math.random() < level.duelMiss) {
+          b.streak = 0;
+          b.stats.misses++;
+          saveStats(p.id, b.stats);
+          continue;
+        }
         const opponents = alive().filter((o) => o.id !== p.id);
         if (!opponents.length) continue;
         const t = opponents[Math.floor(Math.random() * opponents.length)];
         ctx.push('actions', { type: 'hit', from: p.id, to: t.id, dmg: 6 + Math.min(b.streak, 6), at: now });
         b.streak++;
+        b.stats.hits++;
+        b.stats.chars += Math.round(len);
+        saveStats(p.id, b.stats);
       }
       const stillIn = alive();
       if (stillIn.length <= 1 || left <= 0) finish();
@@ -211,8 +231,10 @@ export default {
     function finish() {
       const rows = ctx.players().sort((a, b) =>
         (a.s?.out ? 1 : 0) - (b.s?.out ? 1 : 0) || (b.s?.hp ?? 0) - (a.s?.hp ?? 0) || (b.s?.outAt || 0) - (a.s?.outAt || 0));
+      const now = ctx.now();
       const results = rows.map((p, i) => ({
         id: p.id, name: p.name, color: p.color, place: i + 1,
+        stats: duelStatsText(p.s?.stats, (p.s?.out ? p.s.outAt : now) - ctx.startedAt),
         detail: p.s?.out ? `firewall down at ${fmtTime((p.s.outAt || ctx.now()) - ctx.startedAt)}` : `${p.s?.hp ?? MAX_HP} HP left`,
       }));
       ctx.end(results, `${rows[0]?.name || 'Nobody'} wins the duel!`);

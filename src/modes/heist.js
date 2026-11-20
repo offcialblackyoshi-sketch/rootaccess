@@ -113,6 +113,13 @@ export function buildHeist(seed) {
   return { model, lit, serial, doorCode, doorRule: rule.rule2, user, loginHint, hintType, password, display, dial, vaultSource, word, fs };
 }
 
+// "1 mistake · 3 cameras looped"
+export function heistStatsText(st = {}) {
+  const m = st.mistakes || 0;
+  const l = st.loops || 0;
+  return `${m} mistake${m === 1 ? '' : 's'} · ${l} camera${l === 1 ? '' : 's'} looped`;
+}
+
 // If the infiltrator or analyst leaves, a lookout takes over their job.
 export function fillMissingRoles(crew) {
   const roles = Object.fromEntries(crew.map((p) => [p.id, p.s?.role || 'lookout']));
@@ -160,7 +167,11 @@ export default {
     let nextEvent = ctx.now() + 8000;
 
     const alarm = (delta) => ctx.push('actions', { type: 'alarm', delta, from: me });
+    const myStats = { mistakes: 0, loops: 0 };
+    const saveStats = () => ctx.update({ [`players/${me}/s/stats`]: { ...myStats } });
     const mistake = (text) => {
+      myStats.mistakes++;
+      saveStats();
       ctx.sfx.err();
       sh.print(text + `  (alarm +${MISTAKE})`, 'err');
       alarm(MISTAKE);
@@ -294,6 +305,8 @@ export default {
               ctx.sfx.ok();
               alarm(-12);
               pending = null;
+              myStats.loops++;
+              saveStats();
             } else mistake('Wrong code. The feed glitched.');
           },
         });
@@ -403,7 +416,7 @@ export default {
           time: `OUT OF TIME! The crew reached stage ${st + 1} (${STAGES[Math.min(st, 2)]}).`,
           abandoned: 'HEIST CALLED OFF. Not enough crew left to finish the job.',
         }[outcome];
-        ctx.end(members.map((p) => ({ id: p.id, name: p.name, color: p.color, place: 0, detail: (p.s?.role || '').toUpperCase() })), summary, outcome === 'win');
+        ctx.end(members.map((p) => ({ id: p.id, name: p.name, color: p.color, place: 0, detail: (p.s?.role || '').toUpperCase(), stats: heistStatsText(p.s?.stats) })), summary, outcome === 'win');
       } else {
         ctx.update(changes);
       }

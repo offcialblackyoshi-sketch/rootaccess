@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import { makeRng, caesar, b64encode, b64decode, reverse, atbash, hexEncode, hexDecode } from '../src/rng.js';
 import { Shell } from '../src/commands.js';
 import { setPath } from '../src/net/shared.js';
-import { buildRace, pinFeedback, decryptWith, encryptWith, CIPHERS, raceHints, HINT_COST } from '../src/modes/race.js';
+import { buildRace, pinFeedback, decryptWith, encryptWith, CIPHERS, raceHints, HINT_COST, raceStatsText } from '../src/modes/race.js';
 import { buildTutorial } from '../src/modes/tutorial.js';
-import { buildHeist, fillMissingRoles } from '../src/modes/heist.js';
-import { SNIPPETS } from '../src/modes/duel.js';
-import { score, startNodes, breachTime } from '../src/modes/defend.js';
+import { buildHeist, fillMissingRoles, heistStatsText } from '../src/modes/heist.js';
+import { SNIPPETS, duelStatsText } from '../src/modes/duel.js';
+import { score, startNodes, breachTime, defendStatsText } from '../src/modes/defend.js';
 import { botParams, BOT_LEVELS } from '../src/bots.js';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 7919 + 13);
@@ -246,6 +246,17 @@ test('bot levels get harder in every mode', () => {
     assert.ok(a.defendBreach < b.defendBreach && a.defendKill < b.defendKill, 'defend bots act more');
   }
   assert.equal(botParams(undefined), normal, 'missing level falls back to normal');
+});
+
+test('results stats text', () => {
+  // 50 correct characters in 1 minute = 10 WPM; 9 hits of 10 shots = 90%.
+  assert.equal(duelStatsText({ hits: 9, misses: 1, chars: 50 }, 60000), '10 WPM · 90% accuracy · 9 hits');
+  assert.equal(duelStatsText(undefined, 60000), 'no shots fired');
+  assert.equal(raceStatsText({ splits: [62000, 31000, 45000], hints: 1 }), 'fastest layer: DECRYPT 0:31 · 1 hint');
+  assert.equal(raceStatsText({}), 'no hints');
+  assert.equal(defendStatsText({ loot: 80, stats: { breaches: 6, kills: 2 } }), '80 stolen · 6 breaches · 2 attacks stopped');
+  assert.equal(heistStatsText({ mistakes: 1, loops: 3 }), '1 mistake · 3 cameras looped');
+  assert.equal(heistStatsText(undefined), '0 mistakes · 0 cameras looped');
 });
 
 test('duel snippets and defend scoring', () => {

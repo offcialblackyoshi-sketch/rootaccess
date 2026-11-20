@@ -28,6 +28,12 @@ export function breachTime(fw) {
   return 5000 + 2000 * fw;
 }
 
+// "80 stolen · 6 breaches · 2 attacks stopped"
+export function defendStatsText(s) {
+  const st = s?.stats || {};
+  return `${s?.loot || 0} stolen · ${st.breaches || 0} breaches · ${st.kills || 0} attacks stopped`;
+}
+
 const tag = () => Math.random().toString(36).slice(2, 5);
 
 export default {
@@ -60,6 +66,7 @@ export default {
         local[id] = {
           nodes: JSON.parse(JSON.stringify(s.nodes || startNodes())),
           loot: s.loot || 0,
+          stats: { breaches: 0, kills: 0, ...(s.stats || {}) },
           cpu: id === me ? 6 : 4,
           lastRegen: ctx.now(),
         };
@@ -90,6 +97,8 @@ export default {
       const now = ctx.now();
       const t = tag();
       ctx.push('actions', { type: 'breach', from, to, node, start: now, end: now + breachTime(fw), tag: t });
+      L(from).stats.breaches++;
+      writeState(from);
       return { t, secs: Math.round(breachTime(fw) / 1000) };
     }
 
@@ -179,7 +188,7 @@ export default {
 
     function writeState(id) {
       const l = L(id);
-      ctx.update({ [`players/${id}/s`]: { nodes: l.nodes, loot: l.loot } });
+      ctx.update({ [`players/${id}/s`]: { nodes: l.nodes, loot: l.loot, stats: l.stats } });
     }
 
     function patchNode(id, node) {
@@ -192,6 +201,8 @@ export default {
       processed.add(key);
       ctx.update({ [`actions/${key}`]: null });
       ctx.push('actions', { type: 'report', to: a.from, victim: a.to, node: a.node, tag: a.tag, outcome: 'killed' });
+      L(a.to).stats.kills++;
+      writeState(a.to);
     }
 
     // ---- Process actions for everyone this browser controls ----
@@ -223,7 +234,7 @@ export default {
           } else {
             outcome = 'empty';
           }
-          ctx.update({ [`actions/${key}`]: null, [`players/${a.to}/s`]: { nodes: l.nodes, loot: l.loot } });
+          ctx.update({ [`actions/${key}`]: null, [`players/${a.to}/s`]: { nodes: l.nodes, loot: l.loot, stats: l.stats } });
           ctx.push('actions', { type: 'report', to: a.from, victim: a.to, node: a.node, tag: a.tag, outcome, amt, fw: n.fw });
           if (a.to === me) {
             const who = ctx.player(a.from)?.name || '?';
@@ -331,7 +342,7 @@ export default {
       const alone = ctx.players().length < 2;
       if ((left <= 0 || alone) && ctx.isHost()) {
         const rows = ctx.players().sort((a, b) => score(b.s) - score(a.s));
-        ctx.end(rows.map((p, i) => ({ id: p.id, name: p.name, color: p.color, place: i + 1, detail: `${score(p.s)} data (${p.s?.loot || 0} stolen)` })),
+        ctx.end(rows.map((p, i) => ({ id: p.id, name: p.name, color: p.color, place: i + 1, detail: `${score(p.s)} data`, stats: defendStatsText(p.s) })),
           alone ? `Everyone else disconnected. ${rows[0]?.name || 'Nobody'} wins by default!` : `${rows[0]?.name || 'Nobody'} controls the most data!`);
       }
     });

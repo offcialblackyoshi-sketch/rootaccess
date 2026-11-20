@@ -292,7 +292,9 @@ function renderResults(room) {
     list.append(el('li', { class: r.id === me ? 'me' : '' },
       el('span', { class: 'place' }, r.place ? `#${r.place}` : ''),
       el('span', { class: 'dot', style: { background: r.color } }),
-      el('span', { class: 'pname' }, r.name + (r.id === me ? ' (you)' : '')),
+      el('div', { class: 'who' },
+        el('span', { class: 'pname' }, r.name + (r.id === me ? ' (you)' : '')),
+        r.stats ? el('div', { class: 'stats' }, r.stats) : null),
       el('span', { class: 'detail' }, r.detail || '')));
   }
   const actions = $('resultsActions');

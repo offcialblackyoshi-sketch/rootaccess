@@ -285,6 +285,8 @@ h3 { font-size: 14px; margin: 14px 0 4px; color: var(--cyan); }
 .results li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 .results li.me { color: var(--green); }
 .results .place { width: 32px; color: var(--amber); font-weight: bold; }
+.results .who { min-width: 0; }
+.results .stats { font-size: 12px; color: var(--dim); }
 .results .detail { margin-left: auto; color: var(--dim); font-size: 13px; text-align: right; }
 
 /* ---------------- Dialog & corner buttons ---------------- */

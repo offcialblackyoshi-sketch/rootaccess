@@ -9,7 +9,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 3. [x] **Race puzzle variety:** more cipher types (hex, atbash) and more places the password can hide (bash history, config files).
 4. [x] **Heist puzzle variety:** more keypad rule types and different vault and login variants.
 5. [x] **Onboarding:** a guided first-run tutorial in Practice, and hints that become more specific the more you ask.
-6. [ ] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
+6. [x] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
 7. [ ] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
 8. [ ] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
 9. [ ] **Host tools:** kick a player, and choose the round length in the lobby.
@@ -52,3 +52,12 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 - **Race hints that get more specific:** each layer now has 3 hints, from a nudge, to the method, to almost the answer, such as the exact command or the PIN's first and last digits. The first hint is free, the second costs 10 s, and the third costs 20 s (a cooldown bar), so hints help beginners without becoming a shortcut in competitive games.
 - The How to Play dialog mentions both.
 - **Verified:** unit tests check that the most specific hint really solves each layer for 100 seeds. That means the named file holds the password, the exact decrypt command reveals fragment A, the port and key are right, and the PIN digits match. Another unit test walks all 10 tutorial steps. New end-to-end checks cover the badge, completing the tutorial in the browser, the badge hiding afterwards, and hint 2 costing time. 15/15 unit tests and 36/36 end-to-end checks pass. I also fixed my own test edit, which had first landed in the wrong place.
+
+### 6. Stats on the results screen
+Each player on the Mission Report now has a stats line under their name:
+- **Race:** fastest layer and its time, plus how many hints they used.
+- **Duel:** typing speed (WPM), accuracy, and hits. Bots report stats too.
+- **Hack & Defend:** data stolen, breaches started, and attacks stopped. Total data stays on the right.
+- **Heist:** mistakes made and cameras looped, next to each player's role.
+- Stats are saved with each player's progress while playing. Hack & Defend writes stats every time it saves a player's state, so a breach resolving can't wipe them.
+- **Verified:** a new unit test checks the stats text for each mode, including the WPM and accuracy math. New end-to-end checks read the real results screen after a race (fastest layer, and "2 hints" for the player who asked twice), a duel (WPM and accuracy), and a heist (1 mistake for the Infiltrator, 1 camera looped for the Lookout). 16/16 unit tests and 39/39 end-to-end checks pass, and I reviewed the results screenshot. The huge WPM numbers in the test run come from the script typing instantly.

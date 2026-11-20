@@ -187,6 +187,19 @@ export function raceHints(P) {
   ];
 }
 
+// "fastest: CRACK 0:31 · 2 hints" from a player's race progress.
+export function raceStatsText(s) {
+  const splits = s?.splits || [];
+  const parts = [];
+  if (splits.length) {
+    const best = splits.indexOf(Math.min(...splits));
+    parts.push(`fastest layer: ${LAYERS[best]} ${fmtTime(splits[best])}`);
+  }
+  const h = s?.hints || 0;
+  parts.push(h ? `${h} hint${h === 1 ? '' : 's'}` : 'no hints');
+  return parts.join(' · ');
+}
+
 // Mastermind feedback for the PIN layer.
 export function pinFeedback(secret, guess) {
   let exact = 0;
@@ -223,6 +236,8 @@ export default {
     ctx.addCommon(sh);
 
     let layer = ctx.myState().layer || 0;
+    const splits = [];          // time spent on each layer (ms)
+    let lastSplit = ctx.startedAt;
     const frags = {};
     let lockedUntil = 0;
 
@@ -244,7 +259,10 @@ export default {
     function advance(to) {
       layer = to;
       ctx.sfx.ok();
-      ctx.update({ [`players/${me}/s`]: { layer, at: ctx.now() } });
+      const now = ctx.now();
+      splits.push(now - lastSplit);
+      lastSplit = now;
+      ctx.update({ [`players/${me}/s`]: { layer, at: now, splits, hints: hintsUsed.reduce((a, b) => a + b, 0) } });
       if (layer >= 5) {
         term.print('');
         term.print('#########################################', 'banner');
@@ -276,6 +294,7 @@ export default {
         const n = Math.min(hintsUsed[l], HINT_COST.length - 1);
         const isNew = hintsUsed[l] < HINT_COST.length;
         hintsUsed[l]++;
+        ctx.update({ [`players/${me}/s/hints`]: hintsUsed.reduce((a, b) => a + b, 0) });
         sh.print(`hint ${n + 1}/${HINT_COST.length}: ${hints[l][n]}`, 'warn');
         if (isNew && HINT_COST[n]) {
           sh.print(`(this hint costs ${HINT_COST[n] / 1000} seconds)`, 'dim');
@@ -489,6 +508,7 @@ export default {
         .sort((a, b) => (b.s.layer || 0) - (a.s.layer || 0) || (a.s.at || Infinity) - (b.s.at || Infinity));
       const results = rows.map(({ p, s }, i) => ({
         id: p.id, name: p.name, color: p.color, place: i + 1,
+        stats: p.bot ? 'bot' : raceStatsText(s),
         detail: (s.layer || 0) >= 5 ? `ROOT in ${fmtTime(s.at - ctx.startedAt)}` : `reached layer ${(s.layer || 0) + 1}/5 (${LAYERS[s.layer || 0]})`,
       }));
       const winner = rows[0];

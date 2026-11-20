@@ -218,6 +218,10 @@ await step('race', async () => {
   await A.cmd('notes');
   await A.cmd(`sudo ${P.key.toLowerCase()}`);
   await waitTerm(A, 'ROOT ACCESS GRANTED');
+  await B.waitFor(`document.body.dataset.screen === 'results'`, 10000, 'race results');
+  const raceResults = await B.eval(`document.getElementById('resultsList').innerText`);
+  await B.shot('03b-race-results.png');
+  check('race results: show fastest layer and hints used', raceResults.includes('fastest layer') && raceResults.includes('2 hints'), raceResults.replace(/\n/g, ' | '));
   await backToLobby().catch(async (e) => { await A.shot('race-fail.png'); throw e; });
   check('race: solved all 5 layers and won', true);
 });
@@ -247,6 +251,8 @@ await step('duel', async () => {
     await sleep(60);
   }
   for (const t of [A, B, C]) await t.waitFor(`document.body.dataset.screen === 'results'`, 15000, 'duel results');
+  const duelResults = await B.eval(`document.getElementById('resultsList').innerText`);
+  check('duel results: show WPM and accuracy', /\d+ WPM · \d+% accuracy/.test(duelResults), duelResults.replace(/\n/g, ' | '));
   const winners = await Promise.all([A, B, C].map((t) => t.eval(`document.querySelector('#resultsList li .pname').textContent.replace(' (you)', '')`)));
   await B.shot('05-duel-results.png');
   check('duel: played to the end, same winner everywhere', new Set(winners).size === 1, `winner=${winners[0]}`);
@@ -346,6 +352,8 @@ await step('heist', async () => {
   for (const t of [A, B, C]) await t.waitFor(`document.body.dataset.screen === 'results'`, 8000, 'heist results');
   const summary = await B.eval(`document.getElementById('resultsSummary').innerText`);
   await B.shot('10-heist-results.png');
+  const heistResults = await B.eval(`document.getElementById('resultsList').innerText`);
+  check('heist results: show mistakes and camera loops', heistResults.includes('1 mistake ·') && heistResults.includes('1 camera looped'), heistResults.replace(/\n/g, ' | '));
   check('heist: crew cracks the vault together', summary.includes('HEIST COMPLETE'), summary);
   await A.click('#againBtn');
   for (const t of [A, B, C]) await t.waitFor(`document.body.dataset.screen === 'lobby'`);

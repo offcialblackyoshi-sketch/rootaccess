@@ -8,7 +8,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 2. [x] **Bot difficulty** (easy / normal / hard) chosen in the lobby, so Practice suits beginners.
 3. [x] **Race puzzle variety:** more cipher types (hex, atbash) and more places the password can hide (bash history, config files).
 4. [x] **Heist puzzle variety:** more keypad rule types and different vault and login variants.
-5. [ ] **Onboarding:** a guided first-run tutorial in Practice, and hints that become more specific the more you ask.
+5. [x] **Onboarding:** a guided first-run tutorial in Practice, and hints that become more specific the more you ask.
 6. [ ] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
 7. [ ] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
 8. [ ] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
@@ -46,3 +46,9 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 - **Login:** 5 password formats instead of 3, adding "department + year of birth" and "pet's name + favorite color".
 - **Vault:** the dial number comes from one of three counts: guards on the NIGHT shift, guards on the DAY shift, or OFFLINE cameras in the new `security/cameras.txt`. The files that aren't the clue are always there too, so the Analyst has to read the procedure carefully.
 - **Verified:** the heist unit test now re-solves every puzzle for 300 seeds by reading the Analyst's files the way a player would: parsing the manual text, the staff record, and whichever count the procedure names. A new test checks that every variant actually comes up. This also caught a bug in my first draft, where the number of offline cameras could differ from the dial, and I fixed it before committing. 13/13 unit tests and 33/33 end-to-end checks pass, including a full heist in the browser.
+
+### 5. Onboarding: tutorial and step-by-step hints
+- **Tutorial:** a new button on the main menu with a **START HERE** badge for first-timers. It runs a 10-step guided lesson in the terminal: `help`, `ls`, `cat` with Tab completion, `cd`, `cd ..`, `grep`, using a found code, bringing back a command with ↑, and `say`. It advances automatically as each step is done, then marks itself complete so the badge disappears. Afterwards you land in a Practice lobby ready for a race. It doesn't appear in the lobby's mode list.
+- **Race hints that get more specific:** each layer now has 3 hints, from a nudge, to the method, to almost the answer, such as the exact command or the PIN's first and last digits. The first hint is free, the second costs 10 s, and the third costs 20 s (a cooldown bar), so hints help beginners without becoming a shortcut in competitive games.
+- The How to Play dialog mentions both.
+- **Verified:** unit tests check that the most specific hint really solves each layer for 100 seeds. That means the named file holds the password, the exact decrypt command reveals fragment A, the port and key are right, and the PIN digits match. Another unit test walks all 10 tutorial steps. New end-to-end checks cover the badge, completing the tutorial in the browser, the badge hiding afterwards, and hint 2 costing time. 15/15 unit tests and 36/36 end-to-end checks pass. I also fixed my own test edit, which had first landed in the wrong place.

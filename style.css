@@ -116,6 +116,7 @@ h3 { font-size: 14px; margin: 14px 0 4px; color: var(--cyan); }
 .join-row { display: flex; gap: 8px; }
 .join-row input { flex: 1; min-width: 0; text-transform: uppercase; letter-spacing: 0.4em; text-align: center; }
 .net-status { font-size: 13px; margin: 0; }
+.badge { font-size: 10px; background: var(--amber); color: var(--bg); padding: 1px 6px; border-radius: 3px; margin-left: 6px; vertical-align: middle; }
 #menuMsg { margin: 0; min-height: 1.4em; font-size: 13px; }
 
 /* ---------------- Top bar ---------------- */

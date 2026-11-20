@@ -171,6 +171,22 @@ export function decryptWith(type, text, shift = 0) {
   return null;
 }
 
+// Each extra hint on the same layer costs more time (ms).
+export const HINT_COST = [0, 10000, 20000];
+
+// Three hints per layer, from a gentle nudge to nearly the answer.
+export function raceHints(P) {
+  const passFile = { log: '/var/log/auth.log', config: `/etc/${P.target.slice(4)}/config.ini`, mail: `/var/mail/${P.target}` }[P.passSpot];
+  const method = P.cipherType === 'caesar' ? `caesar ${P.shift}` : P.cipherType;
+  return [
+    [P.passHint + ' Read mission.txt again if you need to.', P.passTip, `Open ${passFile} and use the NEWEST password for ${P.target}.`],
+    ['Read note.txt in your new home folder. It says how the file was scrambled.', 'Match the note to a method: caesar, base64, reverse, hex or atbash. For caesar, use the number from the note.', `Type exactly:  decrypt vault.enc ${method}`],
+    ['"right spot" = correct digit in the correct place. "wrong spot" = the digit is in the PIN, but somewhere else.', 'Try 0123, then 4567, to find which digits are in the PIN. Then swap their order.', `The PIN starts with ${P.pin[0]} and ends with ${P.pin[3]}.`],
+    ['Read ~/todo.txt. It names the host with the backdoor.', `Run  nmap ${P.netTarget}  and look for the port marked "unknown". Other hosts may have honeypots!`, `Type exactly:  connect ${P.netTarget} ${P.backdoor}`],
+    ['Type "notes" to see the 3 fragments you collected.', 'The key is FRAGMENT A, then the PIN, then FRAGMENT C, with dashes between.', `Type exactly:  sudo ${P.key}`],
+  ];
+}
+
 // Mastermind feedback for the PIN layer.
 export function pinFeedback(secret, guess) {
   let exact = 0;
@@ -217,13 +233,8 @@ export default {
       'Find the hidden backdoor. Read todo.txt, scan with nmap, then:  connect <host> <port>',
       'Put your fragments together (type "notes") and take over:  sudo <A>-<B>-<C>',
     ];
-    const hints = [
-      P.passTip,
-      'cat note.txt tells you which method to use. For caesar, use the same number.',
-      '"right spot" = correct digit in the correct place. "wrong spot" = digit is in the PIN somewhere else. Change one digit at a time.',
-      `cat ~/todo.txt, then nmap ${P.netTarget}. Look for the port that isn't a normal service. Beware of honeypots on other hosts!`,
-      'Type "notes" to see your fragments, then sudo FRAGA-PIN-FRAGC (dashes between).',
-    ];
+    const hints = raceHints(P);
+    const hintsUsed = [0, 0, 0, 0, 0];
 
     function showObjective() {
       if (layer >= 5) return;
@@ -258,7 +269,22 @@ export default {
 
     // ---- Commands ----
     sh.register('mission', { help: 'show your current objective', run: showObjective });
-    sh.register('hint', { help: 'get a hint for the current layer', run: () => sh.print('hint: ' + hints[Math.min(layer, 4)], 'warn') });
+    sh.register('hint', {
+      help: 'get a hint (each extra hint on a layer is more specific, but costs time)',
+      async run() {
+        const l = Math.min(layer, 4);
+        const n = Math.min(hintsUsed[l], HINT_COST.length - 1);
+        const isNew = hintsUsed[l] < HINT_COST.length;
+        hintsUsed[l]++;
+        sh.print(`hint ${n + 1}/${HINT_COST.length}: ${hints[l][n]}`, 'warn');
+        if (isNew && HINT_COST[n]) {
+          sh.print(`(this hint costs ${HINT_COST[n] / 1000} seconds)`, 'dim');
+          await sh.progress('cooldown', HINT_COST[n], 'dim');
+        } else if (n < HINT_COST.length - 1) {
+          sh.print(`still stuck? type "hint" again for a more specific one (costs ${HINT_COST[n + 1] / 1000}s).`, 'dim');
+        }
+      },
+    });
     sh.register('notes', {
       help: 'show the key fragments you have found',
       run() {

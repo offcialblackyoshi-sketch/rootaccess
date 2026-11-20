@@ -187,6 +187,12 @@ await step('race', async () => {
   await B.cmd(`login ${P.target} ${P.oldPass}`);
   await waitTerm(B, 'EXPIRED');
   check('race: old password is rejected', true);
+  await B.cmd('hint');
+  await waitTerm(B, 'hint 1/3');
+  await B.cmd('hint');
+  await waitTerm(B, 'hint 2/3');
+  await waitTerm(B, 'costs 10 seconds');
+  check('race: asking again gives a more specific hint that costs time', true);
 
   await A.cmd('cat mission.txt');
   await waitTerm(A, 'CURRENT password');
@@ -390,6 +396,22 @@ await step('solo survivor', async () => {
 
 // ---------------------------------------------------------------------------
 const D = await openTab('D');
+await step('tutorial', async () => {
+  await D.goto(URL_BASE);
+  check('tutorial: menu points first-timers to it', !(await D.eval(`document.getElementById('tutorialBadge').hidden`)));
+  await D.click('#tutorialBtn');
+  await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden`, 8000, 'tutorial started');
+  const T = await D.eval(`import('./src/modes/tutorial.js').then(m => m.buildTutorial(window.__ra.state.room.seed).code)`);
+  const cmds = ['help', 'ls', 'cat start-here.txt', 'cd docs', 'ls', 'cat welcome.txt', 'cd ..', 'grep secret', `unlock ${T}`, `unlock ${T}`, 'say hello'];
+  for (const c of cmds) { await D.cmd(c); await sleep(120); }
+  await waitTerm(D, 'STEP 10/10');
+  await D.shot('11-tutorial.png');
+  await D.waitFor(`document.body.dataset.screen === 'results'`, 8000, 'tutorial results');
+  const summary = await D.eval(`document.getElementById('resultsSummary').innerText`);
+  await D.click('#resultsActions button:last-child');
+  await D.waitFor(`document.body.dataset.screen === 'menu'`);
+  check('tutorial: completes and is remembered', summary.includes('TUTORIAL COMPLETE') && (await D.eval(`document.getElementById('tutorialBadge').hidden`)), summary);
+});
 await step('practice', async () => {
   await D.goto(URL_BASE);
   await D.click('#practiceBtn');

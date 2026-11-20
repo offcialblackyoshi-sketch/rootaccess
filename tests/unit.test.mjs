@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { makeRng, caesar, b64encode, b64decode, reverse, atbash, hexEncode, hexDecode } from '../src/rng.js';
 import { Shell } from '../src/commands.js';
 import { setPath } from '../src/net/shared.js';
-import { buildRace, pinFeedback, decryptWith, encryptWith, CIPHERS } from '../src/modes/race.js';
+import { buildRace, pinFeedback, decryptWith, encryptWith, CIPHERS, raceHints, HINT_COST } from '../src/modes/race.js';
+import { buildTutorial } from '../src/modes/tutorial.js';
 import { buildHeist, fillMissingRoles } from '../src/modes/heist.js';
 import { SNIPPETS } from '../src/modes/duel.js';
 import { score, startNodes, breachTime } from '../src/modes/defend.js';
@@ -98,6 +99,42 @@ test('race puzzles use every hiding place and cipher', () => {
   const ciphers = new Set(SEEDS.map((s) => buildRace(s).cipherType));
   assert.deepEqual([...spots].sort(), ['config', 'log', 'mail']);
   assert.deepEqual([...ciphers].sort(), [...CIPHERS].sort());
+});
+
+test('race hints get more specific and the last one nearly solves the layer', () => {
+  for (const seed of SEEDS.slice(0, 100)) {
+    const P = buildRace(seed);
+    const H = raceHints(P);
+    assert.equal(H.length, 5);
+    for (const layer of H) assert.equal(layer.length, HINT_COST.length);
+    // Layer 1: the named file really holds the current password.
+    const path = H[0][2].match(/Open (\S+)/)[1].split('/').filter(Boolean);
+    const file = path.reduce((n, p) => n?.[p], P.fs);
+    assert.ok(typeof file === 'string' && file.includes(P.pass), `seed ${seed}: ${path.join('/')}`);
+    // Layer 2: the exact command decrypts the vault.
+    const [, method, n] = H[1][2].match(/decrypt vault\.enc (\w+)(?: (\d+))?/);
+    assert.ok(decryptWith(method, P.targetHome['vault.enc'], Number(n)).includes(P.fragA));
+    assert.ok(H[2][2].includes(P.pin[0]) && H[2][2].includes(P.pin[3]));
+    assert.ok(H[3][2].includes(`connect ${P.netTarget} ${P.backdoor}`));
+    assert.ok(H[4][2].includes(P.key));
+  }
+  assert.deepEqual(HINT_COST, [...HINT_COST].sort((a, b) => a - b), 'hints cost more each time');
+});
+
+test('tutorial: the grep step finds the unlock code', () => {
+  const T = buildTutorial(7);
+  assert.ok(T.fs.home.you.logs['today.log'].includes(`secret door code is ${T.code}`));
+  assert.equal(T.steps.length, 10);
+  // Walk the steps with the commands a player would type.
+  const term = fakeTerm();
+  const sh = new Shell(term, { fs: T.fs, cwd: '/home/you' });
+  sh.homeDir = '/home/you';
+  const play = [['help'], ['ls'], ['cat', 'start-here.txt'], ['cd', 'docs'], ['cat', 'welcome.txt'], ['cd', '..'], ['grep', 'secret'], ['unlock', T.code], ['unlock', T.code, 'repeat'], ['say', 'hello']];
+  play.forEach(([cmd, arg, repeat], i) => {
+    if (cmd !== 'unlock' && cmd !== 'say') sh.exec(`${cmd} ${arg || ''}`);
+    const info = { cmd, args: arg ? [arg] : [], file: arg ? sh.resolve(arg) : null, cwd: sh.cwd, repeat: !!repeat };
+    assert.ok(T.steps[i].check(info), `step ${i + 1} should pass with "${cmd} ${arg || ''}"`);
+  });
 });
 
 test('PIN feedback', () => {

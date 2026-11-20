@@ -1,7 +1,8 @@
 // App entry: menu → lobby → game → results.
 import { getLocalNet, getOnlineNet, onlineConfigured } from './net/index.js';
 import { isRoomCode } from './net/shared.js';
-import { renderLobby, backToLobby } from './lobby.js';
+import { renderLobby, backToLobby, startGame } from './lobby.js';
+import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
 import { createChat } from './chat.js';
 import { sfx } from './sfx.js';
@@ -155,18 +156,33 @@ $('codeInput').addEventListener('input', (e) => {
   e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
 });
 
-$('practiceBtn').addEventListener('click', (e) => withBusy(e.target, async () => {
-  const net = getLocalNet();
+function practiceRoom(net, mode) {
   const now = net.now();
-  const room = { hostId: net.uid, mode: 'race', status: 'lobby', createdAt: now, round: 0, practice: true, botLevel: 'easy' };
+  const room = { hostId: net.uid, mode, status: 'lobby', createdAt: now, round: 0, practice: true, botLevel: 'easy' };
   room.players = {
     [net.uid]: { ...makePlayer(net, room), ready: true },
     'bot-a': { name: 'n3m0', color: '#ff4dd2', bot: true, ready: true, joinedAt: now + 1 },
     'bot-b': { name: 'gh0st', color: '#4dd9ff', bot: true, ready: true, joinedAt: now + 2 },
   };
-  const code = await net.createRoom(room);
+  return room;
+}
+
+$('practiceBtn').addEventListener('click', (e) => withBusy(e.target, async () => {
+  const net = getLocalNet();
+  const code = await net.createRoom(practiceRoom(net, 'race'));
   enterRoom(net, code);
 }));
+
+$('tutorialBtn').addEventListener('click', (e) => withBusy(e.target, async () => {
+  const net = getLocalNet();
+  const room = practiceRoom(net, 'tutorial');
+  const code = await net.createRoom(room);
+  await startGame(room, net, code);
+  enterRoom(net, code);
+}));
+
+// Point first-timers at the tutorial.
+$('tutorialBadge').hidden = !!load(TUTORIAL_DONE_KEY, false);
 
 $('howBtn').addEventListener('click', () => $('howDialog').showModal());
 $('howClose').addEventListener('click', () => $('howDialog').close());
@@ -213,6 +229,7 @@ async function leaveRoom(message = '') {
   history.replaceState(null, '', location.pathname);
   show('menu');
   menuMessage(message, 'warn');
+  $('tutorialBadge').hidden = !!load(TUTORIAL_DONE_KEY, false);
   if (net && code) await net.leave(code).catch(() => {});
 }
 

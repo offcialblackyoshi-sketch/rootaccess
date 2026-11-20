@@ -40,6 +40,7 @@
           <input id="codeInput" maxlength="4" placeholder="CODE" aria-label="Room code" autocomplete="off" spellcheck="false">
           <button id="joinBtn">Join</button>
         </div>
+        <button id="tutorialBtn">Tutorial <span class="badge" id="tutorialBadge">start here</span></button>
         <button id="practiceBtn">Practice vs bots</button>
         <button id="howBtn">How to play</button>
       </div>
@@ -109,9 +110,10 @@
   <!-- HOW TO PLAY -->
   <dialog id="howDialog">
     <h2>// HOW TO PLAY</h2>
+    <p>New here? Press <strong>Tutorial</strong> on the main menu for a 2-minute guided lesson.</p>
     <p>Everything happens in a pretend terminal. Type commands and press <kbd>Enter</kbd>. Type <code>help</code> any time to see what you can do. <kbd>Tab</kbd> auto-completes, and <kbd>↑</kbd>/<kbd>↓</kbd> bring back earlier commands.</p>
     <h3>Terminal Race</h3>
-    <p>Everyone breaks into the same server through 5 layers: find a password, decrypt a file, crack a PIN, find a backdoor, then get root. First to root wins. Stuck? Type <code>hint</code>.</p>
+    <p>Everyone breaks into the same server through 5 layers: find a password, decrypt a file, crack a PIN, find a backdoor, then get root. First to root wins. Stuck? Type <code>hint</code>. Asking again gives a more specific hint, but it costs you some time.</p>
     <h3>Typing Duel</h3>
     <p>Type the command shown, exactly, and press Enter to hit your target's firewall. Streaks hit harder. <kbd>Tab</kbd> switches target. Last firewall standing wins.</p>
     <h3>Hack &amp; Defend</h3>

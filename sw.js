@@ -31,6 +31,7 @@ const ASSETS = [
   './src/modes/duel.js',
   './src/modes/defend.js',
   './src/modes/heist.js',
+  './src/modes/tutorial.js',
 ];
 
 self.addEventListener('install', (event) => {

@@ -3,8 +3,18 @@ import { MODES, MODE_ORDER } from './modes/index.js';
 import { el, playerList, COLORS, BOT_NAMES, ROUND_LENGTHS, roundTime, fmtTime } from './util.js';
 import { randomSeed } from './rng.js';
 import { BOT_LEVELS } from './bots.js';
+import { iconEl } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Accent color per mode (mode cards, icons).
+const MODE_ACCENT = { race: '#4dd9ff', duel: '#ff5a5a', defend: '#39ff6a', heist: '#ffb000' };
+
+// Remember who we've already shown, so only new arrivals slide in and only
+// players who just readied up pulse (the lobby redraws on every change).
+let seenRoom = null;
+const seenPlayers = new Set();
+const wasReady = new Map();
 
 export function renderLobby({ room, net, code, onLeave }) {
   const me = net.uid;
@@ -24,6 +34,11 @@ export function renderLobby({ room, net, code, onLeave }) {
       : 'Local room. Only other tabs on this computer can join (online play is not set up).';
 
   // ---- Players ----
+  if (seenRoom !== code) {
+    seenRoom = code;
+    seenPlayers.clear();
+    wasReady.clear();
+  }
   const list = $('lobbyPlayers');
   list.innerHTML = '';
   for (const p of players) {
@@ -44,7 +59,11 @@ export function renderLobby({ room, net, code, onLeave }) {
         },
       }, '✕')
       : null;
-    list.append(el('li', {}, el('span', { class: 'dot', style: { background: p.color } }), el('span', { class: 'pname' }, p.name), ...tags, remove));
+    const cls = [!seenPlayers.has(p.id) ? 'enter' : '', p.ready && wasReady.get(p.id) === false ? 'just-ready' : ''].join(' ').trim();
+    seenPlayers.add(p.id);
+    wasReady.set(p.id, !!p.ready);
+    list.append(el('li', { class: cls || null, style: { '--pc': p.color } },
+      el('span', { class: 'dot', style: { background: p.color, color: p.color } }), el('span', { class: 'pname' }, p.name), ...tags, remove));
   }
   $('lobbyCount').textContent = `${players.length}/8`;
 
@@ -57,6 +76,7 @@ export function renderLobby({ room, net, code, onLeave }) {
     const unavailable = room.practice && !m.bots; // needs other humans
     const card = el('button', {
       class: 'mode-card' + (selected ? ' selected' : ''),
+      style: { '--mode': MODE_ACCENT[id] || 'var(--accent)' },
       disabled: (!isHost && !selected) || unavailable,
       'aria-pressed': selected ? 'true' : 'false',
       onclick: () => {
@@ -66,6 +86,7 @@ export function renderLobby({ room, net, code, onLeave }) {
         net.update(code, changes);
       },
     },
+    el('div', { class: 'mode-icon' }, iconEl(id)),
     el('div', { class: 'mode-name' }, m.name),
     el('div', { class: 'mode-players' }, `${m.min}–${m.max} players${m.bots ? ' · bots OK' : ' · humans only'}${unavailable ? ' · create a room to play' : ''}`),
     el('div', { class: 'mode-blurb' }, m.blurb));

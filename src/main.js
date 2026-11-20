@@ -9,6 +9,7 @@ import { sfx } from './sfx.js';
 import { el, load, save, playerList, COLORS } from './util.js';
 import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
+import { iconEl } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -16,11 +17,21 @@ const $ = (id) => document.getElementById(id);
 const rain = createMatrixRain(document.getElementById('matrixBg'));
 function updateRain() {
   const s = getSettings();
-  rain.set({ on: s.matrixRain && !s.reduceMotion, rainbow: s.rainbowRain });
+  // The rain takes its color from the current style; cyberpunk rain is multicolor.
+  const tint = getComputedStyle(document.documentElement).getPropertyValue('--rain').trim() || '#33ff66';
+  rain.set({ on: s.matrixRain && !s.reduceMotion, rainbow: s.rainbowRain || s.style === 'cyber', tint });
 }
+
+// Visual effects requested by the game (wins, roots, captures).
+window.addEventListener('ra-fx', (e) => {
+  if (e.detail?.burst) rain.burst({ color: e.detail.color || null });
+});
 updateRain();
 
 initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); updateRain(); } });
+
+// Icons on the menu buttons.
+for (const b of document.querySelectorAll('button[data-icon]')) b.prepend(iconEl(b.dataset.icon));
 
 const state = {
   net: null,
@@ -37,8 +48,60 @@ const state = {
 // Screens
 // ---------------------------------------------------------------------------
 function show(name) {
-  for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== 'screen-' + name;
+  const changed = document.body.dataset.screen !== name;
+  for (const s of document.querySelectorAll('.screen')) {
+    s.hidden = s.id !== 'screen-' + name;
+    // A short fade/slide when switching screens.
+    if (changed && !s.hidden) {
+      s.classList.remove('enter');
+      void s.offsetWidth;
+      s.classList.add('enter');
+    }
+  }
   document.body.dataset.screen = name;
+}
+
+const reducedMotion = () => document.documentElement.classList.contains('reduce-motion');
+
+// Type text into an element a few letters at a time (instant with reduced motion).
+function typeInto(node, speed = 28) {
+  if (reducedMotion()) return;
+  const html = node.innerHTML;
+  const text = node.textContent;
+  const cursor = el('span', { class: 'cursor' }, ' ');
+  node.textContent = '';
+  let i = 0;
+  const tick = () => {
+    node.textContent = text.slice(0, ++i);
+    node.append(cursor);
+    if (i < text.length) setTimeout(tick, speed);
+    else setTimeout(() => (node.innerHTML = html), 600);
+  };
+  tick();
+}
+
+// First visit on this device: a quick "booting" intro (click or key skips it).
+function bootIntro() {
+  if (load('ra-booted', false) || reducedMotion()) return;
+  save('ra-booted', true);
+  const box = $('boot');
+  const pre = box.querySelector('pre');
+  const lines = ['ROOT ACCESS v2.0', '> loading modules ........ OK', '> spoofing coffee machine . OK', '> connecting to the grid .. OK', '', 'welcome, operator.'];
+  box.hidden = false;
+  let i = 0;
+  const finish = () => {
+    if (box.classList.contains('done')) return;
+    box.classList.add('done');
+    setTimeout(() => (box.hidden = true), 450);
+  };
+  const next = () => {
+    pre.textContent = lines.slice(0, ++i).join('\n');
+    if (i < lines.length) setTimeout(next, 220);
+    else setTimeout(finish, 500);
+  };
+  next();
+  window.addEventListener('pointerdown', finish, { once: true });
+  window.addEventListener('keydown', finish, { once: true });
 }
 
 function menuMessage(text, cls = 'err') {
@@ -337,8 +400,9 @@ function renderResults(room) {
   $('resultsSummary').textContent = room.summary || '';
   const list = $('resultsList');
   list.innerHTML = '';
-  for (const r of results) {
-    list.append(el('li', { class: r.id === me ? 'me' : '' },
+  renderPodium(results);
+  for (const [i, r] of results.entries()) {
+    list.append(el('li', { class: r.id === me ? 'me' : '', style: { '--i': i } },
       el('span', { class: 'place' }, r.place ? `#${r.place}` : ''),
       el('span', { class: 'dot', style: { background: r.color } }),
       el('div', { class: 'who' },
@@ -355,8 +419,23 @@ function renderResults(room) {
   if (state.shownResultsFor !== room.round) {
     state.shownResultsFor = room.round;
     const won = room.summaryWin ?? results[0]?.id === me;
-    if (won) sfx.win();
-    else sfx.lose();
+    if (won) {
+      sfx.win();
+      rain.burst({ color: '#ffd23d' });
+    } else sfx.lose();
+  }
+}
+
+// Top-3 podium on the results screen (only when there are places).
+function renderPodium(results) {
+  const box = $('podium');
+  box.innerHTML = '';
+  const top = results.filter((r) => r.place >= 1 && r.place <= 3);
+  box.hidden = top.length < 2;
+  for (const r of top) {
+    box.append(el('div', { class: `step p${r.place}` },
+      el('div', { class: 'name', style: { color: r.color } }, r.name),
+      el('div', { class: 'block' }, String(r.place))));
   }
 }
 
@@ -368,6 +447,14 @@ $('gameAbort').addEventListener('click', () => {
   if (state.room && state.room.hostId === state.net.uid && confirm('End this round for everyone and go back to the lobby?')) {
     backToLobby(state.room, state.net, state.code);
   }
+});
+// Click the big room code to copy it.
+$('lobbyCode').addEventListener('click', async () => {
+  if (!state.code || state.room?.practice) return;
+  try {
+    await navigator.clipboard.writeText(state.code);
+    $('lobbyNet').textContent = `Room code ${state.code} copied!`;
+  } catch { /* clipboard blocked: the code is on screen anyway */ }
 });
 $('inviteBtn').addEventListener('click', async () => {
   const url = `${location.origin}${location.pathname}?room=${state.code}`;
@@ -426,6 +513,8 @@ document.addEventListener('keydown', () => sfx.unlock(), { once: true });
 // Boot
 // ---------------------------------------------------------------------------
 show('menu');
+bootIntro();
+typeInto($('tagline'));
 const invited = new URLSearchParams(location.search).get('room');
 if (invited && isRoomCode(invited.toUpperCase())) {
   $('codeInput').value = invited.toUpperCase();

@@ -264,6 +264,7 @@ export default {
       splits.push(now - lastSplit);
       lastSplit = now;
       ctx.update({ [`players/${me}/s`]: { layer, at: now, splits, hints: hintsUsed.reduce((a, b) => a + b, 0) } });
+      ctx.fx(layer >= 5 ? 'big' : 'win');
       if (layer >= 5) {
         term.print('');
         term.print('#########################################', 'banner');

@@ -80,6 +80,16 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
       ended = true;
       net.update(code, { status: 'done', results, summary, summaryWin, endedAt: net.now() });
     },
+    // Visual effects: 'hit' (red flash + shake), 'win' (glow), 'big' (glow + rain burst).
+    fx(type) {
+      const screen = document.getElementById('screen-game');
+      const cls = type === 'hit' ? 'fx-hit' : 'fx-win';
+      screen.classList.remove(cls);
+      void screen.offsetWidth;
+      screen.classList.add(cls);
+      setTimeout(() => screen.classList.remove(cls), 1200);
+      if (type === 'big') window.dispatchEvent(new CustomEvent('ra-fx', { detail: { burst: true } }));
+    },
     // Commands every mode's shell gets.
     addCommon(shell) {
       shell.register('say', {
@@ -104,6 +114,13 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
   // Color player names in terminal output.
   term.root.style.setProperty('--me', latest.players?.[me]?.color || '#33ff66');
 
+  // A short typed "boot sequence" while the countdown runs.
+  term.typeOut([
+    `> establishing secure link to ${mode.name.toLowerCase()} grid...`,
+    '> routing through 7 proxies... OK',
+    '> operator authenticated. Stand by.',
+  ].join('\n'), 'boot-line', 900);
+
   let lastCountdown = Infinity;
   function tryMount() {
     if (destroyed || mounted) return;
@@ -112,7 +129,14 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
     lastCountdown = left;
     if (left > 0) {
       overlay.hidden = false;
-      overlay.textContent = String(Math.ceil(left / 1000));
+      const shown = String(Math.ceil(left / 1000));
+      if (overlay.textContent !== shown) {
+        // Pop each new number in.
+        overlay.textContent = shown;
+        overlay.classList.remove('tick');
+        void overlay.offsetWidth;
+        overlay.classList.add('tick');
+      }
       term.setEnabled(false);
       setTimeout(tryMount, Math.min(200, left));
       return;

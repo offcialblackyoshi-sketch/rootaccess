@@ -1,6 +1,7 @@
 // Unit checks for the pure game logic. Run with:  node --test tests/
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 
 import { makeRng, caesar, b64encode, b64decode, reverse, atbash, hexEncode, hexDecode } from '../src/rng.js';
 import { Shell } from '../src/commands.js';
@@ -29,6 +30,20 @@ function fakeTerm() {
     clear: () => (lines.length = 0),
   };
 }
+
+// Every game file must parse as a JavaScript module. (The plain "node --check"
+// misses some errors in browser modules, such as a line break inside a string.)
+test('every source file is valid module JavaScript', async () => {
+  const { spawnSync } = await import('node:child_process');
+  const { readdirSync } = await import('node:fs');
+  const root = new URL('../src/', import.meta.url);
+  const files = readdirSync(root, { recursive: true }).filter((p) => String(p).endsWith('.js'));
+  assert.ok(files.length > 10);
+  for (const file of [...files.map((p) => new URL(String(p).replaceAll('\\', '/'), root)), new URL('../sw.js', import.meta.url), new URL('../firebase-config.js', import.meta.url)]) {
+    const r = spawnSync(process.execPath, ['--input-type=module', '--check'], { input: fs.readFileSync(file) });
+    assert.equal(r.status, 0, `${file.pathname}: ${String(r.stderr).split('\n').slice(0, 4).join(' ')}`);
+  }
+});
 
 test('rng is deterministic per seed', () => {
   const a = makeRng(42), b = makeRng(42), c = makeRng(43);
@@ -273,7 +288,7 @@ test('display settings: bad saves fall back to defaults', () => {
   assert.equal(normalizeSettings({ volume: 'loud' }).volume, defaultSettings().volume);
   assert.equal(normalizeSettings({ keyClicks: true }).keyClicks, true);
   // The system's reduced-motion preference turns off motion and scanlines by default.
-  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: false, rainbowRain: false });
+  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: false, rainbowRain: false, style: 'green' });
   assert.equal(defaultSettings(false).matrixRain, true, 'rain is on by default');
 });
 
@@ -307,6 +322,51 @@ test('duel power-ups: never early, about 1 in 4 after that', () => {
   assert.equal(new Set(all).size, all.length);
   for (const s of all) assert.ok(!SNIPPETS.includes(s), 'bonus snippets are distinct');
   for (const s of BONUS_SNIPPETS.shield) assert.ok(!/patch|rebuild|rollback/.test(s), 'shield commands read like shields');
+});
+
+test('display settings: style falls back to green', () => {
+  assert.equal(normalizeSettings({ style: 'cyber' }).style, 'cyber');
+  assert.equal(normalizeSettings({ style: 'amber' }).style, 'amber');
+  assert.equal(normalizeSettings({ style: 'vaporwave' }).style, 'green');
+});
+
+// Reads each style's color tokens from style.css and checks readability
+// (WCAG AA: at least 4.5:1 for normal text).
+test('every style keeps text readable (WCAG AA contrast)', () => {
+  const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
+  const block = (selector) => {
+    const start = css.indexOf(selector + ' {');
+    assert.ok(start >= 0, 'missing ' + selector);
+    return css.slice(start, css.indexOf('}', start));
+  };
+  const hex = (b, name) => {
+    const m = b.match(new RegExp('--' + name + ':\\s*(#[0-9a-fA-F]{6})'));
+    return m && m[1];
+  };
+  const lum = (h) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+      .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a, b) => {
+    const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (hi + 0.05) / (lo + 0.05);
+  };
+  const styles = { green: block(':root'), cyber: block('html[data-style="cyber"]'), amber: block('html[data-style="amber"]') };
+  for (const [name, b] of Object.entries(styles)) {
+    const bg = hex(b, 'bg');
+    const panel = hex(b, 'panel-solid');
+    for (const text of ['fg', 'dim', 'accent', 'accent2', 'amber', 'red']) {
+      const color = hex(b, text);
+      assert.ok(color, `${name}: --${text} should be a hex color`);
+      for (const [where, back] of [['background', bg], ['panel', panel]]) {
+        const ratio = contrast(color, back);
+        assert.ok(ratio >= 4.5, `${name}: --${text} on ${where} is only ${ratio.toFixed(2)}:1`);
+      }
+    }
+    const btn = contrast(hex(b, 'accent-ink'), hex(b, 'accent'));
+    assert.ok(btn >= 4.5, `${name}: primary button text is only ${btn.toFixed(2)}:1`);
+  }
 });
 
 test('matrix rain helpers', () => {

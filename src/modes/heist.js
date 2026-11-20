@@ -174,6 +174,7 @@ export default {
       myStats.mistakes++;
       saveStats();
       ctx.sfx.err();
+      ctx.fx('hit');
       sh.print(text + `  (alarm +${MISTAKE})`, 'err');
       alarm(MISTAKE);
     };
@@ -288,6 +289,7 @@ export default {
             await sh.progress('voice check', 800);
             if (args[0].toUpperCase() === P.word) {
               sh.print('THE VAULT IS OPEN. 💰', 'banner');
+            ctx.fx('big');
               ctx.push('actions', { type: 'stage', stage: 3 });
             } else mistake(dialed ? 'Wrong word.' : 'Wrong word. (Did you dial first?)');
           },

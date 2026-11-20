@@ -140,6 +140,7 @@ export class Terminal {
 
   // Print text a few characters at a time for a "hacker" feel.
   async typeOut(text, cls = '', charsPerSecond = 600) {
+    if (document.documentElement.classList.contains('reduce-motion')) return this.print(text, cls);
     for (const line of String(text).split('\n')) {
       const div = this.printParts([['', cls]]);
       const target = div.firstElementChild || div;
@@ -147,7 +148,7 @@ export class Terminal {
       for (let i = 0; i < line.length; i += step) {
         target.textContent = line.slice(0, i + step);
         this.scrollToBottom();
-        await new Promise((r) => requestAnimationFrame(r));
+        await new Promise((r) => setTimeout(r, 16));
       }
       if (!line) div.innerHTML = '&nbsp;';
     }

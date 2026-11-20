@@ -9,21 +9,34 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" href="icons/icon-192.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@700;900&family=Share+Tech+Mono&family=VT323&display=swap">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Apply the saved style before anything draws, so there's no flash of the wrong look.
+    try {
+      var s = JSON.parse(localStorage.getItem('ra-settings') || '{}');
+      if (s.style === 'cyber' || s.style === 'amber') document.documentElement.dataset.style = s.style;
+    } catch (e) {}
+  </script>
 </head>
 <body data-screen="menu">
   <canvas id="matrixBg" aria-hidden="true"></canvas>
+  <div class="horizon" aria-hidden="true"></div>
   <div class="crt" aria-hidden="true"></div>
+  <div id="boot" class="boot" aria-hidden="true" hidden><pre></pre></div>
 
   <!-- MENU -->
   <section id="screen-menu" class="screen">
+    <h1 class="logo-text" data-text="ROOT//ACCESS">ROOT<span class="slash">//</span>ACCESS</h1>
     <pre class="logo" aria-label="Root Access">
  ____             _       _
 |  _ \ ___   ___ | |_    / \   ___ ___ ___  ___ ___
 | |_) / _ \ / _ \| __|  / _ \ / __/ __/ _ \/ __/ __|
 |  _ &lt; (_) | (_) | |_  / ___ \ (_| (_|  __/\__ \__ \
 |_| \_\___/ \___/ \__|/_/   \_\___\___\___||___/___/</pre>
-    <p class="tagline">a multiplayer hacking game <span class="dim">· every hack is fake, the fun is real</span></p>
+    <p class="tagline" id="tagline">a multiplayer hacking game <span class="dim">· every hack is fake, the fun is real</span></p>
 
     <div class="panel menu-panel">
       <label class="field">
@@ -36,14 +49,14 @@
       </div>
 
       <div class="menu-actions">
-        <button id="createBtn" class="primary">Create room</button>
+        <button id="createBtn" class="primary" data-icon="play">Create room</button>
         <div class="join-row">
           <input id="codeInput" maxlength="4" placeholder="CODE" aria-label="Room code" autocomplete="off" spellcheck="false">
-          <button id="joinBtn">Join</button>
+          <button id="joinBtn" data-icon="join">Join</button>
         </div>
-        <button id="tutorialBtn">Tutorial <span class="badge" id="tutorialBadge">start here</span></button>
-        <button id="practiceBtn">Practice vs bots</button>
-        <button id="howBtn">How to play</button>
+        <button id="tutorialBtn" data-icon="book">Tutorial <span class="badge" id="tutorialBadge">start here</span></button>
+        <button id="practiceBtn" data-icon="bot">Practice vs bots</button>
+        <button id="howBtn" data-icon="help">How to play</button>
       </div>
 
       <p id="netStatus" class="net-status"></p>
@@ -55,7 +68,7 @@
   <section id="screen-lobby" class="screen" hidden>
     <header class="topbar">
       <span class="brand">ROOT ACCESS</span>
-      <span><span id="lobbyCodeLabel">ROOM</span> <strong id="lobbyCode" class="room-code"></strong></span>
+      <span><span id="lobbyCodeLabel">ROOM</span> <strong id="lobbyCode" class="room-code" title="Click to copy the code"></strong></span>
       <button id="inviteBtn" class="mini-btn">Copy invite link</button>
     </header>
     <p id="lobbyNet" class="dim lobby-net"></p>
@@ -104,6 +117,7 @@
     <div class="panel results-panel">
       <h2>// MISSION REPORT</h2>
       <p id="resultsSummary" class="summary"></p>
+      <div id="podium" class="podium" hidden></div>
       <ol id="resultsList" class="results"></ol>
       <div id="resultsActions" class="actions"></div>
     </div>
@@ -130,6 +144,12 @@
   <dialog id="settingsDialog" aria-labelledby="settingsTitle">
     <form method="dialog" class="settings-form">
       <h2 id="settingsTitle">// SETTINGS</h2>
+      <fieldset class="style-pick">
+        <legend>Style</legend>
+        <label><span class="swatch-preview green"></span><input type="radio" name="style" value="green"> Hacker green</label>
+        <label><span class="swatch-preview cyber"></span><input type="radio" name="style" value="cyber"> Neon cyberpunk</label>
+        <label><span class="swatch-preview amber"></span><input type="radio" name="style" value="amber"> Retro amber</label>
+      </fieldset>
       <fieldset>
         <legend>Text size</legend>
         <label><input type="radio" name="textSize" value="normal"> Normal</label>

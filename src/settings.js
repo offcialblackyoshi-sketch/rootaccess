@@ -5,9 +5,10 @@ import { load, save } from './util.js';
 
 const KEY = 'ra-settings';
 export const TEXT_SIZES = ['normal', 'large', 'xlarge'];
+export const STYLES = ['green', 'cyber', 'amber'];
 
 export function defaultSettings(prefersReducedMotion = false) {
-  return { scanlines: !prefersReducedMotion, textSize: 'normal', reduceMotion: prefersReducedMotion, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: !prefersReducedMotion, rainbowRain: false };
+  return { scanlines: !prefersReducedMotion, textSize: 'normal', reduceMotion: prefersReducedMotion, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: !prefersReducedMotion, rainbowRain: false, style: 'green' };
 }
 
 // Fills in anything missing or invalid, so old or broken saves can't break the page.
@@ -23,6 +24,7 @@ export function normalizeSettings(raw, prefersReducedMotion = false) {
     keyClicks: typeof s.keyClicks === 'boolean' ? s.keyClicks : d.keyClicks,
     matrixRain: typeof s.matrixRain === 'boolean' ? s.matrixRain : d.matrixRain,
     rainbowRain: typeof s.rainbowRain === 'boolean' ? s.rainbowRain : d.rainbowRain,
+    style: STYLES.includes(s.style) ? s.style : d.style,
   };
 }
 
@@ -55,6 +57,7 @@ export function applySettings() {
   root.toggle('reduce-motion', s.reduceMotion);
   root.toggle('high-contrast', s.highContrast);
   for (const size of TEXT_SIZES) root.toggle('text-' + size, s.textSize === size);
+  document.documentElement.dataset.style = s.style;
 }
 
 // Wire up the settings dialog in index.html.
@@ -71,6 +74,7 @@ export function initSettingsDialog({ onChange } = {}) {
     form.keyClicks.checked = s.keyClicks;
     form.matrixRain.checked = s.matrixRain;
     form.rainbowRain.checked = s.rainbowRain;
+    form.elements.style.value = s.style;
   };
   form.addEventListener('change', () => {
     setSettings({
@@ -82,6 +86,7 @@ export function initSettingsDialog({ onChange } = {}) {
       keyClicks: form.keyClicks.checked,
       matrixRain: form.matrixRain.checked,
       rainbowRain: form.rainbowRain.checked,
+      style: form.elements.style.value,
     });
     onChange?.();
   });

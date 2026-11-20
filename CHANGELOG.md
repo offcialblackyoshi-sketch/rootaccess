@@ -1,4 +1,4 @@
-# Overnight improvements
+# Changelog
 
 Work happens on the `overnight` branch, one focused improvement per commit. Every change is checked with the unit tests and the 3-window end-to-end test before it's committed. To review: `git log main..overnight`. To keep everything: `git checkout main && git merge overnight`.
 
@@ -111,3 +111,30 @@ Each player on the Mission Report now has a stats line under their name:
 - **Duel balance fix, found by testing:** with last round's power-ups, two fast typists could chain 8-second shields plus repairs forever, so a duel never ended. The earlier run had passed by luck. A shield now **absorbs one hit within 8 s and then breaks**. A debug dump in the end-to-end test showed the stalemate.
 - The README has a new "Other features" section covering everything added tonight.
 - **Verified:** new end-to-end checks reload Bob's tab in the lobby (same player, same room, no duplicate) and confirm that a reload after leaving goes to the menu. With the shield fix, the full 3-player duel finishes in about 11 s. 20/20 unit tests, and 55/55 end-to-end checks passing on two runs in a row.
+
+---
+
+## Visual makeover: 3 styles to choose from
+- **Settings → Style:** pick **Hacker green** (the default), **Neon cyberpunk**, or **Retro amber**. The choice previews live and is saved on the device. Each style changes the colors, fonts, glow, panel look, and rain color everywhere:
+  - **Hacker green:** a glowing ROOT//ACCESS title, see-through blurred panels over the rain, and the JetBrains Mono font.
+  - **Neon cyberpunk:** a pink-to-cyan gradient title, a synthwave grid horizon, multicolor rain, and the Orbitron and Share Tech Mono fonts.
+  - **Retro amber:** a chunky pixel-font title (VT323, adjusted so it reads at normal sizes), a curved CRT glass edge with vignette and gentle flicker, and amber rain.
+- **Polish in every style:**
+  - **Menu:** icons on the buttons, a typing tagline, and a short "booting…" intro the first time the game opens on a device. Clicking or pressing a key skips it.
+  - **Lobby:** mode cards with icons and their own accent colors, a lift on hover, and a clear "✔ SELECTED". Player cards slide in, with a color stripe and a pulse when someone readies up. Click the room code to copy it.
+  - **In game:** a typed "secure link" boot sequence, countdown numbers that pop in, a red flash and shake when you're hit or breached (or make a Heist mistake), a glow when you clear a Race layer, and a rain burst when you get root or crack the vault.
+  - **Results:** a podium (gold, silver, and bronze) with rows that slide in, and a gold rain burst when you win.
+  - Smooth fade and slide transitions between screens.
+- **Reduce motion** turns all of it off. Fonts are cached by the service worker, so every style works offline.
+- **Bugs caught by testing:**
+  - A broken line break inside a string stopped the whole game from starting. The usual `node --check` doesn't catch that kind of error in browser modules, so a new unit test now checks every file the strict way.
+  - The amber ASCII logo was unreadable over the rain, so amber got a pixel-font title instead.
+  - The results panel was too see-through during the rain burst, so it's now solid.
+- **Verified:**
+  - **Unit tests (24/24),** including a new **contrast check** that reads each style's colors from `style.css`. Every text color passes the WCAG AA readability standard, at least 4.5:1, against both the background and the panels.
+  - **End-to-end checks (62/62):**
+    - Each style is applied after a reload with its font loaded.
+    - Fonts work offline.
+    - The boot intro plays once.
+    - Reduce motion stops animations and the rain.
+  - I reviewed screenshots of the menu, lobby, and a game in all 3 styles, plus results and phone width.

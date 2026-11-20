@@ -27,6 +27,8 @@ export function createMatrixRain(canvas) {
   let raf = 0;
   let w = 0;
   let h = 0;
+  let burstUntil = 0;
+  let burstColor = null;
 
   function resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -61,7 +63,10 @@ export function createMatrixRain(canvas) {
       if (y >= 0) {
         const ch = GLYPHS[Math.floor(Math.random() * GLYPHS.length)];
         // The leading character is brighter than the trail behind it.
-        ctx.fillStyle = Math.random() < 0.1 ? '#d8ffe4' : rainbow ? rainbowColor(now + i * 25) : color;
+        const bursting = now < burstUntil;
+        ctx.fillStyle = Math.random() < 0.1 ? '#ffffff'
+          : bursting && burstColor ? burstColor
+            : rainbow ? rainbowColor(now + i * 25) : color;
         ctx.fillText(ch, i * FONT_PX, y);
       }
       // After falling off the bottom, restart at a random moment.
@@ -100,5 +105,14 @@ export function createMatrixRain(canvas) {
       else stop();
     },
     get running() { return running; },
+    // A celebration: every column starts falling at once, brighter, for a moment.
+    burst({ color = null, ms = 1600 } = {}) {
+      if (canvas.dataset.on !== 'true') return;
+      burstUntil = performance.now() + ms;
+      burstColor = color;
+      drops = drops.map(() => Math.floor(Math.random() * -6));
+      canvas.classList.add('burst');
+      setTimeout(() => canvas.classList.remove('burst'), ms);
+    },
   };
 }

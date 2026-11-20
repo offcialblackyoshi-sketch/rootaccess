@@ -227,6 +227,7 @@ export default {
           const from = ctx.player(a.from);
           term.printParts([['◄ ', 'err'], [from?.name || '?', ''], [` hit your firewall  -${a.dmg}`, 'err']]);
           ctx.sfx.hit();
+          ctx.fx('hit');
           if (hpLocal[me] <= 0) {
             term.print('');
             term.print('XXXX  FIREWALL DOWN. You are out. Spectating…  XXXX', 'alert');

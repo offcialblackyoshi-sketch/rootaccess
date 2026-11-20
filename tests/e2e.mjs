@@ -120,6 +120,8 @@ const C = await openTab('C');
 // ---------------------------------------------------------------------------
 await step('menu loads', async () => {
   for (const t of [A, B, C]) await t.goto(URL_BASE);
+  check('boot intro: plays on the first visit', (await A.eval(`localStorage.getItem('ra-booted')`)) === 'true');
+  await A.waitFor(`document.getElementById('boot').hidden`, 6000, 'boot intro finishes');
   await sleep(1200);
   // The rain canvas is visible and has drawn something (not just black).
   const rainLit = await A.eval(`(() => {
@@ -274,6 +276,7 @@ await step('race', async () => {
   await waitTerm(A, 'ROOT ACCESS GRANTED');
   await B.waitFor(`document.body.dataset.screen === 'results'`, 10000, 'race results');
   const raceResults = await B.eval(`document.getElementById('resultsList').innerText`);
+  await sleep(1500); // let the podium and rows finish animating
   await B.shot('03b-race-results.png');
   check('race results: show fastest layer and hints used', raceResults.includes('fastest layer') && raceResults.includes('2 hints'), raceResults.replace(/\n/g, ' | '));
   await backToLobby().catch(async (e) => { await A.shot('race-fail.png'); throw e; });
@@ -336,6 +339,7 @@ await step('duel', async () => {
   const duelResults = await B.eval(`document.getElementById('resultsList').innerText`);
   check('duel results: show WPM and accuracy', /\d+ WPM · \d+% accuracy/.test(duelResults), duelResults.replace(/\n/g, ' | '));
   const winners = await Promise.all([A, B, C].map((t) => t.eval(`document.querySelector('#resultsList li .pname').textContent.replace(' (you)', '')`)));
+  await sleep(1500);
   await B.shot('05-duel-results.png');
   check('duel: played to the end, same winner everywhere', new Set(winners).size === 1, `winner=${winners[0]}`);
   await A.click('#againBtn');
@@ -438,6 +442,7 @@ await step('heist', async () => {
   await I.cmd(`open ${H.word.toLowerCase()}`);
   for (const t of [A, B, C]) await t.waitFor(`document.body.dataset.screen === 'results'`, 8000, 'heist results');
   const summary = await B.eval(`document.getElementById('resultsSummary').innerText`);
+  await sleep(1500);
   await B.shot('10-heist-results.png');
   const heistResults = await B.eval(`document.getElementById('resultsList').innerText`);
   check('heist results: show mistakes and camera loops', heistResults.includes('1 mistake ·') && heistResults.includes('1 camera looped'), heistResults.replace(/\n/g, ' | '));
@@ -563,7 +568,7 @@ await step('pwa', async () => {
   const sw = await D.eval(`navigator.serviceWorker.ready.then(r => !!r.active)`);
   check('pwa: service worker active', sw === true);
   await sleep(500);
-  const cached = await D.eval(`caches.open('root-access-v1').then(c => c.keys()).then(k => k.length)`);
+  const cached = await D.eval(`caches.open('root-access-v2').then(c => c.keys()).then(k => k.length)`);
   check('pwa: all files cached', cached >= 26, `(${cached})`);
   const inst = await D.send('Page.getInstallabilityErrors');
   const errs = inst.result?.installabilityErrors ?? [];
@@ -575,6 +580,8 @@ await step('pwa', async () => {
   await D.click('#practiceBtn');
   await D.waitFor(`document.body.dataset.screen === 'lobby'`);
   check('pwa: loads and practice works offline', true, status);
+  const fontOk = await D.eval(`document.fonts.ready.then(() => document.fonts.check('15px "JetBrains Mono"'))`);
+  check('pwa: style fonts load offline (from the cache)', fontOk === true);
   await D.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
 });
 
@@ -595,6 +602,50 @@ await step('settings', async () => {
   check('settings: changes apply and survive a reload', /no-scanlines/.test(cls) && /text-xlarge/.test(cls) && /high-contrast/.test(cls), cls);
   const overflow = await D.eval(`document.documentElement.scrollWidth > window.innerWidth`);
   check('settings: extra-large text has no sideways scrolling', !overflow);
+  await D.click('#settingsBtn');
+  await D.click('#settingsDialog input[name=reduceMotion]');
+  await D.click('#settingsClose');
+  const still = await D.eval(`getComputedStyle(document.querySelector('.logo-text'), '::before').animationName === 'none' && !window.__ra.rain.running`);
+  check('settings: reduce motion stops animations and the rain', still);
+  await D.eval(`localStorage.removeItem('ra-settings')`);
+});
+
+// ---------------------------------------------------------------------------
+await step('styles', async () => {
+  const toMenu = async () => {
+    const screen = await D.screen();
+    await D.eval('window.confirm = () => true');
+    if (screen === 'lobby') await D.click('#leaveBtn');
+    if (screen === 'game') await D.click('#gameLeave');
+    await D.waitFor(`document.body.dataset.screen === 'menu'`, 5000, 'back to menu');
+  };
+  for (const style of ['green', 'cyber', 'amber']) {
+    await D.goto(URL_BASE);
+    await toMenu();
+    await D.click('#settingsBtn');
+    await D.click(`#settingsDialog input[value=${style}]`);
+    if (style === 'cyber') await D.shot('19-settings-styles.png');
+    await D.click('#settingsClose');
+    await D.goto(URL_BASE);
+    await toMenu();
+    const applied = await D.eval('document.documentElement.dataset.style');
+    const font = { green: 'JetBrains Mono', cyber: 'Orbitron', amber: 'VT323' }[style];
+    const fontLoaded = await D.eval(`document.fonts.load('20px "${font}"').then(() => document.fonts.check('20px "${font}"'))`);
+    check(`style ${style}: applied after a reload, with its font`, applied === style && fontLoaded === true, `${applied} / ${font}: ${fontLoaded}`);
+    await sleep(1500);
+    await D.shot(`20-${style}-menu.png`);
+    await D.click('#practiceBtn');
+    await D.waitFor(`document.body.dataset.screen === 'lobby'`);
+    await D.click('.mode-card:nth-child(2)');
+    await D.waitFor(`window.__ra.state.room.mode === 'duel'`);
+    await sleep(500);
+    await D.shot(`21-${style}-lobby.png`);
+    await D.click('#startBtn');
+    await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden`, 8000);
+    await sleep(2500);
+    await D.shot(`22-${style}-game.png`);
+  }
+  await toMenu();
   await D.eval(`localStorage.removeItem('ra-settings')`);
 });
 

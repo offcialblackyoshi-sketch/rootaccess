@@ -242,6 +242,7 @@ export default {
             if (outcome === 'weakened') term.print(`[!] ${who} weakened your ${a.node} firewall (now ${n.fw}). patch it!`, 'err');
             else if (outcome === 'stolen') term.print(`[!] ${who} stole ${amt} data from your ${a.node}!`, 'err');
             ctx.sfx.hit();
+            ctx.fx('hit');
           }
         } else if (a.type === 'report') {
           processed.add(key);

@@ -13,6 +13,7 @@ import { score, startNodes, breachTime, defendStatsText } from '../src/modes/def
 import { botParams, BOT_LEVELS } from '../src/bots.js';
 import { normalizeSettings, defaultSettings } from '../src/settings.js';
 import { secondsCrossed } from '../src/sfx.js';
+import { columnCount, rainbowColor } from '../src/matrix.js';
 import { roundTime, fmtTime } from '../src/util.js';
 import { MODES } from '../src/modes/index.js';
 
@@ -272,7 +273,8 @@ test('display settings: bad saves fall back to defaults', () => {
   assert.equal(normalizeSettings({ volume: 'loud' }).volume, defaultSettings().volume);
   assert.equal(normalizeSettings({ keyClicks: true }).keyClicks, true);
   // The system's reduced-motion preference turns off motion and scanlines by default.
-  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false, volume: 0.7, keyClicks: false });
+  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: false, rainbowRain: false });
+  assert.equal(defaultSettings(false).matrixRain, true, 'rain is on by default');
 });
 
 test('round length scales each mode timer to whole half-minutes', () => {
@@ -305,6 +307,13 @@ test('duel power-ups: never early, about 1 in 4 after that', () => {
   assert.equal(new Set(all).size, all.length);
   for (const s of all) assert.ok(!SNIPPETS.includes(s), 'bonus snippets are distinct');
   for (const s of BONUS_SNIPPETS.shield) assert.ok(!/patch|rebuild|rollback/.test(s), 'shield commands read like shields');
+});
+
+test('matrix rain helpers', () => {
+  assert.equal(columnCount(1366), 86);
+  assert.equal(columnCount(0), 1);
+  assert.equal(rainbowColor(0), 'hsl(0, 100%, 60%)');
+  assert.notEqual(rainbowColor(0), rainbowColor(4000), 'rainbow changes over time');
 });
 
 test('duel snippets and defend scoring', () => {

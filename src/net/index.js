@@ -13,8 +13,12 @@ export function getLocalNet() {
   return localNet;
 }
 
+// Adding ?local=1 to the address forces same-computer mode. The automated
+// tests use this so they never write to the real online database.
+const forceLocal = typeof location !== 'undefined' && new URLSearchParams(location.search).has('local');
+
 export function onlineConfigured() {
-  return !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.databaseURL);
+  return !forceLocal && !!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.databaseURL);
 }
 
 // Resolves to { net } or { error: 'message' }.

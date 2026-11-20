@@ -11,7 +11,7 @@ import { writeFileSync, mkdtempSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const URL_BASE = process.env.URL || 'http://localhost:8765/';
+const URL_BASE = process.env.URL || 'http://localhost:8765/?local=1'; // ?local=1: never touch the real online database
 const OUT = process.argv[2] || mkdtempSync(join(tmpdir(), 'ra-e2e-'));
 mkdirSync(OUT, { recursive: true });
 const CHROME = process.env.CHROME || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -120,6 +120,16 @@ const C = await openTab('C');
 // ---------------------------------------------------------------------------
 await step('menu loads', async () => {
   for (const t of [A, B, C]) await t.goto(URL_BASE);
+  await sleep(1200);
+  // The rain canvas is visible and has drawn something (not just black).
+  const rainLit = await A.eval(`(() => {
+    const c = document.getElementById('matrixBg');
+    if (c.hidden || !window.__ra.rain.running) return false;
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    for (let i = 1; i < d.length; i += 4 * 97) if (d[i] > 60) return true;
+    return false;
+  })()`);
+  check('matrix rain: background is animating behind the menu', rainLit);
   check('menu loads', (await A.screen()) === 'menu' && (await A.eval(`document.getElementById('netStatus').innerText`)).includes('LOCAL'));
   await A.shot('01-menu.png');
 });

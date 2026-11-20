@@ -7,11 +7,20 @@ import { startSession } from './game.js';
 import { createChat } from './chat.js';
 import { sfx } from './sfx.js';
 import { el, load, save, playerList, COLORS } from './util.js';
-import { initSettingsDialog } from './settings.js';
+import { initSettingsDialog, getSettings } from './settings.js';
+import { createMatrixRain } from './matrix.js';
 
 const $ = (id) => document.getElementById(id);
 
-initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); } });
+// Matrix rain background. Off when "reduce motion" is on.
+const rain = createMatrixRain(document.getElementById('matrixBg'));
+function updateRain() {
+  const s = getSettings();
+  rain.set({ on: s.matrixRain && !s.reduceMotion, rainbow: s.rainbowRain });
+}
+updateRain();
+
+initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); updateRain(); } });
 
 const state = {
   net: null,
@@ -429,4 +438,4 @@ if ('serviceWorker' in navigator) {
 }
 
 // Exposed for automated tests.
-window.__ra = { state, sfx };
+window.__ra = { state, sfx, rain };

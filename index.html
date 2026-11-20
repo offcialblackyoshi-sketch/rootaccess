@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-screen="menu">
+  <canvas id="matrixBg" aria-hidden="true"></canvas>
   <div class="crt" aria-hidden="true"></div>
 
   <!-- MENU -->
@@ -135,6 +136,8 @@
         <label><input type="radio" name="textSize" value="large"> Large</label>
         <label><input type="radio" name="textSize" value="xlarge"> Extra large</label>
       </fieldset>
+      <label class="toggle"><input type="checkbox" name="matrixRain"> Matrix rain background</label>
+      <label class="toggle"><input type="checkbox" name="rainbowRain"> Rainbow rain</label>
       <label class="toggle"><input type="checkbox" name="scanlines"> CRT scanlines effect</label>
       <label class="toggle"><input type="checkbox" name="highContrast"> High contrast (brighter text)</label>
       <label class="toggle"><input type="checkbox" name="reduceMotion"> Reduce motion (no glow or animations)</label>

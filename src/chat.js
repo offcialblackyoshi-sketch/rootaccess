@@ -3,9 +3,9 @@ import { el } from './util.js';
 
 const MAX_SHOWN = 60;
 
-export function createChat({ onSend, sfx }) {
+export function createChat({ onSend, sfx, onEscape = null }) {
   const log = el('div', { class: 'chat-log', role: 'log', 'aria-label': 'Chat messages' });
-  const input = el('input', { type: 'text', maxlength: 200, placeholder: 'Chat… (Enter to send)', 'aria-label': 'Chat message', autocomplete: 'off' });
+  const input = el('input', { type: 'text', maxlength: 200, placeholder: 'Message… (Esc: back)', 'aria-label': 'Chat message', autocomplete: 'off' });
   const form = el('form', { class: 'chat-form' }, input);
   const root = el('div', { class: 'chat' }, el('div', { class: 'chat-title' }, '// COMMS'), log, form);
   let lastKey = '';
@@ -16,10 +16,19 @@ export function createChat({ onSend, sfx }) {
     const text = input.value.trim();
     input.value = '';
     if (text) onSend(text);
+    else if (onEscape) onEscape(); // Enter on an empty box also goes back
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && onEscape) {
+      e.preventDefault();
+      onEscape();
+    }
   });
 
   return {
     root,
+    focus: () => input.focus(),
     mount(slot) {
       if (root.parentElement !== slot) slot.append(root);
     },

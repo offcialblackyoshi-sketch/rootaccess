@@ -5,7 +5,7 @@ import { Terminal } from './terminal.js';
 import { MODES } from './modes/index.js';
 import { playerList } from './util.js';
 
-export function startSession({ net, code, room, sfx, sendChat }) {
+export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
   const mode = MODES[room.mode];
   const me = net.uid;
   const $ = (id) => document.getElementById(id);
@@ -21,6 +21,7 @@ export function startSession({ net, code, room, sfx, sendChat }) {
   $('gameRoom').textContent = room.practice ? 'PRACTICE' : `ROOM ${code}`;
 
   const term = new Terminal($('term'));
+  term.onEscape = focusChat; // Esc jumps to chat, Esc again comes back
   let latest = room;
   let mounted = null;
   let ended = false;

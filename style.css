@@ -201,6 +201,9 @@ h3 { font-size: 14px; margin: 14px 0 4px; color: var(--cyan); }
 #gameChat { flex: 1; min-height: 160px; }
 #gameChat .chat-log { max-height: none; }
 #stage:empty { display: none; }
+.keys-hint { margin: -4px 0 0; font-size: 11px; color: var(--dim); }
+.keys-hint kbd { font-size: 10px; padding: 0 3px; }
+@media (max-width: 600px) { .keys-hint { display: none; } }
 
 #countdown {
   position: fixed;

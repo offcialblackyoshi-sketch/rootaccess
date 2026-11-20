@@ -86,6 +86,12 @@ async function openTab(name) {
     click: (sel) => tab.eval(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) throw new Error('no ${sel}'); e.click(); return true; })()`),
     // Type a command into the game terminal.
     cmd: (line) => tab.eval(`(() => { const i = document.querySelector('#term input'); i.value = ${JSON.stringify(line)}; i.dispatchEvent(new Event('input')); i.form.requestSubmit(); return true; })()`),
+    // Press a real key (modifiers: 2 = Ctrl).
+    async press(key, code, vk, modifiers = 0) {
+      await c.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key, code, windowsVirtualKeyCode: vk, modifiers });
+      await c.send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk, modifiers });
+    },
+    focused: () => tab.eval('document.activeElement?.closest(".chat") ? "chat" : document.activeElement?.closest("#term") ? "term" : (document.activeElement?.tagName || "none")'),
     termText: () => tab.eval(`document.querySelector('#term .term-out').innerText`),
     room: () => tab.eval('JSON.parse(JSON.stringify(window.__ra.state.room))'),
     screen: () => tab.eval('document.body.dataset.screen'),
@@ -438,6 +444,22 @@ await step('practice', async () => {
   await D.waitFor(`(window.__ra.state.room.players[window.__ra.state.net.uid].s.hp ?? 100) < 100`, 30000, 'bots attack');
   check('practice: bots play duel against you', n === 3);
   await D.shot('11-practice-duel.png');
+});
+
+// ---------------------------------------------------------------------------
+await step('keyboard', async () => {
+  // D is still in a practice duel.
+  await D.eval(`document.querySelector('#term input').focus()`);
+  await D.press('Escape', 'Escape', 27);
+  const inChat = (await D.focused()) === 'chat';
+  await D.press('Escape', 'Escape', 27);
+  check('keyboard: Esc jumps to chat and back', inChat && (await D.focused()) === 'term');
+  await D.eval(`(() => { const i = document.querySelector('#term input'); i.value = 'half typed'; })()`);
+  await D.press('c', 'KeyC', 67, 2);
+  check('keyboard: Ctrl+C cancels the line', (await D.eval(`document.querySelector('#term input').value`)) === '');
+  await D.press('l', 'KeyL', 76, 2);
+  check('keyboard: Ctrl+L clears the screen', (await D.eval(`document.querySelector('#term .term-out').childElementCount`)) === 0);
+  await D.shot('11c-keys-hint.png');
 });
 
 // ---------------------------------------------------------------------------

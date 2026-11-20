@@ -8,6 +8,7 @@ export class Terminal {
     this.root = root;
     this.onCommand = onCommand;
     this.complete = complete;
+    this.onEscape = null;
     this.history = [];
     this.histPos = 0;
     this.echo = true;
@@ -59,6 +60,27 @@ export class Terminal {
       } else if (e.key === 'Tab' && this.complete) {
         e.preventDefault();
         this.tabComplete();
+      } else if (e.key === 'Escape' && this.onEscape) {
+        e.preventDefault();
+        this.onEscape();
+      } else if (e.ctrlKey && !e.altKey && (e.key === 'l' || e.key === 'L')) {
+        // Ctrl+L: clear the screen, like a real terminal.
+        e.preventDefault();
+        this.clear();
+      } else if (e.ctrlKey && !e.altKey && (e.key === 'c' || e.key === 'C') && this.input.selectionStart === this.input.selectionEnd) {
+        // Ctrl+C (with nothing selected): cancel the line you're typing.
+        e.preventDefault();
+        if (this.echo) this.printParts([[this.promptText + ' ', 'prompt'], [this.input.value], ['^C', 'dim']]);
+        this.input.value = '';
+        this.input.dispatchEvent(new Event('input'));
+        this.histPos = this.history.length;
+      } else if (e.ctrlKey && !e.altKey && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault();
+        this.input.value = '';
+        this.input.dispatchEvent(new Event('input'));
+      } else if (e.key === 'PageUp' || e.key === 'PageDown') {
+        e.preventDefault();
+        this.out.scrollTop += (e.key === 'PageUp' ? -1 : 1) * this.out.clientHeight * 0.8;
       }
     });
 

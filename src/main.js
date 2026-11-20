@@ -203,7 +203,12 @@ function sendChat(text) {
   }
 }
 
-const chat = createChat({ sfx, onSend: sendChat });
+// Esc in the chat box jumps back to the terminal (in a game).
+const chat = createChat({
+  sfx,
+  onSend: sendChat,
+  onEscape: () => document.querySelector('#term .term-in input:not(:disabled)')?.focus(),
+});
 
 // ---------------------------------------------------------------------------
 // Room lifecycle
@@ -268,7 +273,7 @@ function onRoom(room) {
   } else if (room.status === 'playing') {
     if (!state.session || state.session.round !== room.round) {
       stopSession();
-      state.session = startSession({ net: state.net, code: state.code, room, sfx, sendChat });
+      state.session = startSession({ net: state.net, code: state.code, room, sfx, sendChat, focusChat: chat.focus });
     }
     chat.mount($('gameChat'));
     state.session.update(room);

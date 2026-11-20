@@ -10,7 +10,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 4. [x] **Heist puzzle variety:** more keypad rule types and different vault and login variants.
 5. [x] **Onboarding:** a guided first-run tutorial in Practice, and hints that become more specific the more you ask.
 6. [x] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
-7. [ ] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
+7. [x] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
 8. [ ] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
 9. [ ] **Host tools:** kick a player, and choose the round length in the lobby.
 10. [ ] **Sound polish:** optional key-click sounds, a countdown beep, and distinct alert sounds per mode.
@@ -61,3 +61,10 @@ Each player on the Mission Report now has a stats line under their name:
 - **Heist:** mistakes made and cameras looped, next to each player's role.
 - Stats are saved with each player's progress while playing. Hack & Defend writes stats every time it saves a player's state, so a breach resolving can't wipe them.
 - **Verified:** a new unit test checks the stats text for each mode, including the WPM and accuracy math. New end-to-end checks read the real results screen after a race (fastest layer, and "2 hints" for the player who asked twice), a duel (WPM and accuracy), and a heist (1 mistake for the Infiltrator, 1 camera looped for the Lookout). 16/16 unit tests and 39/39 end-to-end checks pass, and I reviewed the results screenshot. The huge WPM numbers in the test run come from the script typing instantly.
+
+### 7. Keyboard and focus on Chromebooks
+- **Esc** in the terminal jumps to the chat box. **Esc** in chat, or **Enter** on an empty chat box, jumps back. That makes Heist conversations quick without reaching for the touchpad.
+- Real-terminal shortcuts: **Ctrl+L** clears the screen, **Ctrl+C** cancels the line you're typing (shown as `^C`, and copying still works when text is selected), **Ctrl+U** clears the line, and **PageUp/PageDown** scroll the terminal output.
+- A small shortcut reminder sits under the terminal. It's hidden on narrow screens.
+- The chat placeholder is now short enough to fit ("Message… (Esc: back)").
+- **Verified:** new end-to-end checks press real keys through Chrome's input system during a practice duel. Esc moves focus to chat and back, Ctrl+C empties a half-typed line, and Ctrl+L clears the output. 42/42 end-to-end checks and 16/16 unit tests pass. The screenshot review is what caught the cut-off placeholder.

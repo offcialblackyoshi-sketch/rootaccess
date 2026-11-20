@@ -323,10 +323,11 @@ export default {
       renderStage();
       const left = ctx.startedAt + TIME_LIMIT - now;
       ctx.setTimer(fmtTime(left), left < 30000 ? 'danger' : '');
-      if (left <= 0 && ctx.isHost()) {
+      const alone = ctx.players().length < 2;
+      if ((left <= 0 || alone) && ctx.isHost()) {
         const rows = ctx.players().sort((a, b) => score(b.s) - score(a.s));
         ctx.end(rows.map((p, i) => ({ id: p.id, name: p.name, color: p.color, place: i + 1, detail: `${score(p.s)} data (${p.s?.loot || 0} stolen)` })),
-          `${rows[0]?.name || 'Nobody'} controls the most data!`);
+          alone ? `Everyone else disconnected. ${rows[0]?.name || 'Nobody'} wins by default!` : `${rows[0]?.name || 'Nobody'} controls the most data!`);
       }
     });
 

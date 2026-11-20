@@ -109,6 +109,15 @@ export function startSession({ net, code, room, sfx, sendChat }) {
     }
     overlay.hidden = true;
     term.setEnabled(true);
+    // Host housekeeping: drop actions aimed at players who have left.
+    ctx.every(2000, () => {
+      if (!ctx.isHost()) return;
+      const changes = {};
+      for (const [key, a] of Object.entries(latest.actions || {})) {
+        if (a.to && !latest.players?.[a.to]) changes[`actions/${key}`] = null;
+      }
+      if (Object.keys(changes).length) ctx.update(changes);
+    });
     mounted = mode.mount(ctx) || {};
     mounted.onRoom?.(latest);
     term.focus();

@@ -85,6 +85,20 @@ export function buildHeist(seed) {
   return { model, lit, serial, doorCode, user, loginHint, password, display, nightCount, word, fs };
 }
 
+// If the infiltrator or analyst leaves, a lookout takes over their job.
+export function fillMissingRoles(crew) {
+  const roles = Object.fromEntries(crew.map((p) => [p.id, p.s?.role || 'lookout']));
+  const changes = {};
+  for (const needed of ['infiltrator', 'analyst']) {
+    if (Object.values(roles).includes(needed)) continue;
+    const spare = [...crew].reverse().find((p) => roles[p.id] === 'lookout');
+    if (!spare) continue;
+    roles[spare.id] = needed;
+    changes[`players/${spare.id}/s/role`] = needed;
+  }
+  return changes;
+}
+
 export default {
   id: 'heist',
   name: 'Co-op Heist',
@@ -102,20 +116,20 @@ export default {
   mount(ctx) {
     const P = buildHeist(ctx.seed);
     const { term, me } = ctx;
-    const role = ctx.myState().role || 'lookout';
-    const humans = playerList(ctx.room).filter((p) => !p.bot);
-    const lookoutDuty = role === 'lookout' || (role === 'analyst' && humans.length === 2);
+    const crew = () => playerList(ctx.room).filter((p) => !p.bot);
+    const myRole = () => ctx.myState().role || 'lookout';
+    // The analyst also watches the cameras when nobody is on lookout.
+    const dutyFor = (r) => r === 'lookout' || (r === 'analyst' && !crew().some((p) => p.s?.role === 'lookout'));
     const game = () => ctx.room.game || { stage: 0, alarm: ALARM_START };
     const stage = () => game().stage || 0;
 
-    const sh = new Shell(term, {
-      user: role,
-      host: { infiltrator: 'vault-floor', analyst: 'hq', lookout: 'cctv' }[role],
-      fs: role === 'analyst' ? P.fs : null,
-      cwd: '/',
-    });
-    sh.homeDir = '/';
-    ctx.addCommon(sh);
+    // Roles can change mid-game if someone leaves, so the shell is rebuilt then.
+    let role = myRole();
+    let lookoutDuty = dutyFor(role);
+    let sh = null;
+    let dialed = false;
+    let pending = null; // lookout camera event: { cam, code, deadline }
+    let nextEvent = ctx.now() + 8000;
 
     const alarm = (delta) => ctx.push('actions', { type: 'alarm', delta, from: me });
     const mistake = (text) => {
@@ -124,137 +138,149 @@ export default {
       alarm(MISTAKE);
     };
 
-    sh.register('status', {
-      help: 'show the team\'s progress',
-      run() {
-        const g = game();
-        sh.print(`ROLE: ${role.toUpperCase()}   STAGE: ${Math.min(stage() + 1, 3)}/3 ${STAGES[Math.min(stage(), 2)]}   ALARM: ${Math.round(g.alarm)}%`, 'hi');
-        for (const p of playerList(ctx.room).filter((x) => !x.bot)) sh.print(`  ${p.name}: ${p.s?.role || '?'}`, 'dim');
-      },
-    });
+    function buildShell() {
+      role = myRole();
+      lookoutDuty = dutyFor(role);
+      if (!lookoutDuty) pending = null;
+      sh = new Shell(term, {
+        user: role,
+        host: { infiltrator: 'vault-floor', analyst: 'hq', lookout: 'cctv' }[role],
+        fs: role === 'analyst' ? P.fs : null,
+        cwd: '/',
+      });
+      sh.homeDir = '/';
+      ctx.addCommon(sh);
 
-    // ---- Infiltrator ----
-    if (role === 'infiltrator') {
-      let dialed = false;
-      sh.register('inspect', {
-        help: 'look at the door, terminal or vault',
-        usage: 'inspect <door|terminal|vault>',
-        complete: (i) => (i === 0 ? ['door', 'terminal', 'vault'] : []),
-        run(args) {
-          const what = (args[0] || STAGES[stage()].toLowerCase()).toLowerCase();
-          if (what === 'door') {
-            if (stage() > 0) return sh.print('the door is already open.', 'dim');
-            sh.print('A heavy security door with a keypad.', 'hi');
-            sh.print(`  Keypad model:  ${P.model}`);
-            sh.print(`  Serial number: ${P.serial}`);
-            sh.print(`  Lights on:     ${P.lit.join(', ')}`);
-            sh.print('Tell the Analyst what you see. Then:  enter <code>', 'dim');
-          } else if (what === 'terminal' || what === 'login') {
-            if (stage() < 1) return sh.print('you can\'t reach the terminal yet. Open the door first.', 'err');
-            if (stage() > 1) return sh.print('the terminal is already unlocked.', 'dim');
-            sh.print('A locked workstation.', 'hi');
-            sh.print(`  User:          ${P.user}`);
-            sh.print(`  Password hint: ${P.loginHint}`);
-            sh.print('The Analyst has staff records. Then:  login <password>', 'dim');
-          } else if (what === 'vault') {
-            if (stage() < 2) return sh.print('you can\'t reach the vault yet.', 'err');
-            sh.print('The vault. A dial (0–25) and a scrambled display.', 'hi');
-            sh.print(`  Display: ${P.display}`);
-            sh.print('The Analyst knows the vault procedure. Then:  dial <number>   and   open <word>', 'dim');
-          } else {
-            sh.print('usage: inspect <door|terminal|vault>', 'warn');
-          }
-        },
-      });
-      sh.register('enter', {
-        help: 'type a code into the door keypad',
-        usage: 'enter <code>',
-        async run(args) {
-          if (stage() !== 0) return sh.print('there is no keypad here.', 'dim');
-          if (!args[0]) return sh.print('usage: enter <code>', 'warn');
-          await sh.progress('keypad', 600);
-          if (args[0] === P.doorCode) {
-            sh.print('*click* The door swings open. Next: inspect terminal', 'ok');
-            ctx.sfx.ok();
-            ctx.push('actions', { type: 'stage', stage: 1 });
-          } else mistake('BZZT. Wrong code.');
-        },
-      });
-      sh.register('login', {
-        help: 'log in to the workstation',
-        usage: 'login <password>',
-        async run(args) {
-          if (stage() !== 1) return sh.print('no login screen here.', 'dim');
-          if (!args[0]) return sh.print('usage: login <password>', 'warn');
-          await sh.progress('authenticating', 700);
-          if (args.join('').toLowerCase() === P.password.toLowerCase()) {
-            sh.print('Access granted. The vault room unlocks. Next: inspect vault', 'ok');
-            ctx.sfx.ok();
-            ctx.push('actions', { type: 'stage', stage: 2 });
-          } else mistake('ACCESS DENIED.');
-        },
-      });
-      sh.register('dial', {
-        help: 'turn the vault dial',
-        usage: 'dial <0-25>',
-        async run(args) {
-          if (stage() !== 2) return sh.print('there is no dial here.', 'dim');
-          const n = parseInt(args[0], 10);
-          if (Number.isNaN(n) || n < 0 || n > 25) return sh.print('usage: dial <0-25>', 'warn');
-          await sh.progress('turning dial', 600);
-          const shown = caesar(P.display, -n);
-          sh.print(`Display: ${shown}`, n === P.nightCount ? 'ok' : 'warn');
-          if (n === P.nightCount) {
-            dialed = true;
-            sh.print('That looks like a word! Now:  open <word>', 'dim');
-          } else {
-            sh.print('Still scrambled. A guard heard the dial click… (alarm +8)', 'err');
-            alarm(8);
-          }
-        },
-      });
-      sh.register('open', {
-        help: 'say the code word to open the vault',
-        usage: 'open <word>',
-        async run(args) {
-          if (stage() !== 2) return sh.print('nothing to open yet.', 'dim');
-          if (!args[0]) return sh.print('usage: open <word>', 'warn');
-          await sh.progress('voice check', 800);
-          if (args[0].toUpperCase() === P.word) {
-            sh.print('THE VAULT IS OPEN. 💰', 'banner');
-            ctx.push('actions', { type: 'stage', stage: 3 });
-          } else mistake(dialed ? 'Wrong word.' : 'Wrong word. (Did you dial first?)');
-        },
-      });
-    }
-
-    // ---- Lookout duty (lookout, or the analyst in a 2-player game) ----
-    let pending = null; // { cam, code, deadline }
-    let nextEvent = ctx.now() + 8000;
-    if (lookoutDuty) {
-      sh.register('loop', {
-        help: 'loop a camera feed so a guard isn\'t spotted',
-        usage: 'loop <code>',
-        run(args) {
-          if (!pending) return sh.print('no guard is near a camera right now.', 'dim');
-          if (args[0] === pending.code) {
-            sh.print(`CAM ${pending.cam} looped. The guard walks past. (alarm -12)`, 'ok');
-            ctx.sfx.ok();
-            alarm(-12);
-            pending = null;
-          } else mistake('Wrong code. The feed glitched.');
-        },
-      });
-      sh.register('cams', {
-        help: 'check the security cameras',
+      sh.register('status', {
+        help: 'show the team\'s progress',
         run() {
-          for (let c = 1; c <= 6; c++) {
-            const hot = pending && pending.cam === c;
-            sh.term.printParts([[`  CAM ${c}  `, 'dir'], [hot ? `GUARD APPROACHING. loop ${pending.code}` : 'clear', hot ? 'alert' : 'dim']]);
-          }
+          const g = game();
+          sh.print(`ROLE: ${role.toUpperCase()}   STAGE: ${Math.min(stage() + 1, 3)}/3 ${STAGES[Math.min(stage(), 2)]}   ALARM: ${Math.round(g.alarm)}%`, 'hi');
+          for (const p of playerList(ctx.room).filter((x) => !x.bot)) sh.print(`  ${p.name}: ${p.s?.role || '?'}`, 'dim');
         },
       });
+
+      // ---- Infiltrator ----
+      if (role === 'infiltrator') {
+        sh.register('inspect', {
+          help: 'look at the door, terminal or vault',
+          usage: 'inspect <door|terminal|vault>',
+          complete: (i) => (i === 0 ? ['door', 'terminal', 'vault'] : []),
+          run(args) {
+            const what = (args[0] || STAGES[stage()].toLowerCase()).toLowerCase();
+            if (what === 'door') {
+              if (stage() > 0) return sh.print('the door is already open.', 'dim');
+              sh.print('A heavy security door with a keypad.', 'hi');
+              sh.print(`  Keypad model:  ${P.model}`);
+              sh.print(`  Serial number: ${P.serial}`);
+              sh.print(`  Lights on:     ${P.lit.join(', ')}`);
+              sh.print('Tell the Analyst what you see. Then:  enter <code>', 'dim');
+            } else if (what === 'terminal' || what === 'login') {
+              if (stage() < 1) return sh.print('you can\'t reach the terminal yet. Open the door first.', 'err');
+              if (stage() > 1) return sh.print('the terminal is already unlocked.', 'dim');
+              sh.print('A locked workstation.', 'hi');
+              sh.print(`  User:          ${P.user}`);
+              sh.print(`  Password hint: ${P.loginHint}`);
+              sh.print('The Analyst has staff records. Then:  login <password>', 'dim');
+            } else if (what === 'vault') {
+              if (stage() < 2) return sh.print('you can\'t reach the vault yet.', 'err');
+              sh.print('The vault. A dial (0–25) and a scrambled display.', 'hi');
+              sh.print(`  Display: ${P.display}`);
+              sh.print('The Analyst knows the vault procedure. Then:  dial <number>   and   open <word>', 'dim');
+            } else {
+              sh.print('usage: inspect <door|terminal|vault>', 'warn');
+            }
+          },
+        });
+        sh.register('enter', {
+          help: 'type a code into the door keypad',
+          usage: 'enter <code>',
+          async run(args) {
+            if (stage() !== 0) return sh.print('there is no keypad here.', 'dim');
+            if (!args[0]) return sh.print('usage: enter <code>', 'warn');
+            await sh.progress('keypad', 600);
+            if (args[0] === P.doorCode) {
+              sh.print('*click* The door swings open. Next: inspect terminal', 'ok');
+              ctx.sfx.ok();
+              ctx.push('actions', { type: 'stage', stage: 1 });
+            } else mistake('BZZT. Wrong code.');
+          },
+        });
+        sh.register('login', {
+          help: 'log in to the workstation',
+          usage: 'login <password>',
+          async run(args) {
+            if (stage() !== 1) return sh.print('no login screen here.', 'dim');
+            if (!args[0]) return sh.print('usage: login <password>', 'warn');
+            await sh.progress('authenticating', 700);
+            if (args.join('').toLowerCase() === P.password.toLowerCase()) {
+              sh.print('Access granted. The vault room unlocks. Next: inspect vault', 'ok');
+              ctx.sfx.ok();
+              ctx.push('actions', { type: 'stage', stage: 2 });
+            } else mistake('ACCESS DENIED.');
+          },
+        });
+        sh.register('dial', {
+          help: 'turn the vault dial',
+          usage: 'dial <0-25>',
+          async run(args) {
+            if (stage() !== 2) return sh.print('there is no dial here.', 'dim');
+            const n = parseInt(args[0], 10);
+            if (Number.isNaN(n) || n < 0 || n > 25) return sh.print('usage: dial <0-25>', 'warn');
+            await sh.progress('turning dial', 600);
+            const shown = caesar(P.display, -n);
+            sh.print(`Display: ${shown}`, n === P.nightCount ? 'ok' : 'warn');
+            if (n === P.nightCount) {
+              dialed = true;
+              sh.print('That looks like a word! Now:  open <word>', 'dim');
+            } else {
+              sh.print('Still scrambled. A guard heard the dial click… (alarm +8)', 'err');
+              alarm(8);
+            }
+          },
+        });
+        sh.register('open', {
+          help: 'say the code word to open the vault',
+          usage: 'open <word>',
+          async run(args) {
+            if (stage() !== 2) return sh.print('nothing to open yet.', 'dim');
+            if (!args[0]) return sh.print('usage: open <word>', 'warn');
+            await sh.progress('voice check', 800);
+            if (args[0].toUpperCase() === P.word) {
+              sh.print('THE VAULT IS OPEN. 💰', 'banner');
+              ctx.push('actions', { type: 'stage', stage: 3 });
+            } else mistake(dialed ? 'Wrong word.' : 'Wrong word. (Did you dial first?)');
+          },
+        });
+      }
+
+      // ---- Lookout duty (lookout, or the analyst when there's no lookout) ----
+      if (lookoutDuty) {
+        sh.register('loop', {
+          help: 'loop a camera feed so a guard isn\'t spotted',
+          usage: 'loop <code>',
+          run(args) {
+            if (!pending) return sh.print('no guard is near a camera right now.', 'dim');
+            if (args[0] === pending.code) {
+              sh.print(`CAM ${pending.cam} looped. The guard walks past. (alarm -12)`, 'ok');
+              ctx.sfx.ok();
+              alarm(-12);
+              pending = null;
+            } else mistake('Wrong code. The feed glitched.');
+          },
+        });
+        sh.register('cams', {
+          help: 'check the security cameras',
+          run() {
+            for (let c = 1; c <= 6; c++) {
+              const hot = pending && pending.cam === c;
+              sh.term.printParts([[`  CAM ${c}  `, 'dir'], [hot ? `GUARD APPROACHING. loop ${pending.code}` : 'clear', hot ? 'alert' : 'dim']]);
+            }
+          },
+        });
+      }
     }
+    buildShell();
 
     function lookoutTick() {
       if (!lookoutDuty || game().outcome) return;
@@ -332,21 +358,24 @@ export default {
       alarmVal = Math.max(0, Math.min(100, alarmVal));
       changes['game/alarm'] = Math.round(alarmVal * 10) / 10;
       changes['game/stage'] = st;
+      Object.assign(changes, fillMissingRoles(crew()));
       const elapsed = now - ctx.startedAt;
       let outcome = null;
-      if (st >= 3) outcome = 'win';
+      if (crew().length < 2) outcome = 'abandoned';
+      else if (st >= 3) outcome = 'win';
       else if (alarmVal >= 100) outcome = 'alarm';
       else if (elapsed >= TIME_LIMIT) outcome = 'time';
       if (outcome) {
         changes['game/outcome'] = outcome;
         ctx.update(changes);
-        const crew = playerList(ctx.room).filter((p) => !p.bot);
+        const members = crew();
         const summary = {
           win: `HEIST COMPLETE! Vault cracked in ${fmtTime(elapsed)} with the alarm at ${Math.round(alarmVal)}%.`,
           alarm: `BUSTED! The alarm went off at stage ${st + 1} (${STAGES[Math.min(st, 2)]}).`,
           time: `OUT OF TIME! The crew reached stage ${st + 1} (${STAGES[Math.min(st, 2)]}).`,
+          abandoned: 'HEIST CALLED OFF. Not enough crew left to finish the job.',
         }[outcome];
-        ctx.end(crew.map((p) => ({ id: p.id, name: p.name, color: p.color, place: 0, detail: (p.s?.role || '').toUpperCase() })), summary, outcome === 'win');
+        ctx.end(members.map((p) => ({ id: p.id, name: p.name, color: p.color, place: 0, detail: (p.s?.role || '').toUpperCase() })), summary, outcome === 'win');
       } else {
         ctx.update(changes);
       }
@@ -361,16 +390,26 @@ export default {
     });
 
     // ---- Intro ----
-    term.print(`CO-OP HEIST. Your role: ${role.toUpperCase()}${lookoutDuty && role !== 'lookout' ? ' (+ lookout duty)' : ''}`, 'banner');
-    term.print(ROLE_INFO[role]);
-    if (lookoutDuty && role !== 'lookout') term.print(ROLE_INFO.lookout, 'dim');
-    term.print('Use the COMMS chat on the right (or "say <msg>") to talk. Type "help" for your commands.', 'dim');
-    if (role === 'infiltrator') term.print('Start with:  inspect door', 'hi');
-    if (role === 'analyst') term.print('Start with:  ls   and   cat readme.txt', 'hi');
+    function printRole(changed) {
+      const extra = lookoutDuty && role !== 'lookout' ? ' (+ lookout duty)' : '';
+      term.print('');
+      term.print(changed ? `>> CREW CHANGE. Your role is now: ${role.toUpperCase()}${extra}` : `CO-OP HEIST. Your role: ${role.toUpperCase()}${extra}`, 'banner');
+      term.print(ROLE_INFO[role]);
+      if (lookoutDuty && role !== 'lookout') term.print(ROLE_INFO.lookout, 'dim');
+      if (!changed) term.print('Use the COMMS chat on the right (or "say <msg>") to talk. Type "help" for your commands.', 'dim');
+      if (role === 'infiltrator') term.print(`Start with:  inspect ${STAGES[Math.min(stage(), 2)].toLowerCase()}`, 'hi');
+      if (role === 'analyst') term.print('Start with:  ls   and   cat readme.txt', 'hi');
+    }
+    printRole(false);
 
     let lastStage = stage();
     return {
       onRoom() {
+        if (myRole() !== role || dutyFor(myRole()) !== lookoutDuty) {
+          buildShell();
+          printRole(true);
+          ctx.sfx.alert();
+        }
         renderSide();
         renderStage();
         if (stage() !== lastStage) {

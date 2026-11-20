@@ -344,14 +344,46 @@ await step('heist', async () => {
 });
 
 // ---------------------------------------------------------------------------
-await step('host leaves', async () => {
+await step('host leaves mid-heist', async () => {
+  // Alice is host AND infiltrator. She leaves in the middle of a heist.
+  await readyAndStart();
+  const myRole = `window.__ra.state.room.players[window.__ra.state.net.uid].s.role`;
+  check('host leaves: alice starts as infiltrator', (await A.eval(myRole)) === 'infiltrator');
   const hostBefore = (await B.room()).hostId;
   await A.close();
   await B.waitFor(`Object.keys(window.__ra.state.room.players).length === 2`, 15000, 'alice removed');
   await B.waitFor(`window.__ra.state.room.hostId === window.__ra.state.net.uid`, 5000, 'bob becomes host');
-  await C.waitFor(`Object.keys(window.__ra.state.room.players).length === 2`);
   check('host leaves: player removed and next player becomes host', hostBefore !== (await B.room()).hostId);
+  check('host leaves: game keeps going', (await B.room()).status === 'playing');
+  // Carol (lookout) takes over as infiltrator; Bob (analyst) picks up lookout duty.
+  await C.waitFor(`${myRole} === 'infiltrator'`, 5000, 'carol becomes infiltrator');
+  await waitTerm(C, 'CREW CHANGE');
+  await C.cmd('inspect door');
+  await waitTerm(C, 'Keypad model');
+  await waitTerm(B, 'lookout duty');
+  await B.cmd('cams');
+  await waitTerm(B, 'CAM 6');
+  await C.shot('10b-heist-role-change.png');
+  check('host leaves: roles are reassigned so the heist can continue', true);
+  await B.eval(`window.confirm = () => true`);
+  await B.click('#gameAbort');
+  for (const t of [B, C]) await t.waitFor(`document.body.dataset.screen === 'lobby'`);
   await B.waitFor(`!!document.getElementById('startBtn')`);
+});
+
+await step('solo survivor', async () => {
+  // Hack & Defend ends when only one player is left.
+  await B.click('.mode-card:nth-child(3)');
+  await C.waitFor(`window.__ra.state.room.mode === 'defend'`);
+  await C.click('#readyBtn');
+  await B.waitFor(`!document.getElementById('startBtn').disabled`);
+  await B.click('#startBtn');
+  await C.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden`, 8000);
+  await C.eval(`window.confirm = () => true`);
+  await C.click('#gameLeave');
+  await B.waitFor(`document.body.dataset.screen === 'results'`, 10000, 'results after everyone else left');
+  const summary = await B.eval(`document.getElementById('resultsSummary').innerText`);
+  check('solo survivor: game ends when everyone else leaves', summary.includes('wins by default'), summary);
 });
 
 // ---------------------------------------------------------------------------

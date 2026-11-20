@@ -6,7 +6,7 @@ import { makeRng, caesar, b64encode, b64decode, reverse } from '../src/rng.js';
 import { Shell } from '../src/commands.js';
 import { setPath } from '../src/net/shared.js';
 import { buildRace, pinFeedback } from '../src/modes/race.js';
-import { buildHeist } from '../src/modes/heist.js';
+import { buildHeist, fillMissingRoles } from '../src/modes/heist.js';
 import { SNIPPETS } from '../src/modes/duel.js';
 import { score, startNodes, breachTime } from '../src/modes/defend.js';
 
@@ -103,6 +103,18 @@ test('heist puzzles are always solvable from the analyst files', () => {
     assert.equal(nights, P.nightCount, `seed ${seed}`);
     assert.equal(caesar(P.display, -nights), P.word);
   }
+});
+
+test('heist: a lookout fills in when a key role leaves', () => {
+  const p = (id, role) => ({ id, s: { role } });
+  // Full crew: nothing to change.
+  assert.deepEqual(fillMissingRoles([p('a', 'infiltrator'), p('b', 'analyst'), p('c', 'lookout')]), {});
+  // Infiltrator left: the lookout steps in.
+  assert.deepEqual(fillMissingRoles([p('b', 'analyst'), p('c', 'lookout')]), { 'players/c/s/role': 'infiltrator' });
+  // Analyst left with two lookouts: the latest-joined lookout takes it.
+  assert.deepEqual(fillMissingRoles([p('a', 'infiltrator'), p('c', 'lookout'), p('d', 'lookout')]), { 'players/d/s/role': 'analyst' });
+  // Both key roles gone: two lookouts cover both.
+  assert.deepEqual(fillMissingRoles([p('c', 'lookout'), p('d', 'lookout')]), { 'players/d/s/role': 'infiltrator', 'players/c/s/role': 'analyst' });
 });
 
 test('shell: ls, cd, cat, grep and tab completion', () => {

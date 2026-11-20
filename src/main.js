@@ -146,6 +146,7 @@ async function join() {
   const net = roomNet();
   const room = await net.getRoom(code);
   if (!room || !room.players) return menuMessage(`No room called ${code}. Check the code${net.kind === 'local' ? ' (local mode only sees rooms in this browser)' : ''}.`);
+  if (room.kicked?.[net.uid]) return menuMessage('The host removed you from that room.');
   if (room.status !== 'lobby') return menuMessage('That game has already started. Ask the host to go back to the lobby.');
   if (Object.keys(room.players).length >= 8) return menuMessage('That room is full (8 players).');
   await net.joinRoom(code, makePlayer(net, room));
@@ -254,7 +255,7 @@ function onRoom(room) {
   if (!state.net) return;
   const me = state.net.uid;
   if (!room || !room.players || !room.players[me]) {
-    leaveRoom(room ? 'You left the room.' : 'The room was closed.');
+    leaveRoom(!room ? 'The room was closed.' : room.kicked?.[me] ? 'The host removed you from the room.' : 'You left the room.');
     return;
   }
   state.room = room;

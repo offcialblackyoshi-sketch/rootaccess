@@ -12,6 +12,8 @@ import { SNIPPETS, duelStatsText } from '../src/modes/duel.js';
 import { score, startNodes, breachTime, defendStatsText } from '../src/modes/defend.js';
 import { botParams, BOT_LEVELS } from '../src/bots.js';
 import { normalizeSettings, defaultSettings } from '../src/settings.js';
+import { roundTime, fmtTime } from '../src/util.js';
+import { MODES } from '../src/modes/index.js';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 7919 + 13);
 
@@ -267,6 +269,14 @@ test('display settings: bad saves fall back to defaults', () => {
   assert.deepEqual(normalizeSettings({ textSize: 'large', scanlines: false }), { ...defaultSettings(), textSize: 'large', scanlines: false });
   // The system's reduced-motion preference turns off motion and scanlines by default.
   assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false });
+});
+
+test('round length scales each mode timer to whole half-minutes', () => {
+  const t = (mode, len) => fmtTime(roundTime(MODES[mode], len));
+  assert.deepEqual(['short', 'normal', 'long'].map((l) => t('race', l)), ['7:00', '12:00', '19:00']);
+  assert.deepEqual(['short', 'normal', 'long'].map((l) => t('defend', l)), ['3:00', '5:00', '8:00']);
+  assert.equal(t('duel', undefined), '4:00', 'missing setting = normal');
+  assert.equal(roundTime(MODES.tutorial, 'long'), 0, 'tutorial has no timer');
 });
 
 test('duel snippets and defend scoring', () => {

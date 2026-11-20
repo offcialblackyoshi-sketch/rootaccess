@@ -1,6 +1,6 @@
 // Lobby screen: player list, mode picker, ready/start, bots.
 import { MODES, MODE_ORDER } from './modes/index.js';
-import { el, playerList, COLORS, BOT_NAMES } from './util.js';
+import { el, playerList, COLORS, BOT_NAMES, ROUND_LENGTHS, roundTime, fmtTime } from './util.js';
 import { randomSeed } from './rng.js';
 import { BOT_LEVELS } from './bots.js';
 
@@ -32,8 +32,17 @@ export function renderLobby({ room, net, code, onLeave }) {
     if (p.bot) tags.push(el('span', { class: 'tag' }, 'BOT'));
     else if (p.id !== room.hostId) tags.push(el('span', { class: 'tag ' + (p.ready ? 'ready' : 'wait') }, p.ready ? 'READY' : 'NOT READY'));
     if (p.id === me) tags.push(el('span', { class: 'tag you' }, 'YOU'));
-    const remove = isHost && p.bot
-      ? el('button', { class: 'mini', title: 'Remove bot', 'aria-label': `Remove ${p.name}`, onclick: () => net.update(code, { [`players/${p.id}`]: null }) }, '✕')
+    // The host can remove bots, and kick other players (they can't rejoin this room).
+    const remove = isHost && p.id !== me
+      ? el('button', {
+        class: 'mini kick',
+        title: p.bot ? 'Remove bot' : 'Kick player',
+        'aria-label': `${p.bot ? 'Remove' : 'Kick'} ${p.name}`,
+        onclick: () => {
+          if (p.bot) return net.update(code, { [`players/${p.id}`]: null });
+          if (confirm(`Kick ${p.name} from the room?`)) net.update(code, { [`players/${p.id}`]: null, [`kicked/${p.id}`]: true });
+        },
+      }, '✕')
       : null;
     list.append(el('li', {}, el('span', { class: 'dot', style: { background: p.color } }), el('span', { class: 'pname' }, p.name), ...tags, remove));
   }
@@ -86,10 +95,24 @@ export function renderLobby({ room, net, code, onLeave }) {
   }
   actions.append(el('button', { id: 'leaveBtn', onclick: onLeave }, 'Leave'));
 
+  // Round length (for modes with a timer).
+  if (mode.timeLimit) {
+    const len = room.roundLength || 'normal';
+    actions.append(el('div', { class: 'option-row', role: 'group', 'aria-label': 'Round length' },
+      el('span', { class: 'dim' }, 'Round:'),
+      ...Object.keys(ROUND_LENGTHS).map((l) => el('button', {
+        class: 'mini-btn' + (l === len ? ' selected' : ''),
+        'data-length': l,
+        'aria-pressed': l === len ? 'true' : 'false',
+        disabled: !isHost && l !== len,
+        onclick: () => isHost && l !== len && net.update(code, { roundLength: l }),
+      }, `${l} ${fmtTime(roundTime(mode, l))}`))));
+  }
+
   // Bot difficulty (only matters when there are bots).
   if (mode.bots && bots.length) {
     const level = room.botLevel || 'normal';
-    actions.append(el('div', { class: 'bot-level', role: 'group', 'aria-label': 'Bot difficulty' },
+    actions.append(el('div', { class: 'option-row', role: 'group', 'aria-label': 'Bot difficulty' },
       el('span', { class: 'dim' }, 'Bots:'),
       ...BOT_LEVELS.map((l) => el('button', {
         class: 'mini-btn' + (l === level ? ' selected' : ''),

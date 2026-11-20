@@ -140,6 +140,7 @@ export default {
   min: 2,
   max: 4,
   bots: false,
+  timeLimit: TIME_LIMIT,
   blurb: 'Team up! Each player sees different clues. Talk in chat to crack the door, the login and the vault before the alarm.',
 
   setup({ players }) {
@@ -405,7 +406,7 @@ export default {
       if (crew().length < 2) outcome = 'abandoned';
       else if (st >= 3) outcome = 'win';
       else if (alarmVal >= 100) outcome = 'alarm';
-      else if (elapsed >= TIME_LIMIT) outcome = 'time';
+      else if (elapsed >= ctx.timeLimit) outcome = 'time';
       if (outcome) {
         changes['game/outcome'] = outcome;
         ctx.update(changes);
@@ -426,7 +427,7 @@ export default {
     ctx.every(250, () => {
       lookoutTick();
       renderStage();
-      const left = ctx.startedAt + TIME_LIMIT - ctx.now();
+      const left = ctx.startedAt + ctx.timeLimit - ctx.now();
       ctx.setTimer(fmtTime(left), left < 60000 ? 'danger' : '');
     });
 

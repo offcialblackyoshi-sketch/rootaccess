@@ -220,6 +220,7 @@ export default {
   min: 1,
   max: 8,
   bots: true,
+  timeLimit: TIME_LIMIT,
   blurb: 'Everyone hacks the same server. Find passwords, decrypt files, crack the PIN. First to root wins.',
 
   setup({ players }) {
@@ -485,7 +486,7 @@ export default {
     // ---- Host: bots, timer and finish ----
     const botNext = {};
     ctx.every(500, () => {
-      const left = ctx.startedAt + TIME_LIMIT - ctx.now();
+      const left = ctx.startedAt + ctx.timeLimit - ctx.now();
       ctx.setTimer(fmtTime(left), left < 60000 ? 'danger' : '');
       if (!ctx.isHost()) return;
       const now = ctx.now();

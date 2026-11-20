@@ -12,7 +12,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 6. [x] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
 7. [x] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
 8. [x] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
-9. [ ] **Host tools:** kick a player, and choose the round length in the lobby.
+9. [x] **Host tools:** kick a player, and choose the round length in the lobby.
 10. [ ] **Sound polish:** optional key-click sounds, a countdown beep, and distinct alert sounds per mode.
 11. [ ] **Duel power-ups:** occasional "bonus" snippets that repair your firewall or shield you.
 12. [ ] **Rejoining after a reload:** you keep your seat if you refresh during the lobby.
@@ -78,3 +78,9 @@ Each player on the Mission Report now has a stats line under their name:
 - Settings are saved on the device and applied before anything draws. If the system asks for reduced motion, that and "no scanlines" are the defaults. Broken or old saved settings fall back to defaults.
 - The header made room for the extra corner button. All settings code is in a new `src/settings.js`, which is cached for offline play.
 - **Verified:** a unit test covers defaults, invalid saves, and the system reduced-motion preference. End-to-end checks open the dialog, turn off scanlines, pick extra-large text and high contrast, reload, and confirm all three stuck. They also check there's no sideways scrolling at extra-large text. 17/17 unit tests and 45/45 end-to-end checks pass, and I reviewed screenshots of the dialog, the extra-large menu, and the in-game header.
+
+### 9. Host tools: kick players and pick round length
+- **Kick:** in the lobby, the host now has ✕ next to every other player (bots already had it), with a confirmation. A kicked player goes back to the menu and sees "The host removed you from the room." Trying to rejoin with the code is refused. This is also enforced in `database.rules.json` for online rooms, so re-paste the rules when you set up Firebase.
+- **Round length:** the lobby shows **Round: short / normal / long** with the actual time for the chosen mode, for example Hack & Defend 3:00 / 5:00 / 8:00, or Race 7:00 / 12:00 / 19:00. Times are rounded to whole half-minutes. Every mode's timer now follows this setting.
+- Descriptions that said "5 minutes" for Hack & Defend now say "when time runs out".
+- **Verified:** a unit test covers the round times for each mode. New end-to-end checks have a 4th player join, get kicked, get the message, and fail to rejoin, and a "short" Hack & Defend starting at 3:00. This also caught my own test bug: the new row reused the difficulty row's CSS class, which confused the bot-difficulty check. Both rows now share a generic `option-row` class, and the tests target the buttons by data attribute. 18/18 unit tests and 47/47 end-to-end checks pass, and I reviewed both lobby screenshots.

@@ -38,6 +38,7 @@ export default {
   min: 2,
   max: 8,
   bots: true,
+  timeLimit: TIME_LIMIT,
   blurb: 'Type hacker commands fast and exactly to blast other players\' firewalls. Last one standing wins.',
 
   setup({ players }) {
@@ -197,7 +198,7 @@ export default {
     // ---- Host: bots, timer, finish ----
     const bots = {};
     ctx.every(250, () => {
-      const left = ctx.startedAt + TIME_LIMIT - ctx.now();
+      const left = ctx.startedAt + ctx.timeLimit - ctx.now();
       ctx.setTimer(fmtTime(left), left < 30000 ? 'danger' : '');
       processHits();
       if (!ctx.isHost()) return;

@@ -3,7 +3,7 @@
 
 import { Terminal } from './terminal.js';
 import { MODES } from './modes/index.js';
-import { playerList } from './util.js';
+import { playerList, roundTime } from './util.js';
 
 export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
   const mode = MODES[room.mode];
@@ -35,6 +35,7 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
     get seed() { return latest.seed; },
     get startedAt() { return latest.startedAt; },
     get destroyed() { return destroyed; },
+    timeLimit: roundTime(mode, room.roundLength),
     players: () => playerList(latest),
     player: (id) => latest.players?.[id],
     myState: () => latest.players?.[me]?.s || {},

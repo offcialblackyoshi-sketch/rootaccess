@@ -42,7 +42,8 @@ export default {
   min: 2,
   max: 6,
   bots: true,
-  blurb: 'Guard your 3 servers while breaching everyone else\'s. Steal the most data in 5 minutes.',
+  timeLimit: TIME_LIMIT,
+  blurb: 'Guard your 3 servers while breaching everyone else\'s. Steal the most data before time runs out.',
 
   setup({ players }) {
     const out = {};
@@ -337,7 +338,7 @@ export default {
       processActions();
       if (ctx.isHost() && ++botTick % 4 === 0) runBots();
       renderStage();
-      const left = ctx.startedAt + TIME_LIMIT - now;
+      const left = ctx.startedAt + ctx.timeLimit - now;
       ctx.setTimer(fmtTime(left), left < 30000 ? 'danger' : '');
       const alone = ctx.players().length < 2;
       if ((left <= 0 || alone) && ctx.isHost()) {

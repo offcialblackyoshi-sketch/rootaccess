@@ -162,6 +162,25 @@ await step('chat', async () => {
   check('chat reaches everyone', true);
 });
 
+await step('kick', async () => {
+  const E = await openTab('E');
+  await E.goto(URL_BASE);
+  await E.eval(`document.getElementById('nameInput').value = 'mallory'`);
+  await E.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await E.click('#joinBtn');
+  await A.waitFor(`Object.keys(window.__ra.state.room.players).length === 4`, 5000, 'mallory joined');
+  await A.eval(`window.confirm = () => true`);
+  const id = await E.eval('window.__ra.state.net.uid');
+  await A.click(`#lobbyPlayers li:nth-child(4) .kick`);
+  await E.waitFor(`document.body.dataset.screen === 'menu'`, 5000, 'mallory sent to menu');
+  const msg = await E.eval(`document.getElementById('menuMsg').innerText`);
+  await E.click('#joinBtn');
+  await E.waitFor(`document.getElementById('menuMsg').innerText.includes('removed you from that room')`, 5000, 'rejoin blocked');
+  check('kick: host removes a player, who is told and cannot rejoin', msg.includes('removed you') && !(await A.room()).players[id], msg);
+  await E.close();
+  await A.waitFor(`Object.keys(window.__ra.state.room.players).length === 3`);
+});
+
 async function readyAndStart() {
   for (const t of [B, C]) {
     await t.waitFor(`!!document.getElementById('readyBtn')`);
@@ -270,7 +289,12 @@ await step('duel', async () => {
 await step('defend', async () => {
   await A.click('.mode-card:nth-child(3)');
   await B.waitFor(`window.__ra.state.room.mode === 'defend'`);
+  await A.click('[data-length="short"]');
+  await B.waitFor(`window.__ra.state.room.roundLength === 'short' && document.querySelector('[data-length].selected').dataset.length === 'short'`, 5000, 'short round selected');
+  await A.shot('05b-lobby-round-length.png');
   await readyAndStart();
+  const timer = await A.eval(`document.getElementById('gameTimer').textContent`);
+  check('round length: short makes Hack & Defend 3 minutes', /^(3:00|2:5d)$/.test(timer), timer);
   await A.cmd('status');
   await waitTerm(A, 'score: 360');
   await A.cmd('scan bob');
@@ -432,8 +456,8 @@ await step('practice', async () => {
   await D.waitFor(`document.body.dataset.screen === 'lobby'`);
   const n = await D.eval(`Object.keys(window.__ra.state.room.players).length`);
   check('practice: bots start on easy', (await D.eval(`window.__ra.state.room.botLevel`)) === 'easy');
-  await D.click('.bot-level [data-level="hard"]');
-  await D.waitFor(`window.__ra.state.room.botLevel === 'hard' && document.querySelector('.bot-level .selected').dataset.level === 'hard'`, 5000, 'hard selected');
+  await D.click('[data-level="hard"]');
+  await D.waitFor(`window.__ra.state.room.botLevel === 'hard' && document.querySelector('[data-level].selected').dataset.level === 'hard'`, 5000, 'hard selected');
   await D.shot('11a-practice-lobby.png');
   check('practice: host can switch bots to hard', true);
   check('practice: heist (humans only) is disabled', await D.eval(`document.querySelector('.mode-card:nth-child(4)').disabled`));

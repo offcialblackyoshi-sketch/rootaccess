@@ -455,6 +455,8 @@ await step('practice', async () => {
   await D.click('#practiceBtn');
   await D.waitFor(`document.body.dataset.screen === 'lobby'`);
   const n = await D.eval(`Object.keys(window.__ra.state.room.players).length`);
+  const pColors = Object.values((await D.room()).players).map((p) => p.color);
+  check('practice: bots never share your color', new Set(pColors).size === pColors.length, pColors.join(' '));
   check('practice: bots start on easy', (await D.eval(`window.__ra.state.room.botLevel`)) === 'easy');
   await D.click('[data-level="hard"]');
   await D.waitFor(`window.__ra.state.room.botLevel === 'hard' && document.querySelector('[data-level].selected').dataset.level === 'hard'`, 5000, 'hard selected');
@@ -465,6 +467,8 @@ await step('practice', async () => {
   await D.waitFor(`window.__ra.state.room.mode === 'duel'`);
   await D.click('#startBtn');
   await D.waitFor(`document.getElementById('countdown').hidden && document.body.dataset.screen === 'game'`, 8000);
+  const played = await D.eval('({ ...window.__ra.sfx.played })');
+  check('sound: countdown beeps then a "go" sound', (played.tick || 0) >= 2 && played.go >= 1, JSON.stringify(played));
   await D.waitFor(`(window.__ra.state.room.players[window.__ra.state.net.uid].s.hp ?? 100) < 100`, 30000, 'bots attack');
   check('practice: bots play duel against you', n === 3);
   await D.shot('11-practice-duel.png');
@@ -484,6 +488,17 @@ await step('keyboard', async () => {
   await D.press('l', 'KeyL', 76, 2);
   check('keyboard: Ctrl+L clears the screen', (await D.eval(`document.querySelector('#term .term-out').childElementCount`)) === 0);
   await D.shot('11c-keys-hint.png');
+  // Turn on key click sounds in settings, then type.
+  await D.click('#settingsBtn');
+  await D.click('#settingsDialog input[name=keyClicks]');
+  await D.shot('13b-settings-sound.png');
+  await D.click('#settingsClose');
+  await D.eval(`document.querySelector('#term input').focus()`);
+  const before = await D.eval('window.__ra.sfx.played.key || 0');
+  await D.press('a', 'KeyA', 65);
+  await D.press('b', 'KeyB', 66);
+  check('sound: key clicks play when turned on', (await D.eval('window.__ra.sfx.played.key || 0')) >= before + 2);
+  await D.eval(`localStorage.removeItem('ra-settings')`);
 });
 
 // ---------------------------------------------------------------------------

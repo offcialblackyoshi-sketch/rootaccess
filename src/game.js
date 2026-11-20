@@ -4,6 +4,8 @@
 import { Terminal } from './terminal.js';
 import { MODES } from './modes/index.js';
 import { playerList, roundTime } from './util.js';
+import { secondsCrossed } from './sfx.js';
+import { getSettings } from './settings.js';
 
 export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
   const mode = MODES[room.mode];
@@ -22,6 +24,9 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
 
   const term = new Terminal($('term'));
   term.onEscape = focusChat; // Esc jumps to chat, Esc again comes back
+  term.input.addEventListener('keydown', (e) => {
+    if (e.key.length === 1 && !e.ctrlKey && getSettings().keyClicks) sfx.key();
+  });
   let latest = room;
   let mounted = null;
   let ended = false;
@@ -99,9 +104,12 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
   // Color player names in terminal output.
   term.root.style.setProperty('--me', latest.players?.[me]?.color || '#33ff66');
 
+  let lastCountdown = Infinity;
   function tryMount() {
     if (destroyed || mounted) return;
     const left = latest.startedAt - net.now();
+    if (lastCountdown !== Infinity && secondsCrossed(lastCountdown, left, 3).length) sfx.tick();
+    lastCountdown = left;
     if (left > 0) {
       overlay.hidden = false;
       overlay.textContent = String(Math.ceil(left / 1000));
@@ -111,6 +119,15 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
     }
     overlay.hidden = true;
     term.setEnabled(true);
+    sfx.go();
+    // Tick during the last 10 seconds of the round.
+    let lastLeft = Infinity;
+    ctx.every(250, () => {
+      if (!ctx.timeLimit) return;
+      const left = latest.startedAt + ctx.timeLimit - net.now();
+      if (lastLeft !== Infinity && secondsCrossed(lastLeft, left, 10).length) sfx.tick();
+      lastLeft = left;
+    });
     // Host housekeeping: drop actions aimed at players who have left.
     ctx.every(2000, () => {
       if (!ctx.isHost()) return;

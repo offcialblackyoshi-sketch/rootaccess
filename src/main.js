@@ -9,9 +9,9 @@ import { sfx } from './sfx.js';
 import { el, load, save, playerList, COLORS } from './util.js';
 import { initSettingsDialog } from './settings.js';
 
-initSettingsDialog();
-
 const $ = (id) => document.getElementById(id);
+
+initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); } });
 
 const state = {
   net: null,
@@ -163,10 +163,13 @@ $('codeInput').addEventListener('input', (e) => {
 function practiceRoom(net, mode) {
   const now = net.now();
   const room = { hostId: net.uid, mode, status: 'lobby', createdAt: now, round: 0, practice: true, botLevel: 'easy' };
+  const me = { ...makePlayer(net, room), ready: true };
+  // Bots get colors different from yours.
+  const [c1, c2] = COLORS.filter((c) => c !== me.color);
   room.players = {
-    [net.uid]: { ...makePlayer(net, room), ready: true },
-    'bot-a': { name: 'n3m0', color: '#ff4dd2', bot: true, ready: true, joinedAt: now + 1 },
-    'bot-b': { name: 'gh0st', color: '#4dd9ff', bot: true, ready: true, joinedAt: now + 2 },
+    [net.uid]: me,
+    'bot-a': { name: 'n3m0', color: c1, bot: true, ready: true, joinedAt: now + 1 },
+    'bot-b': { name: 'gh0st', color: c2, bot: true, ready: true, joinedAt: now + 2 },
   };
   return room;
 }
@@ -398,4 +401,4 @@ if ('serviceWorker' in navigator) {
 }
 
 // Exposed for automated tests.
-window.__ra = { state };
+window.__ra = { state, sfx };

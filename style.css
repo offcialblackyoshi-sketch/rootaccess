@@ -328,6 +328,8 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .settings-form legend { color: var(--dim); padding: 0 6px; }
 .settings-form label { cursor: pointer; }
 .settings-form input { accent-color: var(--green); }
+.settings-form .volume { display: flex; align-items: center; gap: 10px; flex: 1; }
+.settings-form .volume input { flex: 1; }
 
 /* ---------------- Small screens ---------------- */
 @media (max-width: 900px) {

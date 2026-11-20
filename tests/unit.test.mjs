@@ -12,6 +12,7 @@ import { SNIPPETS, duelStatsText } from '../src/modes/duel.js';
 import { score, startNodes, breachTime, defendStatsText } from '../src/modes/defend.js';
 import { botParams, BOT_LEVELS } from '../src/bots.js';
 import { normalizeSettings, defaultSettings } from '../src/settings.js';
+import { secondsCrossed } from '../src/sfx.js';
 import { roundTime, fmtTime } from '../src/util.js';
 import { MODES } from '../src/modes/index.js';
 
@@ -267,8 +268,11 @@ test('display settings: bad saves fall back to defaults', () => {
   assert.deepEqual(normalizeSettings('garbage'), defaultSettings());
   assert.deepEqual(normalizeSettings({ textSize: 'huge', scanlines: 'no' }), defaultSettings());
   assert.deepEqual(normalizeSettings({ textSize: 'large', scanlines: false }), { ...defaultSettings(), textSize: 'large', scanlines: false });
+  assert.equal(normalizeSettings({ volume: 5 }).volume, 1, 'volume is clamped');
+  assert.equal(normalizeSettings({ volume: 'loud' }).volume, defaultSettings().volume);
+  assert.equal(normalizeSettings({ keyClicks: true }).keyClicks, true);
   // The system's reduced-motion preference turns off motion and scanlines by default.
-  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false });
+  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false, volume: 0.7, keyClicks: false });
 });
 
 test('round length scales each mode timer to whole half-minutes', () => {
@@ -277,6 +281,15 @@ test('round length scales each mode timer to whole half-minutes', () => {
   assert.deepEqual(['short', 'normal', 'long'].map((l) => t('defend', l)), ['3:00', '5:00', '8:00']);
   assert.equal(t('duel', undefined), '4:00', 'missing setting = normal');
   assert.equal(roundTime(MODES.tutorial, 'long'), 0, 'tutorial has no timer');
+});
+
+test('countdown beeps: one per whole second shown', () => {
+  // The display shows ceil(seconds left); a beep plays when it changes.
+  assert.deepEqual(secondsCrossed(3500, 2900, 3), [3]);
+  assert.deepEqual(secondsCrossed(3000, -100, 3), [2, 1]);
+  assert.deepEqual(secondsCrossed(10100, 10050, 10), []);
+  assert.deepEqual(secondsCrossed(10500, 9500, 10), [10]);
+  assert.deepEqual(secondsCrossed(30000, 20000, 10), [], 'nothing before the last 10 seconds');
 });
 
 test('duel snippets and defend scoring', () => {

@@ -7,7 +7,7 @@ const KEY = 'ra-settings';
 export const TEXT_SIZES = ['normal', 'large', 'xlarge'];
 
 export function defaultSettings(prefersReducedMotion = false) {
-  return { scanlines: !prefersReducedMotion, textSize: 'normal', reduceMotion: prefersReducedMotion, highContrast: false };
+  return { scanlines: !prefersReducedMotion, textSize: 'normal', reduceMotion: prefersReducedMotion, highContrast: false, volume: 0.7, keyClicks: false };
 }
 
 // Fills in anything missing or invalid, so old or broken saves can't break the page.
@@ -19,6 +19,8 @@ export function normalizeSettings(raw, prefersReducedMotion = false) {
     textSize: TEXT_SIZES.includes(s.textSize) ? s.textSize : d.textSize,
     reduceMotion: typeof s.reduceMotion === 'boolean' ? s.reduceMotion : d.reduceMotion,
     highContrast: typeof s.highContrast === 'boolean' ? s.highContrast : d.highContrast,
+    volume: typeof s.volume === 'number' && Number.isFinite(s.volume) ? Math.min(1, Math.max(0, s.volume)) : d.volume,
+    keyClicks: typeof s.keyClicks === 'boolean' ? s.keyClicks : d.keyClicks,
   };
 }
 
@@ -54,7 +56,7 @@ export function applySettings() {
 }
 
 // Wire up the settings dialog in index.html.
-export function initSettingsDialog() {
+export function initSettingsDialog({ onChange } = {}) {
   const dialog = document.getElementById('settingsDialog');
   const form = dialog.querySelector('form');
   const fill = () => {
@@ -63,6 +65,8 @@ export function initSettingsDialog() {
     form.reduceMotion.checked = s.reduceMotion;
     form.highContrast.checked = s.highContrast;
     form.textSize.value = s.textSize;
+    form.volume.value = Math.round(s.volume * 100);
+    form.keyClicks.checked = s.keyClicks;
   };
   form.addEventListener('change', () => {
     setSettings({
@@ -70,8 +74,12 @@ export function initSettingsDialog() {
       reduceMotion: form.reduceMotion.checked,
       highContrast: form.highContrast.checked,
       textSize: form.textSize.value,
+      volume: Number(form.volume.value) / 100,
+      keyClicks: form.keyClicks.checked,
     });
+    onChange?.();
   });
+  form.volume.addEventListener('input', () => form.dispatchEvent(new Event('change')));
   document.getElementById('settingsBtn').addEventListener('click', (e) => {
     e.currentTarget.blur();
     fill();

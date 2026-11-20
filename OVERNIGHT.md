@@ -13,7 +13,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 7. [x] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
 8. [x] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
 9. [x] **Host tools:** kick a player, and choose the round length in the lobby.
-10. [ ] **Sound polish:** optional key-click sounds, a countdown beep, and distinct alert sounds per mode.
+10. [x] **Sound polish:** optional key-click sounds, a countdown beep, and distinct alert sounds per mode.
 11. [ ] **Duel power-ups:** occasional "bonus" snippets that repair your firewall or shield you.
 12. [ ] **Rejoining after a reload:** you keep your seat if you refresh during the lobby.
 
@@ -84,3 +84,12 @@ Each player on the Mission Report now has a stats line under their name:
 - **Round length:** the lobby shows **Round: short / normal / long** with the actual time for the chosen mode, for example Hack & Defend 3:00 / 5:00 / 8:00, or Race 7:00 / 12:00 / 19:00. Times are rounded to whole half-minutes. Every mode's timer now follows this setting.
 - Descriptions that said "5 minutes" for Hack & Defend now say "when time runs out".
 - **Verified:** a unit test covers the round times for each mode. New end-to-end checks have a 4th player join, get kicked, get the message, and fail to rejoin, and a "short" Hack & Defend starting at 3:00. This also caught my own test bug: the new row reused the difficulty row's CSS class, which confused the bot-difficulty check. Both rows now share a generic `option-row` class, and the tests target the buttons by data attribute. 18/18 unit tests and 47/47 end-to-end checks pass, and I reviewed both lobby screenshots.
+
+### 10. Sound polish (+ a color bug fix)
+- **Settings → Sound:** a **volume** slider that plays a preview beep as you move it, and an optional **key click sounds while typing** toggle, off by default. Saved per device like the other settings. The dialog is now just called "Settings".
+- **Countdown:** a beep on 3, 2, 1, then a higher "go" tone when the round starts.
+- **Last 10 seconds:** a tick each second before any round's timer runs out.
+- **Heist:** guard alerts now use a two-tone siren, and when the alarm passes 75% an alarm sound plays with a warning line. It re-arms once the alarm drops below 65%.
+- A sound error can never break the game. Each sound is counted, which lets the tests confirm sounds really play.
+- **Bug fix found in a screenshot:** in Practice, your color could match a bot's. Bots now always get different colors.
+- **Verified:** unit tests cover the countdown math (exactly one beep per second shown, nothing before the last 10 s) and volume clamping. New end-to-end checks confirm 3 countdown beeps plus "go" at the start of a practice duel, key clicks only after turning them on in Settings, and that practice bots never share your color. 19/19 unit tests and 50/50 end-to-end checks pass.

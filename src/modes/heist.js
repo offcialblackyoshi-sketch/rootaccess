@@ -338,7 +338,7 @@ export default {
         nextEvent = now + gap;
         pending = { cam: 1 + Math.floor(Math.random() * 6), code: String(1000 + Math.floor(Math.random() * 9000)), deadline: now + 12000 };
         term.printParts([[' GUARD ', 'alert'], [` heading toward CAM ${pending.cam}! Type:  `], [`loop ${pending.code}`, 'cmd'], ['  (12s)', 'warn']]);
-        ctx.sfx.alert();
+        ctx.sfx.siren();
       }
     }
 
@@ -351,9 +351,16 @@ export default {
       el('div', { class: 'meter' }, el('span', {}, 'ALARM'), el('div', { class: 'track' }, alarmFill), alarmText),
       progressEl, pendingEl));
 
+    let alarmWarned = false;
     function renderStage() {
       const g = game();
       const a = Math.min(100, Math.max(0, g.alarm || 0));
+      // Warn once each time the alarm climbs past 75%.
+      if (a >= 75 && !alarmWarned) {
+        alarmWarned = true;
+        ctx.sfx.alarm();
+        term.print('!! ALARM ABOVE 75% -- careful, one more mistake could bust the crew !!', 'alert');
+      } else if (a < 65) alarmWarned = false;
       alarmFill.style.width = a + '%';
       alarmFill.className = 'fill ' + (a >= 75 ? 'danger' : a >= 45 ? 'warn' : '');
       alarmText.textContent = Math.round(a) + '%';

@@ -125,8 +125,27 @@
     <button id="howClose" class="primary">Got it</button>
   </dialog>
 
+  <!-- DISPLAY SETTINGS -->
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <form method="dialog" class="settings-form">
+      <h2 id="settingsTitle">// DISPLAY SETTINGS</h2>
+      <fieldset>
+        <legend>Text size</legend>
+        <label><input type="radio" name="textSize" value="normal"> Normal</label>
+        <label><input type="radio" name="textSize" value="large"> Large</label>
+        <label><input type="radio" name="textSize" value="xlarge"> Extra large</label>
+      </fieldset>
+      <label class="toggle"><input type="checkbox" name="scanlines"> CRT scanlines effect</label>
+      <label class="toggle"><input type="checkbox" name="highContrast"> High contrast (brighter text)</label>
+      <label class="toggle"><input type="checkbox" name="reduceMotion"> Reduce motion (no glow or animations)</label>
+      <p class="dim">Saved on this device.</p>
+      <button type="button" id="settingsClose" class="primary">Done</button>
+    </form>
+  </dialog>
+
   <div id="controls">
     <button id="installBtn" type="button" hidden>Install</button>
+    <button id="settingsBtn" type="button" aria-label="Display settings" title="Display settings">⚙</button>
     <button id="muteBtn" type="button" aria-label="Mute">🔊</button>
   </div>
 

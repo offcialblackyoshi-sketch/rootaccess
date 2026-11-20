@@ -11,6 +11,7 @@ import { buildHeist, fillMissingRoles, heistStatsText } from '../src/modes/heist
 import { SNIPPETS, duelStatsText } from '../src/modes/duel.js';
 import { score, startNodes, breachTime, defendStatsText } from '../src/modes/defend.js';
 import { botParams, BOT_LEVELS } from '../src/bots.js';
+import { normalizeSettings, defaultSettings } from '../src/settings.js';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 7919 + 13);
 
@@ -257,6 +258,15 @@ test('results stats text', () => {
   assert.equal(defendStatsText({ loot: 80, stats: { breaches: 6, kills: 2 } }), '80 stolen · 6 breaches · 2 attacks stopped');
   assert.equal(heistStatsText({ mistakes: 1, loops: 3 }), '1 mistake · 3 cameras looped');
   assert.equal(heistStatsText(undefined), '0 mistakes · 0 cameras looped');
+});
+
+test('display settings: bad saves fall back to defaults', () => {
+  assert.deepEqual(normalizeSettings(null), defaultSettings());
+  assert.deepEqual(normalizeSettings('garbage'), defaultSettings());
+  assert.deepEqual(normalizeSettings({ textSize: 'huge', scanlines: 'no' }), defaultSettings());
+  assert.deepEqual(normalizeSettings({ textSize: 'large', scanlines: false }), { ...defaultSettings(), textSize: 'large', scanlines: false });
+  // The system's reduced-motion preference turns off motion and scanlines by default.
+  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false });
 });
 
 test('duel snippets and defend scoring', () => {

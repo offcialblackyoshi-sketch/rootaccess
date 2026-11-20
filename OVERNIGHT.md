@@ -11,7 +11,7 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 5. [x] **Onboarding:** a guided first-run tutorial in Practice, and hints that become more specific the more you ask.
 6. [x] **Stats on the results screen:** duel speed (WPM) and accuracy, data stolen, and time per race layer.
 7. [x] **Keyboard and focus on Chromebooks:** Esc switches between terminal and chat, the cursor goes back to the terminal after chatting, and Ctrl+L clears the screen.
-8. [ ] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
+8. [x] **Accessibility settings:** turn off scanlines, larger text, and reduced motion, all saved per device.
 9. [ ] **Host tools:** kick a player, and choose the round length in the lobby.
 10. [ ] **Sound polish:** optional key-click sounds, a countdown beep, and distinct alert sounds per mode.
 11. [ ] **Duel power-ups:** occasional "bonus" snippets that repair your firewall or shield you.
@@ -68,3 +68,13 @@ Each player on the Mission Report now has a stats line under their name:
 - A small shortcut reminder sits under the terminal. It's hidden on narrow screens.
 - The chat placeholder is now short enough to fit ("Message… (Esc: back)").
 - **Verified:** new end-to-end checks press real keys through Chrome's input system during a practice duel. Esc moves focus to chat and back, Ctrl+C empties a half-typed line, and Ctrl+L clears the output. 42/42 end-to-end checks and 16/16 unit tests pass. The screenshot review is what caught the cut-off placeholder.
+
+### 8. Accessibility settings
+- A new **⚙** button in the top corner opens **Display settings**:
+  - **Text size:** normal, large, or extra large. This scales the whole page, so nothing gets cut off.
+  - **CRT scanlines:** on or off.
+  - **High contrast:** brighter grey text and borders.
+  - **Reduce motion:** no glow or animations.
+- Settings are saved on the device and applied before anything draws. If the system asks for reduced motion, that and "no scanlines" are the defaults. Broken or old saved settings fall back to defaults.
+- The header made room for the extra corner button. All settings code is in a new `src/settings.js`, which is cached for offline play.
+- **Verified:** a unit test covers defaults, invalid saves, and the system reduced-motion preference. End-to-end checks open the dialog, turn off scanlines, pick extra-large text and high contrast, reload, and confirm all three stuck. They also check there's no sideways scrolling at extra-large text. 17/17 unit tests and 45/45 end-to-end checks pass, and I reviewed screenshots of the dialog, the extra-large menu, and the in-game header.

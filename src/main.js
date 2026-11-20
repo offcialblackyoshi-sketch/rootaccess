@@ -7,6 +7,9 @@ import { startSession } from './game.js';
 import { createChat } from './chat.js';
 import { sfx } from './sfx.js';
 import { el, load, save, playerList, COLORS } from './util.js';
+import { initSettingsDialog } from './settings.js';
+
+initSettingsDialog();
 
 const $ = (id) => document.getElementById(id);
 

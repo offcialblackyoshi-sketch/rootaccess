@@ -16,6 +16,7 @@ const ASSETS = [
   './src/util.js',
   './src/sfx.js',
   './src/bots.js',
+  './src/settings.js',
   './src/rng.js',
   './src/terminal.js',
   './src/commands.js',

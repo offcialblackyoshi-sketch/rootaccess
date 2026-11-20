@@ -483,6 +483,26 @@ await step('pwa', async () => {
 });
 
 // ---------------------------------------------------------------------------
+await step('settings', async () => {
+  await D.goto(URL_BASE);
+  check('settings: scanlines on by default', !(await D.eval(`document.documentElement.classList.contains('no-scanlines')`)));
+  await D.click('#settingsBtn');
+  await D.waitFor(`document.getElementById('settingsDialog').open`);
+  await D.click('#settingsDialog input[name=scanlines]');
+  await D.click('#settingsDialog input[value=xlarge]');
+  await D.click('#settingsDialog input[name=highContrast]');
+  await D.shot('13-settings.png');
+  await D.click('#settingsClose');
+  await D.goto(URL_BASE);
+  const cls = await D.eval('document.documentElement.className');
+  await D.shot('14-menu-xlarge.png');
+  check('settings: changes apply and survive a reload', /no-scanlines/.test(cls) && /text-xlarge/.test(cls) && /high-contrast/.test(cls), cls);
+  const overflow = await D.eval(`document.documentElement.scrollWidth > window.innerWidth`);
+  check('settings: extra-large text has no sideways scrolling', !overflow);
+  await D.eval(`localStorage.removeItem('ra-settings')`);
+});
+
+// ---------------------------------------------------------------------------
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

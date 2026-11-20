@@ -310,6 +310,19 @@ kbd, code { background: #000; border: 1px solid var(--line); border-radius: 3px;
 #controls { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; z-index: 30; }
 #controls button { padding: 4px 10px; background: var(--bg); text-transform: none; }
 
+/* ---------------- "Game couldn't load" message ---------------- */
+.load-error {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.85);
+}
+.load-error .panel { max-width: 560px; border-color: var(--amber); }
+.load-error h2 { color: var(--amber); }
+
 /* ---------------- Display settings ---------------- */
 html.no-scanlines .crt { display: none; }
 html.text-large body { zoom: 1.15; }

@@ -154,6 +154,31 @@
     <button id="muteBtn" type="button" aria-label="Mute">🔊</button>
   </div>
 
+  <div id="loadError" class="load-error" role="alert" hidden></div>
+
   <script type="module" src="src/main.js"></script>
+  <script>
+    // If the game code can't load, say why instead of leaving dead buttons.
+    // The usual cause: index.html opened straight from disk (file://), where
+    // Chrome blocks JavaScript modules.
+    (function () {
+      var fromDisk = location.protocol === 'file:';
+      function show() {
+        if (window.__ra) return;
+        var box = document.getElementById('loadError');
+        box.innerHTML = fromDisk
+          ? '<div class="panel"><h2>// THE GAME CAN’T START LIKE THIS</h2>' +
+            '<p>You opened <code>index.html</code> straight from your files. Chrome blocks the game’s code when it’s opened that way, so none of the buttons work.</p>' +
+            '<p><strong>To play:</strong> open the <code>my-game</code> folder and double-click <strong>Play Root Access.bat</strong>. The game opens in your browser.</p>' +
+            '<p class="dim">Or run <code>python -m http.server 8000</code> in the folder and go to <code>http://localhost:8000</code>. Once the game is on GitHub Pages, just use that link.</p></div>'
+          : '<div class="panel"><h2>// THE GAME DIDN’T LOAD</h2>' +
+            '<p>Something stopped the game from starting. Try reloading the page.</p>' +
+            '<p class="dim">If it keeps happening, check your internet connection, or press Ctrl+Shift+J to see the error.</p></div>';
+        box.hidden = false;
+      }
+      if (fromDisk) show();
+      else setTimeout(show, 5000);
+    })();
+  </script>
 </body>
 </html>

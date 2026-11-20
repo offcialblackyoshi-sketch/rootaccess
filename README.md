@@ -27,12 +27,18 @@ Type `help` in any mode to see its commands. <kbd>Tab</kbd> auto-completes, and 
 
 ## Run it on your computer
 
+**On Windows:** double-click **`Play Root Access.bat`**. It starts a small local web server and opens the game in your browser. Keep its window open while you play, and close it to stop.
+
+**Anywhere else:**
+
 ```sh
 cd my-game
 python -m http.server 8000
 ```
 
-Open <http://localhost:8000> in Chrome. Opening `index.html` directly from disk won't work, because the game uses JavaScript modules and a service worker.
+Then open <http://localhost:8000> in Chrome.
+
+> **Don't double-click `index.html`.** Chrome blocks the game's code when a page is opened straight from disk, so none of the buttons work. The page shows a warning if you do this. On GitHub Pages, and anywhere else served over the web, this isn't an issue.
 
 Before online play is set up, you can still play:
 

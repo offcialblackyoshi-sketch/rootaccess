@@ -19,6 +19,12 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Code Memory rework and a global leaderboard
+- **Code Memory** now works like a pattern hack: the code is one lit cell in each column. Decoy patterns flicker first, then the real code flashes 3 times, all at once. You enter it column by column (↑/↓ and Space/Enter, or click). A wrong cell is a mistake and replays the show. Grids grow from 4×3 to 6×6, with 3 to 7 decoys.
+- **Leaderboards** (menu): an **All-time** tab ranks everyone by XP and shows level, title, rounds, wins and win %, plus a **Today** tab for the Daily Challenge. Stats are saved after every round to `stats/<uid>`. That uses a separate guest sign-in that this browser remembers, so your row stays yours. The rules only let you write your own row, keep wins ≤ rounds, and let XP rise by at most 500 per save. It shows just your own row when online play isn't available.
+- **One-time step:** publish the updated `database.rules.json` again.
+
+
 ### Daily Challenge
 - **Daily challenge** on the menu: a solo Hack Gauntlet seeded by the UTC date, so everyone gets the same 5 mini-games that day. Score = time + 5 s per mistake. **Try again** replays the same puzzles, and only your best counts.
 - **Today's board** (on the menu and after each run) shows the top 20. It's online through Firebase at `daily/<date>/<uid>`, where each player can only write their own entry, the score must equal time + 5 s × mistakes, and only a better score replaces yours. When online play isn't set up or a request fails, it falls back to this device.

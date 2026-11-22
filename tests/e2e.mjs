@@ -568,7 +568,7 @@ await step('pwa', async () => {
   const sw = await D.eval(`navigator.serviceWorker.ready.then(r => !!r.active)`);
   check('pwa: service worker active', sw === true);
   await sleep(500);
-  const cached = await D.eval(`caches.open('root-access-v6').then(c => c.keys()).then(k => k.length)`);
+  const cached = await D.eval(`caches.open('root-access-v7').then(c => c.keys()).then(k => k.length)`);
   check('pwa: all files cached', cached >= 26, `(${cached})`);
   const inst = await D.send('Page.getInstallabilityErrors');
   const errs = inst.result?.installabilityErrors ?? [];
@@ -641,6 +641,8 @@ await step('quick hacks', async () => {
     await D.click('#startBtn');
     await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden && !!window.__ra.quick?.data()`, 8000, `${id} starts`);
     await sleep(300);
+    // Background tabs animate at a few frames a second; timing games need the front.
+    await D.send('Page.bringToFront');
     const focused = await D.eval(`document.activeElement?.classList.contains('quick-box')`);
     const data = await D.eval('window.__ra.quick.data()');
     let played = false;
@@ -656,15 +658,11 @@ await step('quick hacks', async () => {
       await key('Enter');
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'wave tuned').catch(() => false);
     } else if (id === 'memory') {
-      await D.waitFor(`document.querySelector('.mm-status').innerText.includes('YOUR TURN')`, 8000, 'sequence shown');
-      const n = data.size;
-      let cur = Math.floor((n * n) / 2);
-      for (const c of data.seq) {
-        const [cx, cy, tx, ty] = [cur % n, Math.floor(cur / n), c % n, Math.floor(c / n)];
-        for (let x = cx; x !== tx; x += Math.sign(tx - cx)) await key(tx > cx ? 'ArrowRight' : 'ArrowLeft');
-        for (let y = cy; y !== ty; y += Math.sign(ty - cy)) await key(ty > cy ? 'ArrowDown' : 'ArrowUp');
+      await D.waitFor(`document.querySelector('.mm-status').innerText.includes('YOUR TURN')`, 12000, 'code shown');
+      // One cell per column: move down from the top row to the code's row, then Space.
+      for (const r of data.answer) {
+        for (let y = 0; y < r; y++) await key('ArrowDown');
         await key(' ');
-        cur = c;
       }
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'sequence repeated').catch(() => false);
     } else if (id === 'wirecut') {
@@ -792,10 +790,15 @@ await step('daily challenge and xp', async () => {
   await D.click('#gameLeave');
   await D.waitFor(`document.body.dataset.screen === 'menu'`, 5000);
   await D.click('#boardBtn');
-  await D.waitFor(`document.getElementById('boardList').innerText.includes(${JSON.stringify(name)})`, 5000, 'board dialog');
+  await D.waitFor(`document.getElementById('statsList').innerText.includes(${JSON.stringify(name)}) && !!document.querySelector('#statsList li.me')`, 5000, 'all-time board');
+  const statsRow = await D.eval(`document.querySelector('#statsList li.me').innerText`);
+  check('leaderboard: All-time shows your level, XP and wins', /LV\d+/.test(statsRow) && statsRow.includes(String(xp1 > 0 ? '' : '0')), statsRow.replace(/\s+/g, ' '));
+  await D.shot('52-leaderboard.png');
+  await D.click('#tabToday');
+  await D.waitFor(`!document.getElementById('paneToday').hidden && document.getElementById('boardList').innerText.includes(${JSON.stringify(name)})`, 5000, 'today tab');
   await D.shot('51-board.png');
   await D.click('#boardClose');
-  check('daily: Today\'s board opens from the menu', true);
+  check('leaderboard: Today tab shows the daily board', true);
 });
 
 // ---------------------------------------------------------------------------

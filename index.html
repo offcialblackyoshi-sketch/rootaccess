@@ -67,7 +67,7 @@
         <button id="practiceBtn" data-icon="bot">Practice vs bots</button>
         <div class="join-row">
           <button id="dailyBtn" data-icon="calendar" class="daily-btn">Daily challenge</button>
-          <button id="boardBtn" data-icon="trophy">Today's board</button>
+          <button id="boardBtn" data-icon="trophy">Leaderboards</button>
         </div>
         <button id="howBtn" data-icon="help">How to play</button>
       </div>
@@ -164,7 +164,7 @@
       <li><strong>Print Match:</strong> pick the parts that appear in the target print, then press Enter.</li>
       <li><strong>Signal Tune:</strong> turn the knobs until your wave sits on the dashed target, then press Enter.</li>
       <li><strong>Circuit Path:</strong> steer the signal through the maze to the exit without bumping walls.</li>
-      <li><strong>Code Memory:</strong> watch the cells flash, then repeat them in order.</li>
+      <li><strong>Code Memory:</strong> ignore the flickering decoys. The real code (one cell per column) flashes 3 times, all at once. Enter it column by column.</li>
       <li><strong>Wire Cut:</strong> use the first rule on the card that is true, and cut those wires in order.</li>
       <li><strong>Port Sweep:</strong> close each port while it is lit up. Don't hit dark ones.</li>
       <li><strong>Bit Flip:</strong> flip switches until their values add up to the target, then press Enter.</li>
@@ -176,12 +176,23 @@
     <button id="howClose" class="primary">Got it</button>
   </dialog>
 
-  <!-- DAILY BOARD -->
+  <!-- LEADERBOARDS -->
   <dialog id="boardDialog" aria-labelledby="boardTitle">
-    <h2 id="boardTitle">// TODAY'S BOARD</h2>
-    <p class="dim">The Daily Challenge is the same Hack Gauntlet for everyone today. Score = time + 5 s per mistake. Lowest wins.</p>
-    <ol id="boardList" class="board"></ol>
-    <p id="boardNote" class="dim small"></p>
+    <h2 id="boardTitle">// LEADERBOARDS</h2>
+    <div class="tabs" role="tablist">
+      <button id="tabAll" class="mini-btn selected" role="tab" aria-selected="true">All-time</button>
+      <button id="tabToday" class="mini-btn" role="tab" aria-selected="false">Today</button>
+    </div>
+    <div id="paneAll">
+      <p class="dim small">Everyone's stats, ranked by XP. Play rounds to climb.</p>
+      <ol id="statsList" class="board stats-board"></ol>
+      <p id="statsNote" class="dim small"></p>
+    </div>
+    <div id="paneToday" hidden>
+      <p class="dim small">The Daily Challenge is the same Hack Gauntlet for everyone today. Score = time + 5 s per mistake. Lowest wins.</p>
+      <ol id="boardList" class="board"></ol>
+      <p id="boardNote" class="dim small"></p>
+    </div>
     <button id="boardClose" class="primary">Close</button>
   </dialog>
 

@@ -10,6 +10,7 @@ import { el, load, save, playerList, COLORS, fmtTime } from './util.js';
 import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
+import { globalBoard, pushMyStats, winRate } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
@@ -310,9 +311,41 @@ async function renderBoard(listEl, noteEl) {
 }
 const fmtScore = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
+// All-time leaderboard: everyone's XP, level, rounds and wins.
+async function renderStatsBoard() {
+  const list = $('statsList');
+  list.innerHTML = '';
+  list.append(el('li', { class: 'dim' }, 'Loading…'));
+  const { rows, where, me } = await globalBoard({ name: myName(), color: myColor });
+  list.innerHTML = '';
+  list.append(el('li', { class: 'board-head dim' }, el('span', {}, '#'), el('span', {}, 'player'), el('span', {}, 'level'), el('span', {}, 'XP'), el('span', {}, 'wins'), el('span', {}, 'win %')));
+  rows.forEach((r, i) => list.append(el('li', { class: r.id === me ? 'me' : '' },
+    el('span', { class: 'place' }, `#${i + 1}`),
+    el('span', { class: 'pname' }, el('span', { class: 'dot', style: { background: r.color } }), ` ${r.name}`, r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
+    el('span', {}, `LV${r.level}`),
+    el('strong', {}, String(r.xp)),
+    el('span', {}, `${r.wins}/${r.rounds}`),
+    el('span', {}, `${winRate(r)}%`))));
+  statsNoteText(where);
+}
+function statsNoteText(where) {
+  $('statsNote').textContent = where === 'online' ? 'Everyone online · top 50' : 'This device only (online play is not set up or not reachable).';
+}
+function showTab(which) {
+  for (const [t, pane] of [['tabAll', 'paneAll'], ['tabToday', 'paneToday']]) {
+    const on = t === which;
+    $(t).classList.toggle('selected', on);
+    $(t).setAttribute('aria-selected', String(on));
+    $(pane).hidden = !on;
+  }
+  if (which === 'tabAll') renderStatsBoard();
+  else renderBoard($('boardList'), $('boardNote'));
+}
+$('tabAll').addEventListener('click', () => showTab('tabAll'));
+$('tabToday').addEventListener('click', () => showTab('tabToday'));
 $('boardBtn').addEventListener('click', () => {
   $('boardDialog').showModal();
-  renderBoard($('boardList'), $('boardNote'));
+  showTab('tabAll');
 });
 $('boardClose').addEventListener('click', () => $('boardDialog').close());
 
@@ -519,6 +552,7 @@ function finishResults(room, results, me) {
       if (award.levelUp) setTimeout(() => rain.burst({ color: '#39ff6a' }), 600);
       renderLevel();
       renderColors();
+      pushMyStats({ name: myName(), color: myColor }); // update the global leaderboard
     }
     // Team games mark each player's result as won or not.
     const mine = results.find((r) => r.id === me);

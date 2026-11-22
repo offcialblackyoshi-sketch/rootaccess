@@ -23,7 +23,7 @@ Eight short visual mini-games for beginners, plus a Gauntlet that mixes them. Ea
 | **Print Match** | Pick the parts that appear in the target print out of a grid of look-alikes. |
 | **Signal Tune** | Turn the frequency, height, and shift knobs until your wave sits on the target. |
 | **Circuit Path** | Steer a signal through a maze to the exit without bumping the walls. |
-| **Code Memory** | Watch cells flash, then repeat the sequence in order. |
+| **Code Memory** | Decoy codes flicker, then the real code (one cell per column) flashes 3 times. Enter it column by column. |
 | **Wire Cut** | Use the first rule on the card that is true, and cut those wires in order. |
 | **Port Sweep** | Close each port while it is lit up. Hitting a dark one is a mistake. |
 | **Bit Flip** | Flip switches until their values add up to the target number. |
@@ -38,6 +38,7 @@ Type `help` in any mode to see its commands. <kbd>Tab</kbd> auto-completes, and 
 - **Host tools:** pick the round length (short, normal, or long), add or remove bots, and kick players.
 - **Settings (⚙):** text size, high contrast, reduced motion, scanlines on/off, volume, and key-click sounds.
 - **Keyboard:** <kbd>Esc</kbd> switches between the terminal and chat, <kbd>Ctrl</kbd>+<kbd>L</kbd> clears, <kbd>Ctrl</kbd>+<kbd>C</kbd> cancels a line, and <kbd>PageUp</kbd>/<kbd>PageDown</kbd> scroll.
+- **Leaderboards:** the menu's Leaderboards button has an **All-time** board (everyone's level, XP, rounds, wins and win %) and a **Today** board for the Daily Challenge. Both are online once the database rules are published.
 - **Daily Challenge:** the same Hack Gauntlet for everyone each day (UTC). Score = time + 5 s per mistake, and **Today's board** ranks everyone's best. The board is online once the updated database rules are published (see below), and on this device until then.
 - **XP and levels:** every round earns XP (more for placing higher and winning). Levels unlock titles shown next to your name, and extra name colors at levels 3, 6, 9 and 12. Saved on this device.
 - **Reloading the page** while in a room puts you back in your seat.

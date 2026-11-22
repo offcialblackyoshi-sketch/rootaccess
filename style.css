@@ -786,9 +786,12 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .memory { display: flex; gap: 4cqw; align-items: center; justify-content: center; width: 100%; height: 100%; }
 .mm-grid { display: grid; gap: 1.5cqh; width: min(96cqh, 70cqw); }
 .mm-cell { aspect-ratio: 1; padding: 0; border-color: var(--line); background: rgba(255, 255, 255, 0.03); transition: background 0.12s, box-shadow 0.12s; }
-.mm-cell.cursor { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(255, 176, 0, 0.35); }
+.mm-cell.cursor.cursor { border-color: var(--amber); background: rgba(255, 176, 0, 0.3); box-shadow: 0 0 0 2px rgba(255, 176, 0, 0.5); }
 .mm-cell.lit { background: var(--accent2); box-shadow: 0 0 18px var(--accent2); border-color: var(--accent2); }
 .mm-cell.good { background: var(--accent); box-shadow: 0 0 14px var(--glow); }
+.mm-cell.decoy { background: var(--accent2); border-color: var(--accent2); box-shadow: 0 0 10px var(--accent2); opacity: 0.85; }
+.mm-cell.col-active { border-color: var(--amber); background: rgba(255, 176, 0, 0.06); }
+.mm-cell.picked { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 14px var(--glow); }
 .mm-cell.bad { background: var(--red); box-shadow: 0 0 14px var(--red); }
 .mm-status { font: bold clamp(14px, 3cqh, 22px) var(--font-head); color: var(--accent); margin-bottom: 8px; letter-spacing: 0.06em; }
 .mm-pips { display: flex; gap: 5px; }
@@ -871,3 +874,14 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .board li strong { text-align: right; color: var(--accent); }
 .board li .place { color: var(--amber); }
 #boardDialog { min-width: min(520px, 92vw); }
+
+/* Leaderboards */
+.tabs { display: flex; gap: 6px; margin: 4px 0 8px; }
+.tabs .mini-btn { border-color: var(--line); color: var(--dim); }
+.tabs .mini-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.stats-board li { grid-template-columns: 3em minmax(0, 1fr) 4em 5em 4.5em 3.5em; }
+.stats-board li .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-board li .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
+.stats-board li.board-head { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.board li.board-head strong, .board li.board-head span { color: var(--dim); }
+@media (max-width: 600px) { .stats-board li { grid-template-columns: 2.5em minmax(0, 1fr) 3.5em 4em; } .stats-board li > :nth-child(n+5) { display: none; } }

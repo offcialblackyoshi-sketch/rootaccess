@@ -493,19 +493,23 @@ test('circuit path: every maze has a route to the exit, and mazes grow', () => {
   }
 });
 
-test('code memory: sequences fit the grid, never repeat a cell back to back, and get longer', () => {
+test('code memory: one cell per column, decoys never match the real code, harder each stage', () => {
   for (const seed of QSEEDS) {
-    let prev = 0;
+    let prev = { cols: 0, rows: 0, n: 0 };
     for (let st = 0; st < STAGES; st++) {
       const d = memory.generate(stageRng('memory', seed, st), st);
-      assert.ok(d.seq.length > prev);
-      prev = d.seq.length;
-      d.seq.forEach((c, i) => {
-        assert.ok(c >= 0 && c < d.size * d.size);
-        if (i) assert.notEqual(c, d.seq[i - 1]);
-      });
+      assert.equal(d.answer.length, d.cols);
+      d.answer.forEach((r) => assert.ok(r >= 0 && r < d.rows));
+      for (const dec of d.decoys) {
+        assert.equal(dec.length, d.cols);
+        dec.forEach((r) => assert.ok(r >= 0 && r < d.rows));
+        assert.ok(dec.some((r, c) => r !== d.answer[c]), 'decoy differs from the code');
+      }
+      assert.ok(d.cols >= prev.cols && d.rows >= prev.rows && d.decoys.length > prev.n);
+      prev = { cols: d.cols, rows: d.rows, n: d.decoys.length };
     }
   }
+  assert.equal(memory.REAL_FLASHES, 3);
 });
 
 test('quick hack stats text', () => {
@@ -671,4 +675,19 @@ test('database rules: the daily board is valid JSON with a checked score', () =>
   assert.ok(d['.read'] && d.$date['.indexOn'].includes('score'));
   assert.match(d.$date.$uid['.write'], /auth\.uid === \$uid/);
   assert.match(d.$date.$uid['.validate'], /\* 5000/);
+});
+
+test('global leaderboard: your row comes from your progress, and the rules protect it', async () => {
+  const { myStats, winRate } = await import('../src/stats.js');
+  const s = myStats({ xp: 260, rounds: 4, wins: 3, title: '' });
+  assert.equal(s.level, 3);
+  assert.equal(s.title, 'packet pusher');
+  assert.equal(s.wins, 3);
+  assert.equal(winRate(s), 75);
+  assert.equal(winRate({ rounds: 0, wins: 0 }), 0);
+  assert.equal(myStats({ xp: 0, rounds: 1, wins: 5, title: '' }).wins, 1, 'wins never exceed rounds');
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url))).rules.stats;
+  assert.ok(rules['.read'] && rules['.indexOn'].includes('xp'));
+  assert.match(rules.$uid['.write'], /auth\.uid === \$uid/);
+  assert.match(rules.$uid['.validate'], /\+ 500/);
 });

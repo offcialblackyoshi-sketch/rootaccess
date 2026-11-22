@@ -19,6 +19,22 @@ export async function createFirebaseNet(config) {
   const { user } = await A.signInAnonymously(auth);
   const db = D.getDatabase(app);
 
+  // All-time stats need an ID that stays the same in this browser, so they use
+  // a second app instance whose guest sign-in is remembered (rooms are unchanged).
+  let statsCtx = null;
+  async function statsDb() {
+    if (!statsCtx) {
+      statsCtx = (async () => {
+        const sApp = initializeApp(config, 'stats');
+        const sAuth = A.getAuth(sApp);
+        await A.setPersistence(sAuth, A.browserLocalPersistence);
+        const cred = sAuth.currentUser ? { user: sAuth.currentUser } : await A.signInAnonymously(sAuth);
+        return { db: D.getDatabase(sApp), uid: cred.user.uid };
+      })().catch((e) => { statsCtx = null; throw e; });
+    }
+    return statsCtx;
+  }
+
   let offset = 0;
   D.onValue(D.ref(db, '.info/serverTimeOffset'), (s) => {
     offset = s.val() || 0;
@@ -121,6 +137,23 @@ export async function createFirebaseNet(config) {
       const old = (await D.get(ref)).val();
       if (old && old.score <= entry.score) return;
       await D.set(ref, { ...entry, at: D.serverTimestamp() });
+    },
+    // Global leaderboard: stats/<stable uid>, highest XP first.
+    async submitStats(stats) {
+      const s = await statsDb();
+      const ref = D.ref(s.db, `stats/${s.uid}`);
+      // The rules let XP rise by at most 500 per save (catch up over a few saves).
+      const old = (await D.get(ref)).val();
+      const xp = old ? Math.min(Math.max(stats.xp, old.xp), old.xp + 500) : stats.xp;
+      await D.set(ref, { ...stats, xp, updatedAt: D.serverTimestamp() });
+      return s.uid;
+    },
+    async statsBoard(limit = 50) {
+      const s = await statsDb();
+      const snap = await D.get(D.query(D.ref(s.db, 'stats'), D.orderByChild('xp'), D.limitToLast(limit)));
+      const rows = [];
+      snap.forEach((c) => { rows.push({ id: c.key, ...c.val() }); });
+      return { rows: rows.reverse(), me: s.uid };
     },
     async dailyBoard(date, limit = 20) {
       const snap = await D.get(D.query(D.ref(db, `daily/${date}`), D.orderByChild('score'), D.limitToFirst(limit)));

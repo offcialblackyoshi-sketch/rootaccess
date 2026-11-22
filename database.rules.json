@@ -71,6 +71,16 @@
           ".validate": "newData.hasChildren(['name', 'score', 'ms', 'mistakes', 'at']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && newData.child('ms').isNumber() && newData.child('ms').val() >= 10000 && newData.child('ms').val() <= 3600000 && newData.child('mistakes').isNumber() && newData.child('mistakes').val() >= 0 && newData.child('score').val() === newData.child('ms').val() + newData.child('mistakes').val() * 5000 && newData.child('at').val() <= now"
         }
       }
+    },
+    "stats": {
+      ".read": "auth != null",
+      ".indexOn": [
+        "xp"
+      ],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name', 'color', 'level', 'xp', 'rounds', 'wins', 'updatedAt']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && newData.child('color').isString() && newData.child('color').val().length <= 9 && newData.child('level').isNumber() && newData.child('level').val() >= 1 && newData.child('xp').isNumber() && newData.child('xp').val() >= 0 && (!data.exists() || (newData.child('xp').val() >= data.child('xp').val() && newData.child('xp').val() <= data.child('xp').val() + 500)) && newData.child('rounds').isNumber() && newData.child('rounds').val() >= 0 && newData.child('wins').isNumber() && newData.child('wins').val() >= 0 && newData.child('wins').val() <= newData.child('rounds').val() && newData.child('updatedAt').val() <= now"
+      }
     }
   }
 }

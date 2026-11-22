@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### XP, levels and unlocks
+- Every round earns XP: 20 for playing, +10 for each player you beat, and +25 for a win (the tutorial gives 50). Each level costs 50 XP more than the one before.
+- The menu shows your level and XP bar, plus a title picker (script kiddie → … → zero-day legend). Extra name colors unlock at levels 3, 6, 9 and 12. The lobby shows each player's level and title.
+- The results screen shows "+XP", your level bar, and a LEVEL UP! burst. XP is only awarded once per round.
+- **Verified:** unit tests check the level curve, that better results earn more, and that unlocks come in order. A browser run went from 90 XP to level 2 and re-rendered the results without awarding XP twice.
+
+
 ### Team duels (1v1, 2v2, 3v3, 4v4)
 - Typing Duel has a **Teams** option in the lobby: FFA, 1v1, 2v2, 3v3 or 4v4. The player list groups by team. You can switch your own team (the host can also move bots), and the host has **Shuffle teams** (humans spread out first) and **Fill with bots**. START waits until both teams are full.
 - In game there's no friendly fire: targets, aim buttons and bots only go after the other team. The side panel shows each team's total HP. The last team standing wins together, or the team with more HP when time runs out.

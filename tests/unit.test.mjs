@@ -631,3 +631,24 @@ test('letter lock: a press just past the line still counts, a far one does not',
   assert.equal(letterlock.lockable(strip, 900, 'A'), -1, 'too late');
   assert.equal(letterlock.lockable(strip, 0, 'E'), -1, 'far away');
 });
+
+test('xp: levels cost a bit more each time, and better results earn more', async () => {
+  const { levelFor, levelCost, xpForRound, TITLES, UNLOCK_COLORS, titlesFor } = await import('../src/progress.js');
+  assert.deepEqual(levelFor(0), { level: 1, into: 0, need: 100 });
+  assert.equal(levelFor(99).level, 1);
+  assert.equal(levelFor(100).level, 2);
+  assert.equal(levelFor(250).level, 3);
+  let prev = 0;
+  for (let xp = 0; xp < 20000; xp += 37) { const l = levelFor(xp).level; assert.ok(l >= prev); prev = l; }
+  for (let l = 1; l < 30; l++) assert.ok(levelCost(l + 1) > levelCost(l));
+  // More players beaten = more XP; winning adds a bonus; everyone gets something.
+  assert.equal(xpForRound({ place: 1, players: 1, won: true }), 45);
+  assert.ok(xpForRound({ place: 1, players: 4, won: true }) > xpForRound({ place: 2, players: 4 }));
+  assert.ok(xpForRound({ place: 2, players: 4 }) > xpForRound({ place: 4, players: 4 }));
+  assert.equal(xpForRound({ place: 4, players: 4 }), 20);
+  assert.equal(xpForRound({ modeId: 'tutorial' }), 50);
+  for (let i = 1; i < TITLES.length; i++) assert.ok(TITLES[i][0] > TITLES[i - 1][0], 'titles unlock in order');
+  for (let i = 1; i < UNLOCK_COLORS.length; i++) assert.ok(UNLOCK_COLORS[i][0] > UNLOCK_COLORS[i - 1][0]);
+  assert.deepEqual(titlesFor(1), ['script kiddie']);
+  assert.equal(titlesFor(99).length, TITLES.length);
+});

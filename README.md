@@ -38,6 +38,7 @@ Type `help` in any mode to see its commands. <kbd>Tab</kbd> auto-completes, and 
 - **Host tools:** pick the round length (short, normal, or long), add or remove bots, and kick players.
 - **Settings (⚙):** text size, high contrast, reduced motion, scanlines on/off, volume, and key-click sounds.
 - **Keyboard:** <kbd>Esc</kbd> switches between the terminal and chat, <kbd>Ctrl</kbd>+<kbd>L</kbd> clears, <kbd>Ctrl</kbd>+<kbd>C</kbd> cancels a line, and <kbd>PageUp</kbd>/<kbd>PageDown</kbd> scroll.
+- **XP and levels:** every round earns XP (more for placing higher and winning). Levels unlock titles shown next to your name, and extra name colors at levels 3, 6, 9 and 12. Saved on this device.
 - **Reloading the page** while in a room puts you back in your seat.
 - **Results** show stats for each player: race layer times and hints used, duel speed (WPM) and accuracy, data stolen, and heist mistakes.
 

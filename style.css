@@ -842,3 +842,19 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 #lobbyPlayers li[data-team="A"] { border-left-color: #4dd9ff; }
 #lobbyPlayers li[data-team="B"] { border-left-color: #ff6b4d; }
 .team-btn { padding: 0 8px; font-size: 11px; border-color: var(--tc); color: var(--tc); }
+
+/* XP and levels */
+.level-box { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.level-box strong { color: var(--amber); letter-spacing: 0.08em; }
+.level-track { flex: 1; min-width: 80px; height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+#levelFill { display: block; height: 100%; background: var(--amber); box-shadow: 0 0 8px rgba(255, 176, 0, 0.6); }
+#titlePick { background: var(--term-bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; font: inherit; font-size: 12px; }
+.swatch.locked { opacity: 0.25; cursor: not-allowed; }
+.tag.rank { color: var(--amber); border-color: rgba(255, 176, 0, 0.5); text-transform: none; }
+.xp-gain { display: flex; gap: 14px; align-items: center; justify-content: center; flex-wrap: wrap; margin: 4px 0 10px; }
+.xp-plus { color: var(--accent); font-weight: bold; font-size: 18px; text-shadow: 0 0 8px var(--glow); }
+.xp-level { color: var(--amber); font-weight: bold; letter-spacing: 0.08em; }
+.xp-bar { width: 160px; height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; }
+.xp-bar span { display: block; height: 100%; background: var(--amber); }
+.xp-up { color: var(--amber); animation: pop-in 0.6s ease-out; text-shadow: 0 0 12px rgba(255, 176, 0, 0.7); }
+@keyframes pop-in { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }

@@ -48,6 +48,15 @@
         <div id="colorPick" class="colors"></div>
       </div>
 
+      <div class="field level-row">
+        <span>&gt; rank</span>
+        <div class="level-box">
+          <strong id="levelText">LEVEL 1</strong>
+          <span class="level-track"><span id="levelFill"></span></span>
+          <span id="levelXp" class="dim small"></span>
+          <select id="titlePick" aria-label="Title shown next to your name"></select>
+        </div>
+      </div>
       <div class="menu-actions">
         <button id="createBtn" class="primary" data-icon="play">Create room</button>
         <div class="join-row">
@@ -117,6 +126,7 @@
     <div class="panel results-panel">
       <h2>// MISSION REPORT</h2>
       <p id="resultsSummary" class="summary"></p>
+      <p id="xpGain" class="xp-gain" hidden></p>
       <div id="podium" class="podium" hidden></div>
       <ol id="resultsList" class="results"></ol>
       <div id="resultsActions" class="actions"></div>

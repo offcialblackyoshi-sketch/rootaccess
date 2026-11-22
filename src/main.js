@@ -10,6 +10,7 @@ import { el, load, save, playerList, COLORS } from './util.js';
 import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
+import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -119,12 +120,17 @@ $('nameInput').value = load('ra-name', 'user' + Math.floor(100 + Math.random() *
 function renderColors() {
   const box = $('colorPick');
   box.innerHTML = '';
-  for (const c of COLORS) {
+  const level = levelFor(getProgress().xp).level;
+  // Extra colors unlock as you level up.
+  const extra = UNLOCK_COLORS.map(([l, c]) => ({ c, locked: level < l, l }));
+  for (const { c, locked, l } of [...COLORS.map((c) => ({ c })), ...extra]) {
     box.append(el('button', {
-      class: 'swatch' + (c === myColor ? ' selected' : ''),
+      class: 'swatch' + (c === myColor ? ' selected' : '') + (locked ? ' locked' : ''),
       style: { background: c },
-      'aria-label': 'Color ' + c,
+      'aria-label': locked ? `Color ${c}, unlocks at level ${l}` : 'Color ' + c,
+      title: locked ? `Unlocks at level ${l}` : null,
       'aria-pressed': c === myColor ? 'true' : 'false',
+      disabled: locked,
       type: 'button',
       onclick: () => {
         myColor = c;
@@ -135,6 +141,23 @@ function renderColors() {
   }
 }
 renderColors();
+
+// Level, XP bar and title picker on the menu.
+function renderLevel() {
+  const p = getProgress();
+  const { level, into, need } = levelFor(p.xp);
+  $('levelText').textContent = `LEVEL ${level}`;
+  $('levelFill').style.width = `${(100 * into) / need}%`;
+  $('levelXp').textContent = `${into}/${need} XP`;
+  const pick = $('titlePick');
+  pick.innerHTML = '';
+  const now = currentTitle(p);
+  for (const t of titlesFor(level)) pick.append(el('option', { value: t, selected: t === now }, t));
+}
+$('titlePick').addEventListener('change', (e) => {
+  saveProgress({ ...getProgress(), title: e.target.value });
+});
+renderLevel();
 
 function myName() {
   const n = $('nameInput').value.trim().replace(/[^\w.\-]/g, '').slice(0, 14) || 'anon';
@@ -149,7 +172,7 @@ function makePlayer(net, room) {
   // Keep colors unique in the room.
   const usedColors = new Set(Object.values(room?.players || {}).map((p) => p.color));
   const color = usedColors.has(myColor) ? COLORS.find((c) => !usedColors.has(c)) || myColor : myColor;
-  return { name, color, ready: false, joinedAt: net.now() };
+  return { name, color, ready: false, joinedAt: net.now(), level: levelFor(getProgress().xp).level, title: currentTitle() };
 }
 
 // ---------------------------------------------------------------------------
@@ -418,6 +441,22 @@ function renderResults(room) {
 
   if (state.shownResultsFor !== room.round) {
     state.shownResultsFor = room.round;
+    // XP for this round (once per round, spectators and quitters get none).
+    const mineR = results.find((r) => r.id === me);
+    $('xpGain').hidden = !mineR;
+    if (mineR) {
+      const humansAndBots = results.length;
+      const award = awardRound({ place: mineR.place, players: humansAndBots, won: mineR.won ?? mineR.place === 1, modeId: room.mode });
+      $('xpGain').innerHTML = '';
+      $('xpGain').append(
+        el('span', { class: 'xp-plus' }, `+${award.gained} XP`),
+        el('span', { class: 'xp-level' }, `LEVEL ${award.after.level}`),
+        el('span', { class: 'xp-bar' }, el('span', { style: { width: `${(100 * award.after.into) / award.after.need}%` } })),
+        award.levelUp ? el('strong', { class: 'xp-up' }, '▲ LEVEL UP!') : null);
+      if (award.levelUp) setTimeout(() => rain.burst({ color: '#39ff6a' }), 600);
+      renderLevel();
+      renderColors();
+    }
     // Team games mark each player's result as won or not.
     const mine = results.find((r) => r.id === me);
     const won = mine && typeof mine.won === 'boolean' ? mine.won : room.summaryWin ?? results[0]?.id === me;

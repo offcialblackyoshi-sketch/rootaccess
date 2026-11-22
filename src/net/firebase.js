@@ -171,6 +171,34 @@ export async function createFirebaseNet(config) {
       return D.onValue(D.ref(db, `inbox/${user.uid}`), (s) => cb(s.val() || {}));
     },
 
+    // Saved chats between signed-in accounts: adms/<acctA_acctB>/<msg>, and
+    // ainbox/<acct>/<conv> = { with, withName, last message, readAt } for each side.
+    acctChat: {
+      async send(otherAcct, otherName, msg) {
+        const u = mustSignIn();
+        const { db: adb } = account();
+        const conv = convId(u.uid, otherAcct);
+        const at = D.serverTimestamp();
+        await D.push(D.ref(adb, `adms/${conv}`), { from: u.uid, name: msg.name, color: msg.color || '', text: msg.text, at });
+        const last = { from: u.uid, name: msg.name, color: msg.color || '', text: msg.text, at };
+        await D.set(D.ref(adb, `ainbox/${otherAcct}/${conv}`), { ...last, with: u.uid, withName: msg.name });
+        await D.set(D.ref(adb, `ainbox/${u.uid}/${conv}`), { ...last, with: otherAcct, withName: otherName, readAt: at });
+      },
+      watch(otherAcct, cb) {
+        const u = mustSignIn();
+        return D.onValue(D.query(D.ref(account().db, `adms/${convId(u.uid, otherAcct)}`), D.limitToLast(200)), (s) => cb(s.val() || {}));
+      },
+      inbox(cb) {
+        const u = mustSignIn();
+        return D.onValue(D.ref(account().db, `ainbox/${u.uid}`), (s) => cb(s.val() || {}));
+      },
+      markRead(otherAcct) {
+        const u = signedIn();
+        if (!u) return Promise.resolve();
+        return D.update(D.ref(account().db, `ainbox/${u.uid}/${convId(u.uid, otherAcct)}`), { readAt: D.serverTimestamp() }).catch(() => {});
+      },
+    },
+
     // ---- Public lobby: open rooms + lobby chat ----
     lobbyWatch(cb) {
       let rooms = {};

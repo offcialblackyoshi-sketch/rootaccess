@@ -1022,3 +1022,8 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .dm-msg.mine { justify-self: end; background: var(--accent-soft); color: var(--fg); }
 .dm-note { margin: 0; }
 @media (max-width: 700px) { .social-panel { width: calc(100vw - 24px); } .dm-box { left: 12px !important; right: 12px; width: auto; } }
+.social-chats { display: grid; gap: 4px; max-height: 35%; overflow-y: auto; }
+.social-chats:empty { display: none; }
+.social-msg { border-color: var(--line); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.social-msg.unread { border-color: var(--red); }
+.social-msg.unread .pname::before { content: "● "; color: var(--red); }

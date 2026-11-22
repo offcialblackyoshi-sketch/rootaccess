@@ -226,6 +226,7 @@ function renderAccount(a) {
       el('p', { class: 'dim small' }, 'Save your progress on any device and get on the leaderboards. Or just play as a guest.'));
   }
   if (a.error) acctMsg(a.error, 'err');
+  social?.touch(); // saved chats follow your account
   renderLevel();
   renderColors();
 }

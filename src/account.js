@@ -3,6 +3,7 @@
 
 import { getOnlineNet, onlineConfigured } from './net/index.js';
 import { getProgress, saveProgress } from './progress.js';
+import { save } from './util.js';
 import { getTrophyState, saveTrophyState, mergeTrophies } from './trophies.js';
 
 export const HANDLE_RE = /^[A-Za-z0-9_.-]{2,14}$/;
@@ -75,6 +76,8 @@ export async function initAccount(onChange) {
       const remote = await net.account.loadProfile();
       const { progress, upload } = mergeProgress(getProgress(), remote);
       saveProgress(progress);
+      // Your private-messages setting follows your account.
+      if (typeof remote?.dm === 'boolean') save('ra-dm-on', remote.dm);
       // Trophies: keep everything earned here or on any other device.
       const trophies = mergeTrophies(getTrophyState(), remote?.trophies);
       saveTrophyState(trophies);

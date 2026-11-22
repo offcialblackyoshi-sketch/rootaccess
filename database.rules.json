@@ -121,6 +121,24 @@
           ".validate": "newData.hasChildren(['from', 'name', 'text', 'at']) && newData.child('from').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('text').isString() && newData.child('text').val().length <= 300 && newData.child('at').val() <= now"
         }
       }
+    },
+    "adms": {
+      "$conv": {
+        ".read": "auth != null && (auth.token.email_verified === true || auth.token.firebase.sign_in_provider === 'password') && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid))",
+        "$msg": {
+          ".write": "auth != null && (auth.token.email_verified === true || auth.token.firebase.sign_in_provider === 'password') && !data.exists() && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid))",
+          ".validate": "newData.hasChildren(['from', 'name', 'text', 'at']) && newData.child('from').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 300 && newData.child('at').val() <= now"
+        }
+      }
+    },
+    "ainbox": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$conv": {
+          ".write": "auth != null && (auth.token.email_verified === true || auth.token.firebase.sign_in_provider === 'password') && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid)) && ($conv.beginsWith($uid + '_') || $conv.endsWith('_' + $uid)) && (auth.uid === $uid || (newData.child('from').val() === auth.uid && root.child('users').child($uid).child('dm').val() !== false))",
+          ".validate": "newData.hasChildren(['from', 'name', 'text', 'at', 'with', 'withName']) && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('withName').isString() && newData.child('withName').val().length <= 16 && newData.child('text').isString() && newData.child('text').val().length <= 300 && newData.child('at').val() <= now"
+        }
+      }
     }
   }
 }

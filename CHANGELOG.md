@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Saved chats for accounts
+- When both players are signed in, private chats are saved to their accounts (`adms/<a_b>`, plus an `ainbox/<account>` entry on each side). History survives reloads and device switches, and you can message signed-in players who are offline.
+- The panel shows a **Chats** list of your saved conversations, with unread markers that sync across devices. Guest chats still work and last while both players are online.
+- Your **Private messages on/off** setting saves to your account, and the rules refuse saved-chat messages to accounts that turned it off.
+- **Setup:** publish the updated `database.rules.json` (new `adms` and `ainbox` sections).
+
+
 ### Online players, profiles and private messages
 - A panel on the left lists everyone online with their level and what they're doing (on the menu, in the lobby, playing a mode). It's open on the menu and multiplayer lobby screens on wide displays; elsewhere it folds into a 👥 tab with a red unread count.
 - **Search** by name. Click a player for their **profile**: level, XP, rounds, wins, win %, trophies, title, and guest or account.

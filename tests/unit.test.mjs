@@ -804,3 +804,13 @@ test('online players and private chats: only the two people in a chat can read o
   assert.match(R.inbox.$uid['.read'], /auth\.uid === \$uid/);
   assert.match(R.inbox.$uid.$conv['.write'], /child\('dm'\)\.val\(\) !== false/, 'people with messages off cannot be messaged');
 });
+
+test('saved account chats: rules keep them between the two signed-in accounts', () => {
+  const R = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url))).rules;
+  for (const w of [R.adms.$conv['.read'], R.adms.$conv.$msg['.write'], R.ainbox.$uid.$conv['.write']]) {
+    assert.match(w, /sign_in_provider === 'password'/, 'accounts only');
+    assert.match(w, /beginsWith\(auth\.uid \+ '_'\)/, 'only people in the chat');
+  }
+  assert.match(R.ainbox.$uid['.read'], /auth\.uid === \$uid/);
+  assert.match(R.ainbox.$uid.$conv['.write'], /child\('dm'\)\.val\(\) !== false/, 'respects private messages off');
+});

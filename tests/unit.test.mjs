@@ -734,9 +734,9 @@ test('password accounts: logins, messages, and rules', async () => {
 test('special titles: only the named account gets one', async () => {
   const { specialTitle } = await import('../src/progress.js');
   const { myStats } = await import('../src/stats.js');
-  assert.equal(specialTitle('brisky2swifty'), '★ creator');
-  assert.equal(specialTitle('Brisky2Swifty'), '★ creator', 'any capitalization');
+  assert.equal(specialTitle('brisky2swifty'), '👑 owner');
+  assert.equal(specialTitle('Brisky2Swifty'), '👑 owner', 'any capitalization');
   assert.equal(specialTitle('someone'), null);
-  assert.equal(myStats({ xp: 0, rounds: 0, wins: 0, title: '' }, { name: 'brisky2swifty' }).title, '★ creator');
+  assert.equal(myStats({ xp: 0, rounds: 0, wins: 0, title: '' }, { name: 'brisky2swifty' }).title, '👑 owner');
   assert.equal(myStats({ xp: 0, rounds: 0, wins: 0, title: '' }, { name: 'n3m0' }).title, 'script kiddie');
 });

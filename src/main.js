@@ -286,7 +286,7 @@ function sendChat(text) {
 const chat = createChat({
   sfx,
   onSend: sendChat,
-  onEscape: () => document.querySelector('#term .term-in input:not(:disabled)')?.focus(),
+  onEscape: () => (document.querySelector('#term .term-in input:not(:disabled)') || document.querySelector('.quick-box'))?.focus(),
 });
 
 // ---------------------------------------------------------------------------

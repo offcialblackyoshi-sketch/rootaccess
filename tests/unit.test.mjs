@@ -16,7 +16,13 @@ import { normalizeSettings, defaultSettings } from '../src/settings.js';
 import { secondsCrossed } from '../src/sfx.js';
 import { columnCount, rainbowColor } from '../src/matrix.js';
 import { roundTime, fmtTime } from '../src/util.js';
-import { MODES } from '../src/modes/index.js';
+import { MODES, MODE_ORDER, PUZZLES } from '../src/modes/index.js';
+import { quickStatsText, stageRng, STAGES } from '../src/modes/quickhack.js';
+import * as letterlock from '../src/modes/minigames/letterlock.js';
+import * as printmatch from '../src/modes/minigames/printmatch.js';
+import * as signaltune from '../src/modes/minigames/signaltune.js';
+import * as circuit from '../src/modes/minigames/circuit.js';
+import * as memory from '../src/modes/minigames/memory.js';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 7919 + 13);
 
@@ -264,6 +270,7 @@ test('bot levels get harder in every mode', () => {
     assert.ok(a.raceLayerMs[0] > b.raceLayerMs[0] && a.raceLayerMs[1] > b.raceLayerMs[1], 'race bots get faster');
     assert.ok(a.duelWpm[1] <= b.duelWpm[0] + 2 && a.duelMiss > b.duelMiss, 'duel bots type faster and miss less');
     assert.ok(a.defendBreach < b.defendBreach && a.defendKill < b.defendKill, 'defend bots act more');
+    assert.ok(a.quickStageMs[0] > b.quickStageMs[0] && a.quickStageMs[1] > b.quickStageMs[1], 'quick-hack bots get faster');
   }
   assert.equal(botParams(undefined), normal, 'missing level falls back to normal');
 });
@@ -382,4 +389,124 @@ test('duel snippets and defend scoring', () => {
   assert.equal(score({ nodes: startNodes(), loot: 0 }), 360);
   assert.equal(score({ nodes: startNodes(), loot: 40 }), 400);
   assert.equal(breachTime(0), 5000);
+});
+
+// ---------------------------------------------------------------------------
+// Quick hacks
+// ---------------------------------------------------------------------------
+const QUICK = { letterlock, printmatch, signaltune, circuit, memory };
+const QSEEDS = SEEDS.slice(0, 200);
+
+test('quick hacks: every mini-game is its own easy mode, listed after the classic modes', () => {
+  assert.deepEqual(MODE_ORDER.slice(0, 4), ['race', 'duel', 'defend', 'heist'], 'classic modes keep their lobby slots');
+  for (const id of Object.keys(QUICK)) {
+    const m = MODES[id];
+    assert.ok(m && m.quick && m.bots && m.min === 1 && m.max === 8, `${id} is a 1-8 player quick mode`);
+    assert.ok(MODE_ORDER.includes(id));
+    assert.equal(fmtTime(roundTime(m, 'normal')), '3:00');
+    assert.ok(PUZZLES[id].howTo && PUZZLES[id].blurb);
+  }
+});
+
+test('quick hacks: same seed and stage gives the same puzzle for everyone', () => {
+  for (const [id, mod] of Object.entries(QUICK)) {
+    for (let st = 0; st < STAGES; st++) {
+      const a = mod.generate(stageRng(id, 42, st), st);
+      const b = mod.generate(stageRng(id, 42, st), st);
+      assert.deepEqual(a, b, `${id} stage ${st}`);
+    }
+    assert.notDeepEqual(mod.generate(stageRng(id, 1, 0), 0), mod.generate(stageRng(id, 2, 0), 0), `${id} differs per seed`);
+  }
+});
+
+test('letter lock: every password letter appears exactly once in its column, and it gets harder', () => {
+  for (const seed of QSEEDS) {
+    let prevLen = 0, prevSpeed = 0;
+    for (let st = 0; st < STAGES; st++) {
+      const d = letterlock.generate(stageRng('letterlock', seed, st), st);
+      assert.ok(d.password.length > prevLen);
+      d.strips.forEach((s, i) => assert.equal(s.letters.filter((c) => c === d.password[i]).length, 1));
+      const avg = d.strips.reduce((n, s) => n + s.speed, 0) / d.strips.length;
+      assert.ok(avg >= prevSpeed - 0.4);
+      prevLen = d.password.length;
+      prevSpeed = avg;
+    }
+  }
+  // The highlighted letter cycles through the whole strip over time.
+  const strip = { letters: [...'ABCDEFGHIJ'], speed: 2, dir: -1, offset: 3 };
+  const seen = new Set();
+  for (let ms = 0; ms < 6000; ms += 100) seen.add(letterlock.letterAt(strip, ms));
+  assert.equal(seen.size, 10);
+});
+
+test('print match: the real parts are in the grid and no look-alike is an exact copy', () => {
+  for (const seed of QSEEDS) {
+    for (let st = 0; st < STAGES; st++) {
+      const d = printmatch.generate(stageRng('printmatch', seed, st), st);
+      const real = d.options.filter((o) => o.real);
+      assert.equal(real.length, d.parts.length);
+      assert.equal(d.options.length, d.cols * 2);
+      for (const o of d.options) {
+        if (o.real) assert.ok(d.parts.some((p) => printmatch.distance(p, o.bits) === 0));
+        else assert.ok(d.parts.every((p) => printmatch.distance(p, o.bits) > 0), 'decoy is not a real part');
+      }
+    }
+  }
+});
+
+test('signal tune: the target is within reach and the start never already matches', () => {
+  for (const seed of QSEEDS) {
+    for (let st = 0; st < STAGES; st++) {
+      const d = signaltune.generate(stageRng('signaltune', seed, st), st);
+      assert.deepEqual(d.knobs, signaltune.STAGE_KNOBS[st]);
+      for (const [k, K] of Object.entries(signaltune.KNOBS)) {
+        assert.ok(d.target[k] >= K.min && d.target[k] <= K.max);
+        if (d.knobs.includes(k)) assert.ok(Math.abs(d.start[k] - d.target[k]) >= 2, 'used knobs start off target');
+        else assert.equal(d.start[k], d.target[k], 'unused knobs already match');
+      }
+    }
+  }
+});
+
+test('circuit path: every maze has a route to the exit, and mazes grow', () => {
+  for (const seed of QSEEDS) {
+    let prev = 0;
+    for (let st = 0; st < STAGES; st++) {
+      const m = circuit.generate(stageRng('circuit', seed, st), st);
+      assert.ok(m.size > prev);
+      prev = m.size;
+      const path = circuit.solvePath(m);
+      assert.ok(path && path.length >= 2 * (m.size - 1), 'reachable');
+      // Walls are two-sided: if you can go east from A, you can go west from B.
+      for (let y = 0; y < m.size; y++) for (let x = 0; x + 1 < m.size; x++) {
+        assert.equal(circuit.canMove(m, [x, y], circuit.E), circuit.canMove(m, [x + 1, y], circuit.W));
+      }
+      // Walking the route ends on the exit.
+      let pos = [...m.start];
+      const step = { [circuit.N]: [0, -1], [circuit.E]: [1, 0], [circuit.S]: [0, 1], [circuit.W]: [-1, 0] };
+      for (const d of path) { assert.ok(circuit.canMove(m, pos, d)); pos = [pos[0] + step[d][0], pos[1] + step[d][1]]; }
+      assert.deepEqual(pos, m.exit);
+    }
+  }
+});
+
+test('code memory: sequences fit the grid, never repeat a cell back to back, and get longer', () => {
+  for (const seed of QSEEDS) {
+    let prev = 0;
+    for (let st = 0; st < STAGES; st++) {
+      const d = memory.generate(stageRng('memory', seed, st), st);
+      assert.ok(d.seq.length > prev);
+      prev = d.seq.length;
+      d.seq.forEach((c, i) => {
+        assert.ok(c >= 0 && c < d.size * d.size);
+        if (i) assert.notEqual(c, d.seq[i - 1]);
+      });
+    }
+  }
+});
+
+test('quick hack stats text', () => {
+  assert.equal(quickStatsText({ stage: 5, mistakes: 2, fastest: 9000 }), '5/5 stages · 2 mistakes · fastest stage 0:09');
+  assert.equal(quickStatsText({ stage: 1, mistakes: 1 }), '1/5 stages · 1 mistake');
+  assert.equal(quickStatsText(), '0/5 stages · 0 mistakes');
 });

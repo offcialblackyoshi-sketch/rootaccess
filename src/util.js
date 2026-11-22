@@ -70,3 +70,15 @@ export function playerList(room) {
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0) || a.id.localeCompare(b.id));
 }
+
+// Like el(), for SVG elements: svgEl('line', { x1: 0, y1: 0, x2: 5, y2: 5 }).
+export function svgEl(tag, attrs = {}, ...children) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, String(v));
+  }
+  for (const c of children.flat()) if (c) node.append(c);
+  return node;
+}

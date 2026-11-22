@@ -11,6 +11,7 @@ const PARAMS = {
     defendKill: 0.15,             // chance to kill an incoming breach
     defendPatch: 0.15,
     defendTargetsLeader: false,
+    quickStageMs: [40000, 70000], // time a bot spends on each quick-hack stage
   },
   normal: {
     raceLayerMs: [30000, 65000],
@@ -20,6 +21,7 @@ const PARAMS = {
     defendKill: 0.35,
     defendPatch: 0.25,
     defendTargetsLeader: false,
+    quickStageMs: [22000, 40000],
   },
   hard: {
     raceLayerMs: [18000, 35000],
@@ -29,6 +31,7 @@ const PARAMS = {
     defendKill: 0.6,
     defendPatch: 0.4,
     defendTargetsLeader: true,
+    quickStageMs: [12000, 22000],
   },
 };
 

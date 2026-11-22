@@ -13,6 +13,18 @@ A multiplayer hacking game that runs in the browser and installs as an app on Ch
 | **Hack & Defend** | 2–6 (bots OK) | You own 3 servers. Use `scan`, `breach`, `trace`, `kill`, and `patch`, all of which cost CPU. Most data when time runs out wins. |
 | **Co-op Heist** | 2–4 (humans) | Infiltrator, Analyst, and Lookout each see different clues and must talk in chat to get through the door, the login, and the vault before the alarm goes off. |
 
+### Quick Hacks (easy, no typing)
+
+Five short visual mini-games for beginners, each its own mode (1–8 players, bots OK). You play with the arrow keys, <kbd>Space</kbd>/<kbd>Enter</kbd>, or the mouse. Each has 5 stages that get harder, and everyone gets the same puzzles. A mistake locks you out for 3 seconds, and nobody is knocked out. The first player to clear all 5 stages wins.
+
+| Mode | What you do |
+|---|---|
+| **Letter Lock** | Press Space when the glowing column shows the next password letter in its middle row. |
+| **Print Match** | Pick the parts that appear in the target print out of a grid of look-alikes. |
+| **Signal Tune** | Turn the frequency, height, and shift knobs until your wave sits on the target. |
+| **Circuit Path** | Steer a signal through a maze to the exit without bumping the walls. |
+| **Code Memory** | Watch cells flash, then repeat the sequence in order. |
+
 Type `help` in any mode to see its commands. <kbd>Tab</kbd> auto-completes, and <kbd>↑</kbd>/<kbd>↓</kbd> bring back earlier commands. In Race, type `hint` if you get stuck.
 
 ## Other features
@@ -103,6 +115,7 @@ There is no build step. It is plain HTML, CSS, and JavaScript modules.
 | `src/game.js` | Runs a round and gives each mode its terminal, timer, and network helpers |
 | `src/terminal.js`, `src/commands.js` | The terminal widget, shell, and fake filesystem |
 | `src/modes/*.js` | One file per game mode |
+| `src/modes/quickhack.js`, `src/modes/minigames/` | The Quick Hack mini-games: one shared mode runner, one file per mini-game |
 | `src/net/` | Multiplayer. `firebase.js` handles online play, and `local.js` handles same-computer tabs and practice. |
 | `src/rng.js` | Seeded random numbers, so every player gets the same puzzle |
 | `firebase-config.js`, `database.rules.json` | Online setup |

@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Quick Hacks: 5 easy mini-game modes
+- New lobby group **QUICK HACKS · easy · no typing** with 5 separate modes: Letter Lock, Print Match, Signal Tune, Circuit Path, and Code Memory. You play with the arrow keys, Space/Enter, or the mouse.
+- Shared rules (`src/modes/quickhack.js`): 1–8 players with bots, a 3-minute round, and 5 stages that get harder. Everyone gets the same puzzle per stage from the room seed. A mistake means a 3 s lockout, never a knock-out. The first to clear 5 stages wins. Results show stages, mistakes, and fastest stage.
+- Bots clear a stage every 40–70 s on easy, 22–40 s on normal, and 12–22 s on hard.
+- **Verified:** new unit tests check that every puzzle is deterministic and solvable for 200 seeds, and that it gets harder by stage. They cover letters present, decoys never exact copies, reachable waves, a route through every maze, and valid memory sequences. The e2e test plays stage 1 of each mode with real key presses, checks the lockout, and finishes each round.
+
+
 ### 1. Players leaving mid-game
 - **Heist:** if the Infiltrator or Analyst leaves, a Lookout takes over that role. Their terminal shows **CREW CHANGE** and they get the new commands. When there's no Lookout left, the Analyst picks up lookout duty. If fewer than 2 players are left, the heist is called off.
 - **Hack & Defend:** if everyone else disconnects, the round ends and the last player wins by default, instead of sitting through the 5-minute timer alone.

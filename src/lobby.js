@@ -8,7 +8,10 @@ import { iconEl } from './icons.js';
 const $ = (id) => document.getElementById(id);
 
 // Accent color per mode (mode cards, icons).
-const MODE_ACCENT = { race: '#4dd9ff', duel: '#ff5a5a', defend: '#39ff6a', heist: '#ffb000' };
+const MODE_ACCENT = {
+  race: '#4dd9ff', duel: '#ff5a5a', defend: '#39ff6a', heist: '#ffb000',
+  letterlock: '#c6ff4d', printmatch: '#ff4dd2', signaltune: '#4dd9ff', circuit: '#ffb000', memory: '#b388ff',
+};
 
 // Remember who we've already shown, so only new arrivals slide in and only
 // players who just readied up pulse (the lobby redraws on every change).
@@ -72,6 +75,9 @@ export function renderLobby({ room, net, code, onLeave }) {
   modesEl.innerHTML = '';
   for (const id of MODE_ORDER) {
     const m = MODES[id];
+    if (m.quick && !modesEl.querySelector('.mode-group')) {
+      modesEl.append(el('div', { class: 'mode-group' }, 'QUICK HACKS', el('span', { class: 'dim' }, ' · easy · no typing, just arrow keys, Space or clicks')));
+    }
     const selected = room.mode === id;
     const unavailable = room.practice && !m.bots; // needs other humans
     const card = el('button', {

@@ -568,7 +568,7 @@ await step('pwa', async () => {
   const sw = await D.eval(`navigator.serviceWorker.ready.then(r => !!r.active)`);
   check('pwa: service worker active', sw === true);
   await sleep(500);
-  const cached = await D.eval(`caches.open('root-access-v2').then(c => c.keys()).then(k => k.length)`);
+  const cached = await D.eval(`caches.open('root-access-v3').then(c => c.keys()).then(k => k.length)`);
   check('pwa: all files cached', cached >= 26, `(${cached})`);
   const inst = await D.send('Page.getInstallabilityErrors');
   const errs = inst.result?.installabilityErrors ?? [];
@@ -608,6 +608,95 @@ await step('settings', async () => {
   const still = await D.eval(`getComputedStyle(document.querySelector('.logo-text'), '::before').animationName === 'none' && !window.__ra.rain.running`);
   check('settings: reduce motion stops animations and the rain', still);
   await D.eval(`localStorage.removeItem('ra-settings')`);
+});
+
+// ---------------------------------------------------------------------------
+await step('quick hacks', async () => {
+  // Fresh practice room. Each quick-hack mode: play part of stage 1 with real
+  // keys, check a mistake locks you out, then clear the rest and see results.
+  const backToMenu = async () => {
+    await D.eval('window.confirm = () => true');
+    const screen = await D.screen();
+    if (screen === 'lobby') await D.click('#leaveBtn');
+    if (screen === 'game') await D.click('#gameLeave');
+    if (screen === 'results') await D.click('#resultsActions button:last-child');
+    await D.waitFor(`document.body.dataset.screen === 'menu'`, 5000, 'back to menu');
+  };
+  const KEYS = { ArrowUp: ['ArrowUp', 38], ArrowDown: ['ArrowDown', 40], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], ' ': ['Space', 32], Enter: ['Enter', 13], e: ['KeyE', 69], q: ['KeyQ', 81] };
+  const key = (k) => D.press(k, KEYS[k][0], KEYS[k][1]);
+  const ids = ['letterlock', 'printmatch', 'signaltune', 'circuit', 'memory'];
+  await backToMenu();
+  await D.click('#practiceBtn');
+  await D.waitFor(`document.body.dataset.screen === 'lobby'`);
+  check('quick hacks: lobby shows a QUICK HACKS group with 5 modes',
+    (await D.eval(`document.querySelector('.mode-group')?.innerText || ''`)).includes('QUICK HACKS') && (await D.eval(`document.querySelectorAll('.mode-card').length`)) === 9);
+  await D.shot('30-quick-lobby.png');
+  for (const [i, id] of ids.entries()) {
+    if (i) {
+      await D.click('#resultsActions button:first-child'); // back to the lobby
+      await D.waitFor(`document.body.dataset.screen === 'lobby'`, 5000, 'lobby again');
+    }
+    await D.click(`.mode-card:nth-child(${6 + i})`);
+    await D.waitFor(`window.__ra.state.room.mode === '${id}'`);
+    await D.click('#startBtn');
+    await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden && !!window.__ra.quick?.data()`, 8000, `${id} starts`);
+    await sleep(300);
+    const focused = await D.eval(`document.activeElement?.classList.contains('quick-box')`);
+    const data = await D.eval('window.__ra.quick.data()');
+    let played = false;
+    if (id === 'circuit') {
+      // Walk the whole maze with arrow keys.
+      const path = await D.eval(`import('./src/modes/minigames/circuit.js').then((m) => m.solvePath(window.__ra.quick.data()).map((d) => m.DIR_KEY[d]))`);
+      for (const k of path) await key(k);
+      played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'maze solved').catch(() => false);
+    } else if (id === 'signaltune') {
+      const d = data;
+      const turns = d.target.freq - d.start.freq;
+      for (let n = 0; n < Math.abs(turns); n++) await key(turns > 0 ? 'ArrowRight' : 'ArrowLeft');
+      await key('Enter');
+      played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'wave tuned').catch(() => false);
+    } else if (id === 'memory') {
+      await D.waitFor(`document.querySelector('.mm-status').innerText.includes('YOUR TURN')`, 8000, 'sequence shown');
+      const n = data.size;
+      let cur = Math.floor((n * n) / 2);
+      for (const c of data.seq) {
+        const [cx, cy, tx, ty] = [cur % n, Math.floor(cur / n), c % n, Math.floor(c / n)];
+        for (let x = cx; x !== tx; x += Math.sign(tx - cx)) await key(tx > cx ? 'ArrowRight' : 'ArrowLeft');
+        for (let y = cy; y !== ty; y += Math.sign(ty - cy)) await key(ty > cy ? 'ArrowDown' : 'ArrowUp');
+        await key(' ');
+        cur = c;
+      }
+      played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'sequence repeated').catch(() => false);
+    } else if (id === 'printmatch') {
+      for (const [j, o] of data.options.entries()) if (o.real) await D.click(`.pm-option:nth-child(${j + 1})`);
+      await key('Enter');
+      played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'print matched').catch(() => false);
+    } else {
+      // Letter Lock: press Space when the right letter reaches the middle row.
+      const end = Date.now() + 15000;
+      let locked = 0;
+      while (locked < data.password.length && Date.now() < end) {
+        const ok = await D.eval(`(() => { const c = document.querySelector('.ll-col.active span.mid'); return c && c.textContent === ${JSON.stringify(data.password)}[${locked}]; })()`);
+        if (ok) { await key(' '); locked++; } else await sleep(40);
+      }
+      played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'password locked').catch(() => false);
+    }
+    check(`quick hacks: ${id} has keyboard focus and stage 1 is playable with real keys`, focused && played === true);
+    await D.shot(`31-quick-${id}.png`);
+    if (id === 'signaltune') {
+      // Stage 2 starts off target, so Enter right away is a mistake.
+      await key('Enter');
+      check('quick hacks: a mistake locks you out', await D.waitFor('window.__ra.quick.locked() && !document.querySelector(".qh-lock").hidden', 2000).catch(() => false));
+      await D.shot('32-quick-lockout.png');
+    }
+    for (let st = (await D.eval('window.__ra.quick.stage()')); st < 5; st++) await D.eval('window.__ra.quick.solve()');
+    await D.waitFor(`document.body.dataset.screen === 'results'`, 8000, `${id} results`);
+    const summary = await D.eval(`document.getElementById('resultsSummary').innerText`);
+    const stats = await D.eval(`document.querySelector('#resultsList .stats')?.innerText || ''`);
+    check(`quick hacks: ${id} ends when you clear all 5 stages`, summary.includes('all 5 stages') && stats.includes('5/5 stages'), `${summary} | ${stats}`);
+  }
+  await D.shot('33-quick-results.png');
+  await backToMenu();
 });
 
 // ---------------------------------------------------------------------------

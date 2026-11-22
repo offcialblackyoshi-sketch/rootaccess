@@ -21,6 +21,8 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
   timerEl.textContent = '';
   $('gameMode').textContent = mode.name;
   $('gameRoom').textContent = room.practice ? 'PRACTICE' : `ROOM ${code}`;
+  // Quick-hack mini-games are played on the stage, not by typing.
+  $('screen-game').classList.toggle('quick-mode', !!mode.quick);
 
   const term = new Terminal($('term'));
   term.onEscape = focusChat; // Esc jumps to chat, Esc again comes back
@@ -55,6 +57,7 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
     update: (changes) => net.update(code, changes).catch((e) => term.print('network error: ' + e.message, 'err')),
     push: (list, value) => net.push(code, list, value),
     say: (text) => sendChat(text),
+    focusChat,
     setTimer(text, cls = '') {
       timerEl.textContent = text;
       timerEl.className = cls;
@@ -163,7 +166,8 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
     });
     mounted = mode.mount(ctx) || {};
     mounted.onRoom?.(latest);
-    term.focus();
+    if (mounted.focus) mounted.focus();
+    else term.focus();
   }
   tryMount();
 
@@ -181,6 +185,7 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
       intervals.forEach(clearInterval);
       timeouts.forEach(clearTimeout);
       overlay.hidden = true;
+      $('screen-game').classList.remove('quick-mode');
       try { mounted?.destroy?.(); } catch (e) { console.error(e); }
     },
   };

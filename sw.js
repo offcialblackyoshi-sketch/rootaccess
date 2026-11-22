@@ -2,7 +2,7 @@
 // Strategy: network first (so players always get the newest version when
 // online), falling back to the cache when offline. Only files from this site
 // are cached; Firebase traffic is never touched.
-const CACHE = 'root-access-v8';
+const CACHE = 'root-access-v9';
 const ASSETS = [
   './',
   './index.html',
@@ -85,8 +85,10 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   if (url.origin !== self.location.origin) return;
+  // Always check with the server for the newest version (cache: 'no-cache'),
+  // so an update never mixes old and new files. Offline, use the saved copy.
   event.respondWith(
-    fetch(req)
+    fetch(req, { cache: 'no-cache' })
       .then((res) => {
         if (res.ok) {
           const copy = res.clone();

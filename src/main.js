@@ -16,6 +16,8 @@ import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { specialTitle } from './progress.js';
 import { startBadges } from './badges.js';
+import { confetti } from './fx/confetti.js';
+import { scrambleHeadings } from './fx/scramble.js';
 import { createSocial } from './social.js';
 import { trophyCount as countTrophies } from './trophies.js';
 import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag } from './trophies.js';
@@ -71,6 +73,7 @@ function show(name) {
   }
   document.body.dataset.screen = name;
   social?.setScreen(name);
+  if (changed) scrambleHeadings(document.getElementById('screen-' + name));
 }
 
 const reducedMotion = () => document.documentElement.classList.contains('reduce-motion');
@@ -813,7 +816,7 @@ function finishResults(room, results, me) {
         el('span', { class: 'xp-level' }, `LEVEL ${award.after.level}`),
         el('span', { class: 'xp-bar' }, el('span', { style: { width: `${(100 * award.after.into) / award.after.need}%` } })),
         award.levelUp ? el('strong', { class: 'xp-up' }, '▲ LEVEL UP!') : null].filter(Boolean));
-      if (award.levelUp) setTimeout(() => rain.burst({ color: '#39ff6a' }), 600);
+      if (award.levelUp) setTimeout(() => { rain.burst({ color: '#39ff6a' }); confetti({ from: 'center', amount: 90 }); }, 600);
       renderLevel();
       renderColors();
       pushMyStats({ name: myName(), color: myColor }); // update the global leaderboard
@@ -821,6 +824,7 @@ function finishResults(room, results, me) {
       syncProgress({ color: myColor }); // and your Google account, if signed in
     }
     if (won) {
+      confetti({ amount: 160 });
       sfx.win();
       rain.burst({ color: '#ffd23d' });
     } else sfx.lose();
@@ -837,7 +841,7 @@ function showNewTrophies(list) {
       el('span', { class: 'trophy-icon' }, tr.icon),
       el('div', {}, el('div', { class: 'small dim' }, tr.week ? 'WEEKLY TROPHY UNLOCKED' : 'TROPHY UNLOCKED'), el('strong', {}, tr.name))));
   }
-  if (list.length) setTimeout(() => { sfx.ok(); rain.burst({ color: '#ffd23d' }); }, 900);
+  if (list.length) setTimeout(() => { sfx.ok(); rain.burst({ color: '#ffd23d' }); confetti({ from: 'center', amount: 60, colors: ['#ffd23d', '#ffb000', '#fff3b0'] }); }, 900);
 }
 
 // ---------------------------------------------------------------------------
@@ -988,6 +992,9 @@ if ('serviceWorker' in navigator) {
 // Exposed for automated tests.
 window.__ra = { state, sfx, rain, renderAccount };
 startBadges(); // special titles next to names everywhere
+// Dialogs "decrypt" their headings as they open.
+const showModal = HTMLDialogElement.prototype.showModal;
+HTMLDialogElement.prototype.showModal = function () { showModal.call(this); scrambleHeadings(this); };
 
 // Online players panel: what others see about you, and what you're doing.
 social = createSocial({

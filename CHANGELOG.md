@@ -19,6 +19,12 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Decoration: confetti and decrypting headings
+- **Confetti** bursts from the bottom corners when you win, from the center on a level-up, and in gold when you earn a trophy. It's drawn on its own layer that never blocks clicks.
+- **Decrypting headings:** section titles scramble through glyphs and settle on the real text when a screen or dialog opens.
+- Both are skipped when **Reduce motion** is on.
+
+
 ### Saved chats for accounts
 - When both players are signed in, private chats are saved to their accounts (`adms/<a_b>`, plus an `ainbox/<account>` entry on each side). History survives reloads and device switches, and you can message signed-in players who are offline.
 - The panel shows a **Chats** list of your saved conversations, with unread markers that sync across devices. Guest chats still work and last while both players are online.

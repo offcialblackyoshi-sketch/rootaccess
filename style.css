@@ -1027,3 +1027,6 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .social-msg { border-color: var(--line); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .social-msg.unread { border-color: var(--red); }
 .social-msg.unread .pname::before { content: "● "; color: var(--red); }
+
+/* Confetti layer (above everything, never blocks clicks) */
+.confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1000; }

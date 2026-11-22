@@ -814,3 +814,18 @@ test('saved account chats: rules keep them between the two signed-in accounts', 
   assert.match(R.ainbox.$uid['.read'], /auth\.uid === \$uid/);
   assert.match(R.ainbox.$uid.$conv['.write'], /child\('dm'\)\.val\(\) !== false/, 'respects private messages off');
 });
+
+test('effects: scramble settles on the real text, confetti falls and fades', async () => {
+  const { scrambleFrame } = await import('../src/fx/scramble.js');
+  assert.equal(scrambleFrame('// MISSION REPORT', 1), '// MISSION REPORT');
+  const mid = scrambleFrame('HELLO WORLD', 0.5, () => 0);
+  assert.equal(mid.length, 11);
+  assert.ok(mid.startsWith('HELLO'), 'settled from the left');
+  assert.equal(mid[5], ' ', 'spaces stay put');
+  const { makePiece, stepPiece } = await import('../src/fx/confetti.js');
+  const p = makePiece(100, 500, () => 0.5);
+  assert.ok(p.vy < 0, 'shoots upward first');
+  let frames = 0;
+  while (stepPiece(p, 600) && frames < 2000) frames++;
+  assert.ok(frames > 20 && frames < 2000, `lands or fades (${frames} frames)`);
+});

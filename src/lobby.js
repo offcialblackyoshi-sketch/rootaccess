@@ -72,7 +72,7 @@ export function renderLobby({ room, net, code, onLeave }) {
     if (p.bot) tags.push(el('span', { class: 'tag' }, 'BOT'));
     else if (p.id !== room.hostId) tags.push(el('span', { class: 'tag ' + (p.ready ? 'ready' : 'wait') }, p.ready ? 'READY' : 'NOT READY'));
     if (p.id === me) tags.push(el('span', { class: 'tag you' }, 'YOU'));
-    if (!p.bot && p.level) tags.push(el('span', { class: 'tag rank' + (p.special ? ' special' : ''), title: p.title || '' }, `LV${p.level}${p.title ? ' · ' + p.title : ''}`));
+    if (!p.bot && p.level) tags.push(el('span', { class: 'tag rank' + (p.special ? ' special' : ''), title: p.title || '' }, `LV${p.level}${p.title && !p.special ? ' · ' + p.title : ''}`));
     // The host can remove bots, and kick other players (they can't rejoin this room).
     const remove = isHost && p.id !== me
       ? el('button', {

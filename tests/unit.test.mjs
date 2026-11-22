@@ -781,3 +781,15 @@ test('multiplayer lobby rules: listings belong to the host, chat is append-only'
   assert.match(lobby.chat.$msg['.write'], /!data\.exists\(\)/, 'messages cannot be edited or deleted by others');
   assert.match(lobby.chat.$msg['.validate'], /length <= 200/);
 });
+
+test('special-title badges: names are matched however they are shown', async () => {
+  const { bareName } = await import('../src/badges.js');
+  const { specialTitle, specialKind, OWNERS, ALPHA_TESTERS } = await import('../src/progress.js');
+  for (const shown of ['brisky2swifty', 'brisky2swifty (you)', 'brisky2swifty:', 'brisky2swifty [A]', '  brisky2swifty  ']) {
+    assert.equal(bareName(shown), 'brisky2swifty', shown);
+    assert.equal(specialTitle(bareName(shown)), '👑 owner');
+  }
+  assert.equal(specialKind('BRISKY2SWIFTY'), 'owner');
+  assert.equal(specialKind('n3m0'), null);
+  for (const n of [...OWNERS, ...ALPHA_TESTERS]) assert.equal(n, n.toLowerCase(), 'lists are lowercase');
+});

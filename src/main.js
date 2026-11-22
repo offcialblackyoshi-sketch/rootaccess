@@ -15,6 +15,7 @@ import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, su
 import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { specialTitle } from './progress.js';
+import { startBadges } from './badges.js';
 import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag } from './trophies.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
@@ -569,7 +570,7 @@ async function renderStatsBoard() {
   list.append(el('li', { class: 'board-head dim' }, el('span', {}, '#'), el('span', {}, 'player'), el('span', {}, 'level'), el('span', {}, 'XP'), el('span', {}, 'wins'), el('span', {}, '🏆')));
   rows.forEach((r, i) => list.append(el('li', { class: r.id === me ? 'me' : '' },
     el('span', { class: 'place' }, `#${i + 1}`),
-    el('span', { class: 'pname' }, el('span', { class: 'dot', style: { background: r.color } }), ` ${r.name}`, specialTitle(r.name) ? el('span', { class: 'small special-title' }, ` · ${specialTitle(r.name)}`) : r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
+    el('span', { class: 'board-name' }, el('span', { class: 'dot', style: { background: r.color } }), ' ', el('span', { class: 'pname' }, r.name), !specialTitle(r.name) && r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
     el('span', {}, `LV${r.level}`),
     el('strong', {}, String(r.xp)),
     el('span', {}, `${r.wins}/${r.rounds}`),
@@ -884,7 +885,7 @@ function renderPodium(results) {
   box.hidden = top.length < 2;
   for (const r of top) {
     box.append(el('div', { class: `step p${r.place}` },
-      el('div', { class: 'name', style: { color: r.color } }, r.name),
+      el('div', { class: 'name podium-name', style: { color: r.color } }, r.name),
       el('div', { class: 'block' }, String(r.place))));
   }
 }
@@ -978,4 +979,5 @@ if ('serviceWorker' in navigator) {
 }
 
 // Exposed for automated tests.
-window.__ra = { state, sfx, rain, renderAccount }; // renderAccount: lets tests preview the account card
+window.__ra = { state, sfx, rain, renderAccount };
+startBadges(); // special titles next to names everywhere // renderAccount: lets tests preview the account card

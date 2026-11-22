@@ -66,8 +66,18 @@ export function titlesFor(level) {
 
 // Special titles for specific accounts (lowercase username → title). They only
 // apply when signed in as that account, so a guest can't borrow one.
-export const SPECIAL_TITLES = { brisky2swifty: '👑 owner' };
+// Add usernames here (lowercase). Owners win if a name is in both lists.
+export const OWNERS = ['brisky2swifty'];
+export const ALPHA_TESTERS = [];
+export const SPECIAL_TITLES = {
+  ...Object.fromEntries(ALPHA_TESTERS.map((n) => [n, '🧪 alpha tester'])),
+  ...Object.fromEntries(OWNERS.map((n) => [n, '👑 owner'])),
+};
 export const specialTitle = (name) => SPECIAL_TITLES[String(name || '').toLowerCase()] || null;
+export const specialKind = (name) => {
+  const n = String(name || '').toLowerCase();
+  return OWNERS.includes(n) ? 'owner' : ALPHA_TESTERS.includes(n) ? 'alpha' : null;
+};
 
 // The title shown next to your name: your pick if unlocked, else the best one.
 export function currentTitle(progress = getProgress()) {

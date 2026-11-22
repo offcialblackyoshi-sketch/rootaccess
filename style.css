@@ -880,7 +880,7 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .tabs .mini-btn { border-color: var(--line); color: var(--dim); }
 .tabs .mini-btn.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .stats-board li { grid-template-columns: 3em minmax(0, 1fr) 4em 5em 4.5em 3.5em; }
-.stats-board li .pname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stats-board li .board-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stats-board li .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
 .stats-board li.board-head { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 .board li.board-head strong, .board li.board-head span { color: var(--dim); }
@@ -975,3 +975,10 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 #screen-browse:not([hidden]) { display: flex; flex-direction: column; height: 100%; }
 #screen-browse .topbar { margin-bottom: 4px; }
 @media (max-width: 900px) { #screen-browse:not([hidden]) { height: auto; } }
+
+/* Special-title badges next to names (owner, alpha tester) */
+.name-badge { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: 99px; font-size: 0.78em; font-weight: bold; line-height: 1.5; vertical-align: middle; white-space: nowrap; letter-spacing: 0; text-transform: none; text-shadow: none; }
+.badge-owner { color: #1a1300; background: linear-gradient(90deg, #ffd23d, #ffb000); box-shadow: 0 0 10px rgba(255, 210, 61, 0.6); }
+.badge-alpha { color: #021016; background: linear-gradient(90deg, #4dd9ff, #b388ff); box-shadow: 0 0 10px rgba(77, 217, 255, 0.5); }
+.side-row .pname { display: flex; align-items: center; gap: 4px; }
+.podium-name .name-badge { display: block; width: fit-content; margin: 2px auto 0; }

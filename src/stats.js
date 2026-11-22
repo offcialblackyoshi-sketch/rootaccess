@@ -2,7 +2,7 @@
 // Online through Firebase when it's set up; otherwise just this device.
 
 import { getOnlineNet, onlineConfigured } from './net/index.js';
-import { getProgress, levelFor, currentTitle } from './progress.js';
+import { getProgress, levelFor, currentTitle, specialTitle } from './progress.js';
 import { load } from './util.js';
 
 export const BOARD_SIZE = 50;
@@ -13,7 +13,8 @@ export function myStats(progress = getProgress(), profile = {}) {
     name: profile.name || load('ra-name', 'anon'),
     color: profile.color || load('ra-color', '#33ff66'),
     level: levelFor(progress.xp).level,
-    title: currentTitle(progress),
+    // Board rows always belong to an account, so a special title can show here.
+    title: specialTitle(profile.name) || currentTitle(progress),
     xp: progress.xp,
     rounds: progress.rounds,
     wins: Math.min(progress.wins, progress.rounds),

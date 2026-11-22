@@ -64,6 +64,11 @@ export function titlesFor(level) {
   return TITLES.filter(([l]) => l <= level).map(([, t]) => t);
 }
 
+// Special titles for specific accounts (lowercase username → title). They only
+// apply when signed in as that account, so a guest can't borrow one.
+export const SPECIAL_TITLES = { brisky2swifty: '★ creator' };
+export const specialTitle = (name) => SPECIAL_TITLES[String(name || '').toLowerCase()] || null;
+
 // The title shown next to your name: your pick if unlocked, else the best one.
 export function currentTitle(progress = getProgress()) {
   const unlocked = titlesFor(levelFor(progress.xp).level);

@@ -936,3 +936,8 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .auth-form .hint { margin: -2px 0 0; }
 .auth-form .err:empty { display: none; }
 .link-btn { justify-self: center; }
+
+/* Special titles (e.g. the game's creator) */
+.special-title, .tag.rank.special { color: #ffd23d; text-shadow: 0 0 8px rgba(255, 210, 61, 0.7); font-weight: bold; }
+.tag.rank.special { border-color: #ffd23d; background: rgba(255, 210, 61, 0.12); }
+.level-box .special-title { font-size: 13px; }

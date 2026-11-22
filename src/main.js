@@ -13,6 +13,7 @@ import { iconEl } from './icons.js';
 import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle, createAccount, logIn, resetPassword } from './account.js';
 import { globalBoard, pushMyStats, winRate } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
+import { specialTitle } from './progress.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
@@ -155,6 +156,11 @@ function renderLevel() {
   const pick = $('titlePick');
   pick.innerHTML = '';
   const now = currentTitle(p);
+  // A special account title replaces the picker.
+  const special = accountState().handle && specialTitle(accountState().handle);
+  pick.hidden = !!special;
+  $('specialTitle').hidden = !special;
+  $('specialTitle').textContent = special || '';
   for (const t of titlesFor(level)) pick.append(el('option', { value: t, selected: t === now }, t));
 }
 $('titlePick').addEventListener('change', (e) => {
@@ -320,10 +326,14 @@ $('handleForm').addEventListener('submit', async (e) => {
 $('handleCancel').addEventListener('click', () => $('handleDialog').close());
 
 function myName() {
-  const n = $('nameInput').value.trim().replace(/[^\w.\-]/g, '').slice(0, 14) || 'anon';
+  let n = $('nameInput').value.trim().replace(/[^\w.\-]/g, '').slice(0, 14) || 'anon';
+  // Names with a special title are only for whoever is signed in as them.
+  if (specialTitle(n) && accountState().handle?.toLowerCase() !== n.toLowerCase()) n = n.slice(0, 10) + '_fan';
   save('ra-name', n);
   return n;
 }
+// Your title: an account's special title, or the one you picked.
+const myTitle = () => (accountState().handle && specialTitle(accountState().handle)) || currentTitle();
 
 function makePlayer(net, room) {
   let name = myName();
@@ -332,7 +342,7 @@ function makePlayer(net, room) {
   // Keep colors unique in the room.
   const usedColors = new Set(Object.values(room?.players || {}).map((p) => p.color));
   const color = usedColors.has(myColor) ? COLORS.find((c) => !usedColors.has(c)) || myColor : myColor;
-  return { name, color, ready: false, joinedAt: net.now(), level: levelFor(getProgress().xp).level, title: currentTitle() };
+  return { name, color, ready: false, joinedAt: net.now(), level: levelFor(getProgress().xp).level, title: myTitle(), special: !!(accountState().handle && specialTitle(accountState().handle)) };
 }
 
 // ---------------------------------------------------------------------------
@@ -479,7 +489,7 @@ async function renderStatsBoard() {
   list.append(el('li', { class: 'board-head dim' }, el('span', {}, '#'), el('span', {}, 'player'), el('span', {}, 'level'), el('span', {}, 'XP'), el('span', {}, 'wins'), el('span', {}, 'win %')));
   rows.forEach((r, i) => list.append(el('li', { class: r.id === me ? 'me' : '' },
     el('span', { class: 'place' }, `#${i + 1}`),
-    el('span', { class: 'pname' }, el('span', { class: 'dot', style: { background: r.color } }), ` ${r.name}`, r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
+    el('span', { class: 'pname' }, el('span', { class: 'dot', style: { background: r.color } }), ` ${r.name}`, specialTitle(r.name) ? el('span', { class: 'small special-title' }, ` · ${specialTitle(r.name)}`) : r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
     el('span', {}, `LV${r.level}`),
     el('strong', {}, String(r.xp)),
     el('span', {}, `${r.wins}/${r.rounds}`),

@@ -37,8 +37,8 @@ export function letterAt(strip, ms, slow = 1) {
 export default {
   id: 'letterlock',
   name: 'Letter Lock',
-  blurb: 'Letters scroll past a line. Press Space to lock each one of the password in place. Easy, no typing.',
-  howTo: 'Press Space (or click the column) when the glowing column shows the next password letter in the middle row.',
+  blurb: 'Letters scroll past a line. Press Space or Enter to lock each one of the password in place. Easy, no typing.',
+  howTo: 'Press Space or Enter (or click the column) when the glowing column shows the next password letter in the middle row.',
 
   start(box, { data, onSolve, onMistake, onStep, canAct, reduceMotion }) {
     const slow = reduceMotion ? 0.6 : 1;

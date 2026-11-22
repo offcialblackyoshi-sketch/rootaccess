@@ -19,7 +19,7 @@ export default {
   id: 'memory',
   name: 'Code Memory',
   blurb: 'Watch the cells flash, then repeat the sequence. Easy, no typing.',
-  howTo: 'Watch the cells light up. Then repeat them in the same order: click them, or use the arrow keys and Space.',
+  howTo: 'Watch the cells light up. Then repeat them in the same order: click them, or use the arrow keys and Space or Enter.',
 
   start(box, { data, onSolve, onMistake, canAct, reduceMotion, lockMs }) {
     const ON = reduceMotion ? 900 : 550;

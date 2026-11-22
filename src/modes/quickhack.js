@@ -69,6 +69,11 @@ export function makeQuickMode(puzzle) {
       const locked = () => ctx.now() < lockUntil;
       const done = () => stage >= STAGES;
 
+      // Clicking a button inside the game keeps keyboard focus on the game, so
+      // Space and Enter go to the puzzle (not to the last button clicked).
+      box.addEventListener('mousedown', (e) => {
+        if (e.target.closest('button')) { e.preventDefault(); box.focus({ preventScroll: true }); }
+      });
       box.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') { e.preventDefault(); ctx.focusChat?.(); return; }
         if (e.ctrlKey || e.altKey || e.metaKey || !inst || done()) return;

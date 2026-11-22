@@ -19,7 +19,7 @@ Five short visual mini-games for beginners, each its own mode (1–8 players, bo
 
 | Mode | What you do |
 |---|---|
-| **Letter Lock** | Press Space when the glowing column shows the next password letter in its middle row. |
+| **Letter Lock** | Press Space or Enter when the glowing column shows the next password letter in its middle row. |
 | **Print Match** | Pick the parts that appear in the target print out of a grid of look-alikes. |
 | **Signal Tune** | Turn the frequency, height, and shift knobs until your wave sits on the target. |
 | **Circuit Path** | Steer a signal through a maze to the exit without bumping the walls. |

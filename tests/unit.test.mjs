@@ -772,3 +772,12 @@ test('trophies: 50+ unique trophies, a new weekly one each week, and unlocking w
   assert.equal(merged.c.modeWins.race, 2);
   assert.equal(merged.c.modeWins.gauntlet, 1);
 });
+
+test('multiplayer lobby rules: listings belong to the host, chat is append-only', () => {
+  const lobby = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url))).rules.lobby;
+  assert.equal(lobby['.read'], 'auth != null');
+  assert.match(lobby.rooms.$code['.write'], /hostId'\)\.val\(\) === auth\.uid/);
+  assert.match(lobby.rooms.$code['.validate'], /child\('host'\)\.val\(\) === auth\.uid/);
+  assert.match(lobby.chat.$msg['.write'], /!data\.exists\(\)/, 'messages cannot be edited or deleted by others');
+  assert.match(lobby.chat.$msg['.validate'], /length <= 200/);
+});

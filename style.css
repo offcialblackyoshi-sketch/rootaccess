@@ -958,3 +958,20 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .trophy-pop { display: flex; gap: 10px; align-items: center; padding: 6px 12px; border: 1px solid #ffd23d; border-radius: 99px; background: rgba(255, 210, 61, 0.1); animation: pop-in 0.6s ease-out both; animation-delay: calc(0.6s + var(--i) * 0.2s); }
 .trophy-pop strong { color: #ffd23d; }
 .trophy-pop.weekly { border-color: var(--accent2); background: rgba(77, 217, 255, 0.1); }
+
+/* Multiplayer lobby */
+.browse-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; }
+.browse-grid > .panel { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.browse-rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; overflow-y: auto; align-content: start; flex: 1; min-height: 120px; }
+.browse-room { display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: calc(var(--radius) * 0.6); background: rgba(255, 255, 255, 0.02); animation: screen-in 0.25s ease-out; }
+.browse-icon { width: 32px; height: 32px; color: var(--accent); }
+.browse-icon .icon, .browse-icon svg { display: block; width: 100%; height: 100%; }
+.browse-info strong { display: block; }
+.browse-empty { padding: 18px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); }
+#browseChat { min-height: 300px; display: flex; flex-direction: column; }
+#browseChat .chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#browseChat .chat-log { flex: 1; max-height: none; }
+@media (max-width: 900px) { .browse-grid { grid-template-columns: 1fr; } }
+#screen-browse:not([hidden]) { display: flex; flex-direction: column; height: 100%; }
+#screen-browse .topbar { margin-bottom: 4px; }
+@media (max-width: 900px) { #screen-browse:not([hidden]) { height: auto; } }

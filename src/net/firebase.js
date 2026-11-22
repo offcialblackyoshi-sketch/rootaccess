@@ -145,6 +145,26 @@ export async function createFirebaseNet(config) {
       if (old && old.score <= entry.score) return;
       await D.set(ref, { ...entry, at: D.serverTimestamp() });
     },
+    // ---- Public lobby: open rooms + lobby chat ----
+    lobbyWatch(cb) {
+      let rooms = {};
+      let chat = {};
+      const emit = () => cb({ rooms, chat });
+      const off1 = D.onValue(D.ref(db, 'lobby/rooms'), (s) => { rooms = s.val() || {}; emit(); });
+      const off2 = D.onValue(D.query(D.ref(db, 'lobby/chat'), D.limitToLast(50)), (s) => { chat = s.val() || {}; emit(); });
+      return () => { off1(); off2(); };
+    },
+    async lobbySay(msg) {
+      await D.push(D.ref(db, 'lobby/chat'), { ...msg, uid: user.uid, at: D.serverTimestamp() });
+    },
+    // List (info) or unlist (null) a public room. The listing goes away if the host disconnects.
+    async lobbyList(code, info) {
+      const ref = D.ref(db, `lobby/rooms/${code}`);
+      if (!info) return D.remove(ref).catch(() => {});
+      await D.set(ref, { ...info, host: user.uid, at: D.serverTimestamp() });
+      D.onDisconnect(ref).remove().catch(() => {});
+    },
+
     // ---- Accounts ----
     accountUid: () => signedIn()?.uid || null,
     account: {

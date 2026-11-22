@@ -70,8 +70,23 @@ export function createLocalNet() {
   }
   collectGarbage();
 
+  // Public lobby (open rooms + chat) shared by tabs on this computer.
+  const LOBBY = 'ra-lobby';
+  const lobbyListeners = new Set();
+  const readLobby = () => {
+    try { return { rooms: {}, chat: {}, ...JSON.parse(store.get(LOBBY)) }; } catch { return { rooms: {}, chat: {} }; }
+  };
+  const notifyLobby = () => { const l = readLobby(); for (const cb of lobbyListeners) queueMicrotask(() => cb(l)); };
+  async function mutateLobby(fn) {
+    const run = () => { const l = readLobby(); fn(l); store.set(LOBBY, JSON.stringify(l)); };
+    if (navigator.locks) await navigator.locks.request(LOBBY, run);
+    else run();
+    notifyLobby();
+  }
+
   window.addEventListener('storage', (e) => {
     if (e.key && e.key.startsWith(PREFIX)) notify(e.key.slice(PREFIX.length));
+    if (e.key === LOBBY) notifyLobby();
   });
 
   // Read-modify-write under a cross-tab lock so tabs don't overwrite each other.
@@ -118,6 +133,24 @@ export function createLocalNet() {
   }
 
   const net = {
+    lobbyWatch(cb) {
+      lobbyListeners.add(cb);
+      cb(readLobby());
+      return () => lobbyListeners.delete(cb);
+    },
+    lobbySay(msg) {
+      return mutateLobby((l) => {
+        l.chat[Date.now().toString(36) + Math.random().toString(36).slice(2, 6)] = { ...msg, uid, at: Date.now() };
+        const keys = Object.keys(l.chat).sort();
+        for (const k of keys.slice(0, -50)) delete l.chat[k];
+      });
+    },
+    lobbyList(code, info) {
+      return mutateLobby((l) => {
+        if (info) l.rooms[code] = { ...info, host: uid, at: Date.now() };
+        else delete l.rooms[code];
+      });
+    },
     kind: 'local',
     uid,
     now: () => Date.now(),

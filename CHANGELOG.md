@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Multiplayer lobby
+- **Multiplayer lobby** is now the main button on the menu. It shows open public rooms (name, mode and players, with a Join button) and a **lobby chat** for everyone browsing.
+- **Create public room** lists your room there. In the room lobby, the host can switch **Room: private (code) / public (listed)**. The host keeps the listing up to date, and it disappears when the game starts, the room fills, it goes private, or the host disconnects. A new host takes it over.
+- Works online through Firebase (`lobby/rooms`, `lobby/chat`), and between tabs on one computer in local mode.
+- **Setup:** publish the updated `database.rules.json` (new `lobby` section).
+
+
 ### Trophies
 - 55 permanent trophies in 9 groups: getting started, winning, levels, a champion trophy for every mode, quick hacks, the Daily Challenge, teams, social and habits.
 - **A new weekly trophy every Monday (UTC):** a challenge picked from the week number, such as "Win 3 rounds", "Clear 5 quick hacks" or "Win a round of Wire Cut". It's the same for everyone that week. Earn it before Sunday ends to keep it, and past weekly trophies stay in your collection.

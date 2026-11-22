@@ -10,6 +10,7 @@ import { el, load, save, playerList, COLORS, fmtTime } from './util.js';
 import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
+import { MODES } from './modes/index.js';
 import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle, createAccount, logIn, resetPassword } from './account.js';
 import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
@@ -400,16 +401,92 @@ async function withBusy(btn, fn) {
   }
 }
 
-$('createBtn').addEventListener('click', (e) => withBusy(e.target, async () => {
+async function createRoom(isPublic = false) {
   const net = roomNet();
-  const room = { hostId: net.uid, mode: 'race', status: 'lobby', createdAt: net.now(), round: 0 };
+  const room = { hostId: net.uid, mode: 'race', status: 'lobby', createdAt: net.now(), round: 0, public: isPublic };
   room.players = { [net.uid]: { ...makePlayer(net, room), ready: true } };
   const code = await net.createRoom(room);
+  closeBrowse();
   enterRoom(net, code);
-}));
+}
+$('createBtn').addEventListener('click', (e) => withBusy(e.target, () => createRoom(false)));
+
+// ---------------------------------------------------------------------------
+// Multiplayer lobby: open public rooms + lobby chat
+// ---------------------------------------------------------------------------
+const LISTING_STALE_MS = 90000; // hide rooms whose host stopped refreshing
+const browse = { net: null, off: null, data: { rooms: {}, chat: {} } };
+const lobbyChat = createChat({
+  sfx,
+  onSend: (text) => browse.net?.lobbySay({ name: myName(), color: myColor, text: text.slice(0, 200) }).catch((e) => menuMessage(e.message)),
+});
+lobbyChat.root.querySelector('.chat-title').textContent = '// LOBBY CHAT';
+
+function openBrowse() {
+  closeBrowse();
+  browse.net = roomNet();
+  $('browseNet').textContent = browse.net.kind === 'online'
+    ? 'Online lobby: everyone playing Root Access right now.'
+    : 'Local lobby: only tabs on this computer (online play is not connected).';
+  lobbyChat.reset();
+  lobbyChat.mount($('browseChat'));
+  show('browse');
+  browse.off = browse.net.lobbyWatch((d) => { browse.data = d; renderBrowse(); });
+  browse.tick = setInterval(renderBrowse, 10000);
+}
+function closeBrowse() {
+  browse.off?.();
+  browse.off = null;
+  clearInterval(browse.tick);
+}
+function renderBrowse() {
+  const { rooms, chat } = browse.data;
+  lobbyChat.render({ chat }, browse.net?.uid);
+  const now = browse.net?.now() ?? Date.now();
+  const open = Object.entries(rooms || {})
+    .filter(([, r]) => r && now - (r.at || 0) < LISTING_STALE_MS && (r.players || 0) < (r.max || 8))
+    .sort(([, a], [, b]) => (b.players || 0) - (a.players || 0) || (b.at || 0) - (a.at || 0));
+  const list = $('browseRooms');
+  list.innerHTML = '';
+  $('browseCount').textContent = `${open.length} open`;
+  if (!open.length) list.append(el('li', { class: 'browse-empty dim' }, 'No public rooms right now. Create one and others can join from here!'));
+  for (const [code, r] of open) {
+    const mode = MODES[r.mode];
+    list.append(el('li', { class: 'browse-room', style: { '--mode': r.color || 'var(--accent)' } },
+      el('span', { class: 'browse-icon' }, iconEl(r.mode)),
+      el('div', { class: 'browse-info' },
+        el('strong', {}, r.name),
+        el('div', { class: 'dim small' }, `${mode?.name || r.mode} · ${r.players}/${r.max || 8} players`)),
+      el('button', { class: 'primary mini-btn', 'data-join': code, onclick: (e) => withBusy(e.target, async () => { await joinCode(code); if (state.code) closeBrowse(); }) }, 'Join')));
+  }
+}
+$('browseBtn').addEventListener('click', () => { sfx.unlock(); menuMessage(''); openBrowse(); });
+$('browseBack').addEventListener('click', () => { closeBrowse(); show('menu'); });
+$('browseCreate').addEventListener('click', (e) => withBusy(e.target, () => createRoom(true)));
+
+// The host keeps a public room's listing up to date (and removes it when the
+// game starts, the room fills up, or the room goes private).
+let lastListing = '';
+function syncListing(room) {
+  const net = state.net;
+  if (!net?.lobbyList || room.hostId !== net.uid) return;
+  const players = Object.keys(room.players || {}).length;
+  const host = room.players?.[room.hostId];
+  const want = room.public && !room.practice && room.status === 'lobby' && players < 8
+    ? { name: `${host?.name || 'someone'}'s room`, mode: room.mode, players, max: 8 }
+    : null;
+  const key = `${state.code}:${JSON.stringify(want)}`;
+  if (key === lastListing && (!want || Date.now() - (syncListing.at || 0) < 30000)) return;
+  lastListing = key;
+  syncListing.at = Date.now();
+  net.lobbyList(state.code, want).catch(() => {});
+}
+setInterval(() => { if (state.room) syncListing(state.room); }, 30000);
 
 async function join() {
-  const code = $('codeInput').value.trim().toUpperCase();
+  return joinCode($('codeInput').value.trim().toUpperCase());
+}
+async function joinCode(code) {
   if (!isRoomCode(code)) return menuMessage('Room codes are 4 letters, like QXFT.');
   const net = roomNet();
   const room = await net.getRoom(code);
@@ -597,6 +674,9 @@ function enterRoom(net, code) {
 
 async function leaveRoom(message = '') {
   const { net, code } = state;
+  // A host leaving takes the room off the public list (the next host re-lists it).
+  if (net?.lobbyList && state.room?.public && state.room.hostId === net.uid) net.lobbyList(code, null).catch(() => {});
+  lastListing = '';
   rememberSeat(null);
   if (state.unwatch) state.unwatch();
   state.unwatch = null;
@@ -628,6 +708,7 @@ function onRoom(room) {
     return;
   }
   state.room = room;
+  syncListing(room);
 
   // If the host left, the longest-waiting human takes over.
   if (!room.players[room.hostId]) {

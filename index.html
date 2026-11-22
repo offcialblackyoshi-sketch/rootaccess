@@ -64,7 +64,8 @@
         </div>
       </div>
       <div class="menu-actions">
-        <button id="createBtn" class="primary" data-icon="play">Create room</button>
+        <button id="browseBtn" class="primary" data-icon="globe">Multiplayer lobby</button>
+        <button id="createBtn" data-icon="play">Create private room</button>
         <div class="join-row">
           <input id="codeInput" maxlength="4" placeholder="CODE" aria-label="Room code" autocomplete="off" spellcheck="false">
           <button id="joinBtn" data-icon="join">Join</button>
@@ -83,6 +84,28 @@
 
       <p id="netStatus" class="net-status"></p>
       <p id="menuMsg" role="status"></p>
+    </div>
+  </section>
+
+  <!-- MULTIPLAYER LOBBY (public rooms + chat) -->
+  <section id="screen-browse" class="screen" hidden>
+    <header class="topbar">
+      <span class="brand">ROOT ACCESS</span>
+      <span>MULTIPLAYER LOBBY</span>
+      <span class="spacer"></span>
+      <button id="browseBack" class="mini-btn">← Menu</button>
+    </header>
+    <p id="browseNet" class="dim lobby-net"></p>
+    <div class="browse-grid">
+      <div class="panel">
+        <h2>// OPEN ROOMS <span id="browseCount" class="dim"></span></h2>
+        <ul id="browseRooms" class="browse-rooms"></ul>
+        <div class="actions">
+          <button id="browseCreate" class="primary" data-icon="play">Create public room</button>
+        </div>
+        <p class="dim small">Public rooms show up here for everyone. Want to play only with friends? Use <strong>Create private room</strong> on the menu and share the code.</p>
+      </div>
+      <div id="browseChat" class="panel chat-slot"></div>
     </div>
   </section>
 

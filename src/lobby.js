@@ -165,6 +165,19 @@ export function renderLobby({ room, net, code, onLeave }) {
       }, `${l} ${fmtTime(roundTime(mode, l))}`))));
   }
 
+  // Public rooms are listed in the Multiplayer lobby; private ones need the code.
+  if (!room.practice) {
+    actions.append(el('div', { class: 'option-row', role: 'group', 'aria-label': 'Who can join' },
+      el('span', { class: 'dim' }, 'Room:'),
+      ...[[false, 'private (code)'], [true, 'public (listed)']].map(([pub, label]) => el('button', {
+        class: 'mini-btn' + (!!room.public === pub ? ' selected' : ''),
+        'data-public': String(pub),
+        'aria-pressed': !!room.public === pub ? 'true' : 'false',
+        disabled: !isHost && !!room.public !== pub,
+        onclick: () => isHost && !!room.public !== pub && net.update(code, { public: pub }),
+      }, label))));
+  }
+
   // Teams (Typing Duel only).
   if (room.mode === 'duel') {
     actions.append(el('div', { class: 'option-row', role: 'group', 'aria-label': 'Teams' },

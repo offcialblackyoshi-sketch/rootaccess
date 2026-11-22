@@ -24,6 +24,7 @@ export function authMessage(e) {
   if (code.includes('too-many-requests')) return 'Too many tries. Wait a minute and try again.';
   if (code.includes('operation-not-allowed')) return 'Password accounts are turned off. Enable Email/Password in Firebase → Authentication → Sign-in method.';
   if (code.includes('network-request-failed')) return 'No connection. Check your internet and try again.';
+  if (/permission.denied/i.test(code + ' ' + (e?.message || ''))) return 'The database refused to save your account. Publish the latest database rules in Firebase (Realtime Database → Rules).';
   return e?.message || String(e);
 }
 export const validHandle = (h) => HANDLE_RE.test(h || '');
@@ -45,7 +46,7 @@ export function mergeProgress(local, remote) {
 }
 
 let net = null;
-let current = { available: false, user: null, handle: null };
+let current = { configured: onlineConfigured(), available: false, connecting: onlineConfigured(), user: null, handle: null };
 const listeners = new Set();
 const emit = () => listeners.forEach((cb) => cb(current));
 
@@ -53,16 +54,20 @@ export const accountState = () => current;
 
 export async function initAccount(onChange) {
   if (onChange) listeners.add(onChange);
-  if (!onlineConfigured()) return emit();
+  emit();
+  if (!onlineConfigured()) return;
   const res = await getOnlineNet();
-  if (!res.net?.account) return emit();
+  if (!res.net?.account) {
+    current = { ...current, connecting: false };
+    return emit();
+  }
   net = res.net;
-  current = { ...current, available: true };
+  current = { ...current, available: true, connecting: false };
   emit();
   net.account.onUser(async (user) => {
     if (signingUp) return; // createAccount() finishes setting things up
     if (!user) {
-      current = { available: true, user: null, handle: null };
+      current = { configured: true, available: true, user: null, handle: null };
       return emit();
     }
     try {
@@ -70,10 +75,12 @@ export async function initAccount(onChange) {
       const { progress, upload } = mergeProgress(getProgress(), remote);
       saveProgress(progress);
       if (upload) await net.account.saveProfile({ xp: progress.xp, rounds: progress.rounds, wins: Math.min(progress.wins, progress.rounds), title: progress.title || '' });
-      current = { available: true, user, handle: remote?.handle || null, provider: net.account.provider(), noEmail: String(user.email || '').endsWith('@' + LOGIN_DOMAIN) };
+      current = { configured: true, available: true, user, handle: remote?.handle || null, provider: net.account.provider(), noEmail: String(user.email || '').endsWith('@' + LOGIN_DOMAIN) };
     } catch (e) {
       console.warn('account: could not load profile:', e.message);
-      current = { available: true, user, handle: null, error: e.message };
+      const denied = /permission/i.test(e.message);
+      current = { configured: true, available: true, user, handle: null,
+        error: denied ? 'Signed in, but the database refused to save your profile. Publish the latest database rules in Firebase (Realtime Database → Rules).' : `Signed in, but your profile didn't load: ${e.message}` };
     }
     emit();
   });
@@ -108,11 +115,11 @@ export async function createAccount({ username, password, email }) {
       await net.account.claimHandle(username, null);
     } catch (e) {
       await net.account.deleteMe().catch(() => {});
-      throw e;
+      throw new Error(/taken/.test(e.message) ? e.message : authMessage(e));
     }
     const { progress } = mergeProgress(getProgress(), null);
     await net.account.saveProfile({ xp: progress.xp, rounds: progress.rounds, wins: Math.min(progress.wins, progress.rounds), title: progress.title || '' });
-    current = { available: true, user: { email }, handle: username, provider: 'password', noEmail: !email };
+    current = { configured: true, available: true, user: { email }, handle: username, provider: 'password', noEmail: !email };
   } finally {
     signingUp = false;
   }

@@ -39,10 +39,11 @@
     <p class="tagline" id="tagline">a multiplayer hacking game <span class="dim">· every hack is fake, the fun is real</span></p>
 
     <div class="panel menu-panel">
-      <div class="field account-row" id="accountRow" hidden>
-        <span>&gt; account</span>
+      <section id="accountCard" class="account-card" hidden aria-labelledby="accountHead">
+        <div class="acct-head"><h2 id="accountHead">// ACCOUNT</h2><span class="dim small">optional</span></div>
         <div id="accountBox" class="account-box"></div>
-      </div>
+        <p id="accountMsg" class="acct-msg small" role="status"></p>
+      </section>
       <label class="field">
         <span>&gt; handle</span>
         <input id="nameInput" maxlength="14" autocomplete="off" spellcheck="false">
@@ -181,35 +182,34 @@
   </dialog>
 
   <!-- LOG IN / CREATE ACCOUNT -->
-  <dialog id="authDialog" aria-labelledby="authTitle">
-    <h2 id="authTitle">// ACCOUNT</h2>
-    <div class="tabs" role="tablist">
-      <button id="tabLogin" class="mini-btn selected" type="button" role="tab" aria-selected="true">Log in</button>
-      <button id="tabSignup" class="mini-btn" type="button" role="tab" aria-selected="false">Create account</button>
+  <dialog id="authDialog" class="auth-dialog" aria-labelledby="authTitle">
+    <div class="acct-head"><h2 id="authTitle">// ACCOUNT</h2><button type="button" id="authClose" class="icon-x" aria-label="Close">✕</button></div>
+    <button type="button" id="googleAuthBtn" class="google-btn wide">Continue with Google</button>
+    <div class="or"><span>or use a username</span></div>
+    <div class="seg" role="tablist">
+      <button id="tabLogin" class="selected" type="button" role="tab" aria-selected="true">Log in</button>
+      <button id="tabSignup" type="button" role="tab" aria-selected="false">Create account</button>
     </div>
     <form id="loginForm" class="auth-form">
       <label>Username or email<input id="loginId" autocomplete="username" spellcheck="false" maxlength="80"></label>
       <label>Password<input id="loginPw" type="password" autocomplete="current-password" maxlength="100"></label>
       <p id="loginMsg" class="err small" role="alert"></p>
-      <div class="actions">
-        <button class="primary" type="submit" id="loginBtn">Log in</button>
-        <button type="button" id="forgotBtn" class="link-btn">Forgot password?</button>
-      </div>
+      <button class="primary wide" type="submit" id="loginBtn">Log in</button>
+      <button type="button" id="forgotBtn" class="link-btn">Forgot password?</button>
     </form>
     <form id="signupForm" class="auth-form" hidden>
-      <label>Username <span class="dim small">(your name in the game, 2-14 letters, digits, _ . -)</span><input id="signupUser" autocomplete="username" spellcheck="false" maxlength="14"></label>
-      <label>Password <span class="dim small">(at least 6 characters)</span><input id="signupPw" type="password" autocomplete="new-password" maxlength="100"></label>
-      <label>Email <span class="dim small">(optional, lets you reset a forgotten password)</span><input id="signupEmail" type="email" autocomplete="email" spellcheck="false" maxlength="80"></label>
-      <p class="dim small">No email? Then your username is how you log in, and a forgotten password can't be reset.</p>
+      <label>Username<input id="signupUser" autocomplete="username" spellcheck="false" maxlength="14" placeholder="2-14 letters, digits, _ . -"></label>
+      <label>Password<input id="signupPw" type="password" autocomplete="new-password" maxlength="100" placeholder="at least 6 characters"></label>
+      <label>Email <span class="dim small">(optional)</span><input id="signupEmail" type="email" autocomplete="email" spellcheck="false" maxlength="80" placeholder="lets you reset a forgotten password"></label>
+      <p class="dim small hint">No email? Your username is your login, and a forgotten password can't be reset.</p>
       <p id="signupMsg" class="err small" role="alert"></p>
-      <div class="actions"><button class="primary" type="submit" id="signupBtn">Create account</button></div>
+      <button class="primary wide" type="submit" id="signupBtn">Create account</button>
     </form>
-    <div class="actions"><button type="button" id="googleAuthBtn" class="google-btn">Continue with Google</button><button type="button" id="authClose">Close</button></div>
   </dialog>
 
   <!-- PICK A HANDLE (after Google sign-in) -->
   <dialog id="handleDialog" aria-labelledby="handleTitle">
-    <h2 id="handleTitle">// PICK YOUR HANDLE</h2>
+    <h2 id="handleTitle">// PICK YOUR NAME</h2>
     <p class="dim">This is your name on the leaderboards. 2-14 letters, digits, <code>_</code> <code>.</code> or <code>-</code>. It must be unique.</p>
     <form id="handleForm" method="dialog">
       <input id="handleInput" maxlength="14" autocomplete="off" spellcheck="false" aria-label="Handle">

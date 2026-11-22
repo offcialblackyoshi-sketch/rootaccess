@@ -165,50 +165,76 @@ renderLevel();
 // ---------------------------------------------------------------------------
 // Google account
 // ---------------------------------------------------------------------------
+function acctMsg(text, kind = 'info') {
+  const m = $('accountMsg');
+  m.textContent = text || '';
+  m.className = `acct-msg small ${kind}`;
+}
+
 function renderAccount(a) {
-  $('accountRow').hidden = !a.available;
+  $('accountCard').hidden = !a.configured;
   const box = $('accountBox');
   box.innerHTML = '';
   const nameInput = $('nameInput');
+  nameInput.readOnly = !!(a.user && a.handle);
   if (a.user && a.handle) {
     // Your account handle is your name everywhere.
     nameInput.value = a.handle;
-    nameInput.readOnly = true;
-    nameInput.title = 'Your account handle. Use "Change handle" to edit it.';
+    nameInput.title = 'Your account name.';
     save('ra-name', a.handle);
     box.append(
-      el('span', { class: 'acct-name' }, '● ', a.handle, el('span', { class: 'dim small' }, a.provider === 'google.com' ? ' (Google)' : ' (account)')),
-      // Username-only accounts log in with their username, so it can't change.
-      a.noEmail ? null : el('button', { class: 'mini-btn', type: 'button', onclick: () => openHandleDialog() }, 'Change handle'),
-      el('button', { class: 'mini-btn', type: 'button', id: 'signOutBtn', onclick: () => signOut() }, 'Sign out'));
+      el('div', { class: 'acct-who' },
+        el('span', { class: 'acct-dot', style: { background: myColor } }),
+        el('div', {}, el('strong', { class: 'acct-name' }, a.handle),
+          el('div', { class: 'dim small' }, a.provider === 'google.com' ? 'Signed in with Google' : a.noEmail ? 'Username account' : 'Email account'))),
+      el('div', { class: 'acct-actions' },
+        // Username-only accounts log in with their username, so it can't change.
+        a.noEmail ? null : el('button', { class: 'mini-btn', type: 'button', onclick: () => openHandleDialog() }, 'Change name'),
+        el('button', { class: 'mini-btn', type: 'button', id: 'signOutBtn', onclick: () => { signOut(); acctMsg(''); } }, 'Sign out')));
+    if (!a.error) acctMsg('Your progress saves to your account.', 'ok');
   } else if (a.user) {
-    nameInput.readOnly = false;
-    box.append(el('span', { class: 'dim small' }, 'Signed in. '),
-      el('button', { class: 'mini-btn primary', type: 'button', onclick: () => openHandleDialog() }, 'Pick a handle'),
-      el('button', { class: 'mini-btn', type: 'button', onclick: () => signOut() }, 'Sign out'));
-    if (!$('handleDialog').open) openHandleDialog();
+    box.append(el('div', { class: 'acct-who' }, el('strong', {}, 'Almost done: pick your name')),
+      el('div', { class: 'acct-actions' },
+        el('button', { class: 'mini-btn primary', type: 'button', onclick: () => openHandleDialog() }, 'Pick a name'),
+        el('button', { class: 'mini-btn', type: 'button', onclick: () => signOut() }, 'Sign out')));
+    if (!$('handleDialog').open && !a.error) openHandleDialog();
+  } else if (!a.available) {
+    box.append(el('p', { class: 'dim small' }, a.connecting ? 'Connecting…' : 'Accounts need an internet connection. You can still play as a guest.'));
   } else {
-    nameInput.readOnly = false;
     nameInput.title = '';
     box.append(
-      el('button', { class: 'mini-btn google-btn', type: 'button', id: 'signInBtn', onclick: doSignIn }, 'Continue with Google'),
-      el('button', { class: 'mini-btn', type: 'button', id: 'loginOpenBtn', onclick: () => openAuth('login') }, 'Log in'),
-      el('button', { class: 'mini-btn primary', type: 'button', id: 'signupOpenBtn', onclick: () => openAuth('signup') }, 'Create account'),
-      el('span', { class: 'dim small' }, 'optional: saves your progress and puts you on the leaderboards'));
+      el('button', { class: 'google-btn wide', type: 'button', id: 'signInBtn', onclick: doSignIn }, 'Continue with Google'),
+      el('div', { class: 'or' }, el('span', {}, 'or')),
+      el('div', { class: 'acct-pair' },
+        el('button', { class: 'mini-btn', type: 'button', id: 'loginOpenBtn', onclick: () => openAuth('login') }, 'Log in'),
+        el('button', { class: 'mini-btn primary', type: 'button', id: 'signupOpenBtn', onclick: () => openAuth('signup') }, 'Create account')),
+      el('p', { class: 'dim small' }, 'Save your progress on any device and get on the leaderboards. Or just play as a guest.'));
   }
+  if (a.error) acctMsg(a.error, 'err');
   renderLevel();
   renderColors();
 }
 
+// Plain-English help for Google sign-in problems.
+function googleError(e) {
+  const code = e?.code || '';
+  if (code.includes('unauthorized-domain')) return `This website (${location.hostname}) isn't allowed to sign in yet. In Firebase: Authentication → Settings → Authorized domains → add "${location.hostname}".`;
+  if (code.includes('operation-not-allowed')) return 'Google sign-in is turned off. In Firebase: Authentication → Sign-in method → Google → Enable, then Save.';
+  if (code.includes('popup-blocked')) return 'Your browser blocked the Google window. Allow pop-ups for this site, then try again.';
+  if (code.includes('popup-closed') || code.includes('cancelled-popup')) return 'The Google window closed before signing in. If it closed by itself, make sure Google sign-in is enabled in Firebase and this site is an authorized domain.';
+  if (code.includes('network-request-failed')) return 'No connection to Google. Check your internet (some school networks block it).';
+  if (code.includes('internal-error')) return 'Google sign-in hit an error. Check that Google is enabled in Firebase → Authentication → Sign-in method, with a support email set.';
+  return `Could not sign in (${code || e?.message || e}).`;
+}
+
 async function doSignIn() {
+  acctMsg('Opening Google sign-in…');
   try {
     await signIn();
+    acctMsg('Signed in! Loading your profile…', 'ok');
   } catch (e) {
-    const code = e.code || '';
-    if (code.includes('popup-closed') || code.includes('cancelled-popup')) return;
-    menuMessage(code.includes('unauthorized-domain')
-      ? 'Sign-in is not allowed on this website yet. Add it under Firebase → Authentication → Settings → Authorized domains.'
-      : `Could not sign in: ${e.message}`);
+    console.warn('google sign-in:', e);
+    acctMsg(googleError(e), 'err');
   }
 }
 
@@ -232,6 +258,7 @@ $('tabLogin').addEventListener('click', () => showAuthTab('login'));
 $('tabSignup').addEventListener('click', () => showAuthTab('signup'));
 $('authClose').addEventListener('click', () => $('authDialog').close());
 $('googleAuthBtn').addEventListener('click', async () => { $('authDialog').close(); await doSignIn(); });
+$('authDialog').addEventListener('click', (e) => { if (e.target === $('authDialog')) $('authDialog').close(); });
 
 async function busy(btn, msgEl, fn) {
   btn.disabled = true;
@@ -796,4 +823,4 @@ if ('serviceWorker' in navigator) {
 }
 
 // Exposed for automated tests.
-window.__ra = { state, sfx, rain };
+window.__ra = { state, sfx, rain, renderAccount }; // renderAccount: lets tests preview the account card

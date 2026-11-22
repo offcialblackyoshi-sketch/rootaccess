@@ -1030,3 +1030,10 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 
 /* Confetti layer (above everything, never blocks clicks) */
 .confetti-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1000; }
+
+/* Pixel avatars */
+.avatar { flex: none; display: inline-block; vertical-align: middle; filter: drop-shadow(0 0 4px rgba(0, 0, 0, 0.5)); }
+.avatar-bg { fill: rgba(0, 0, 0, 0.55); stroke: rgba(255, 255, 255, 0.12); stroke-width: 0.15; }
+#lobbyPlayers li .avatar { margin-right: 2px; }
+.social-row { grid-template-columns: 24px 1fr auto; }
+.profile-top .avatar { filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.6)); }

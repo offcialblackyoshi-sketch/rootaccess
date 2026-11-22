@@ -829,3 +829,16 @@ test('effects: scramble settles on the real text, confetti falls and fades', asy
   while (stepPiece(p, 600) && frames < 2000) frames++;
   assert.ok(frames > 20 && frames < 2000, `lands or fades (${frames} frames)`);
 });
+
+test('avatars: the same name always looks the same, mirrored, never blank', async () => {
+  const { avatarCells } = await import('../src/avatar.js');
+  const a = avatarCells('brisky2swifty');
+  assert.deepEqual(a, avatarCells('Brisky2Swifty'), 'case does not matter');
+  assert.notDeepEqual(a, avatarCells('n3m0'), 'different names differ');
+  for (const name of ['a', 'bob', 'zero_day', 'x'.repeat(14), '']) {
+    const c = avatarCells(name);
+    assert.equal(c.length, 25);
+    assert.ok(c.some(Boolean), 'never blank');
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) assert.equal(c[y * 5 + x], c[y * 5 + (4 - x)], 'mirrored');
+  }
+});

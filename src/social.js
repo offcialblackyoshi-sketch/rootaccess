@@ -5,6 +5,7 @@
 
 import { el, load, save } from './util.js';
 import { convId } from './net/shared.js';
+import { avatarEl } from './avatar.js';
 
 const ONLINE_STALE_MS = 120000;
 
@@ -130,7 +131,7 @@ export function createSocial({ getNet, profile, status, sfx }) {
     else if (!rows.length) list.append(el('li', { class: 'dim small social-empty' }, q ? 'No one online matches.' : 'No one else is online right now.'));
     for (const [id, p] of rows) {
       list.append(el('li', {}, el('button', { type: 'button', class: 'social-row' + (isBlocked(p, id) ? ' blocked' : ''), 'data-uid': id, onclick: () => openProfile(id) },
-        el('span', { class: 'dot', style: { background: p.color || '#33ff66' } }),
+        avatarEl(p.name, p.color || '#33ff66', 24),
         el('span', { class: 'social-who' }, el('span', { class: 'pname' }, p.name), el('span', { class: 'small dim' }, `LV${p.level || 1} · ${p.status || 'online'}`)),
         unreadFrom(id, p) ? el('span', { class: 'social-unread' }, '1') : null)));
     }
@@ -170,7 +171,7 @@ export function createSocial({ getNet, profile, status, sfx }) {
     prof.append(...[
       el('div', { class: 'acct-head' }, el('h2', {}, '// PLAYER'), el('button', { type: 'button', class: 'icon-x', 'aria-label': 'Close', onclick: () => prof.close() }, '✕')),
       el('div', { class: 'profile-top' },
-        el('span', { class: 'acct-dot', style: { background: p.color || '#33ff66' } }),
+        avatarEl(p.name, p.color || '#33ff66', 56),
         el('div', {}, el('strong', { class: 'pname profile-name' }, p.name),
           el('div', { class: 'small dim' }, `${p.title || ''}${p.signedIn ? ' · account' : ' · guest'}`))),
       el('div', { class: 'small dim' }, `Right now: ${p.status || 'online'}`),

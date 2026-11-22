@@ -16,6 +16,7 @@ import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { specialTitle } from './progress.js';
 import { startBadges } from './badges.js';
+import { avatarEl } from './avatar.js';
 import { confetti } from './fx/confetti.js';
 import { scrambleHeadings } from './fx/scramble.js';
 import { createSocial } from './social.js';
@@ -200,7 +201,7 @@ function renderAccount(a) {
     save('ra-name', a.handle);
     box.append(
       el('div', { class: 'acct-who' },
-        el('span', { class: 'acct-dot', style: { background: myColor } }),
+        avatarEl(a.handle, myColor, 40),
         el('div', {}, el('strong', { class: 'acct-name' }, a.handle),
           el('div', { class: 'dim small' }, a.provider === 'google.com' ? 'Signed in with Google' : a.noEmail ? 'Username account' : 'Email account'))),
       el('div', { class: 'acct-actions' },
@@ -579,7 +580,7 @@ async function renderStatsBoard() {
   list.append(el('li', { class: 'board-head dim' }, el('span', {}, '#'), el('span', {}, 'player'), el('span', {}, 'level'), el('span', {}, 'XP'), el('span', {}, 'wins'), el('span', {}, '🏆')));
   rows.forEach((r, i) => list.append(el('li', { class: r.id === me ? 'me' : '' },
     el('span', { class: 'place' }, `#${i + 1}`),
-    el('span', { class: 'board-name' }, el('span', { class: 'dot', style: { background: r.color } }), ' ', el('span', { class: 'pname' }, r.name), !specialTitle(r.name) && r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
+    el('span', { class: 'board-name' }, avatarEl(r.name, r.color, 18), ' ', el('span', { class: 'pname' }, r.name), !specialTitle(r.name) && r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
     el('span', {}, `LV${r.level}`),
     el('strong', {}, String(r.xp)),
     el('span', {}, `${r.wins}/${r.rounds}`),
@@ -761,7 +762,7 @@ function renderResults(room) {
   for (const [i, r] of results.entries()) {
     list.append(el('li', { class: r.id === me ? 'me' : '', style: { '--i': i } },
       el('span', { class: 'place' }, r.place ? `#${r.place}` : ''),
-      el('span', { class: 'dot', style: { background: r.color } }),
+      avatarEl(r.name.replace(/ \[[AB-]\]$/, ''), r.color, 26),
       el('div', { class: 'who' },
         el('span', { class: 'pname' }, r.name + (r.id === me ? ' (you)' : '')),
         r.stats ? el('div', { class: 'stats' }, r.stats) : null),

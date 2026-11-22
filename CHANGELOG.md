@@ -19,6 +19,11 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Decoration: pixel avatars
+- Every player gets a pixel-art avatar made from their name, in their color: a mirrored 5×5 pattern that's the same on every device.
+- Shown in the room lobby, the online-players panel, profiles (large), the results list, the leaderboard and the account card.
+
+
 ### Decoration: confetti and decrypting headings
 - **Confetti** bursts from the bottom corners when you win, from the center on a level-up, and in gold when you earn a trophy. It's drawn on its own layer that never blocks clicks.
 - **Decrypting headings:** section titles scramble through glyphs and settle on the real text when a screen or dialog opens.

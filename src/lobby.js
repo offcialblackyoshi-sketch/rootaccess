@@ -4,6 +4,7 @@ import { el, playerList, COLORS, BOT_NAMES, ROUND_LENGTHS, roundTime, fmtTime } 
 import { randomSeed } from './rng.js';
 import { BOT_LEVELS } from './bots.js';
 import { iconEl } from './icons.js';
+import { avatarEl } from './avatar.js';
 import { TEAMS, TEAM_SIZES, TEAM_COLORS, teamLabel, teamProblem, balanceTeams } from './teams.js';
 
 const $ = (id) => document.getElementById(id);
@@ -89,7 +90,7 @@ export function renderLobby({ room, net, code, onLeave }) {
     seenPlayers.add(p.id);
     wasReady.set(p.id, !!p.ready);
     list.append(el('li', { class: cls || null, style: { '--pc': p.color }, 'data-team': team || null },
-      el('span', { class: 'dot', style: { background: p.color, color: p.color } }), el('span', { class: 'pname' }, p.name), ...tags, remove));
+      avatarEl(p.name, p.color, 24), el('span', { class: 'pname' }, p.name), ...tags, remove));
   }
   $('lobbyCount').textContent = `${players.length}/8`;
 

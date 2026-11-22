@@ -159,6 +159,34 @@ export async function createFirebaseNet(config) {
         await A.signInWithPopup(auth, new A.GoogleAuthProvider());
       },
       signOut: () => A.signOut(account().auth),
+      // Username/password accounts. `email` is a real one, or a made-up
+      // login address for players who signed up without email.
+      async signUp(email, password, { verify = false } = {}) {
+        const { auth, ready } = account();
+        await ready;
+        const cred = await A.createUserWithEmailAndPassword(auth, email, password);
+        if (verify) A.sendEmailVerification(cred.user).catch(() => {});
+        return cred.user.uid;
+      },
+      async logIn(email, password) {
+        const { auth, ready } = account();
+        await ready;
+        await A.signInWithEmailAndPassword(auth, email, password);
+      },
+      resetPassword: (email) => A.sendPasswordResetEmail(account().auth, email),
+      // Undo a sign-up whose handle turned out to be taken.
+      async deleteMe() {
+        const u = account().auth.currentUser;
+        if (u) await A.deleteUser(u);
+      },
+      // Is a handle already claimed? (read with the room connection, which is always signed in)
+      async handleTaken(handle) {
+        return (await D.get(D.ref(db, `handles/${handle.toLowerCase()}`))).exists();
+      },
+      provider() {
+        const u = signedIn();
+        return u ? u.providerData[0]?.providerId || 'password' : null;
+      },
       async loadProfile() {
         const u = mustSignIn();
         return (await D.get(D.ref(account().db, `users/${u.uid}`))).val();

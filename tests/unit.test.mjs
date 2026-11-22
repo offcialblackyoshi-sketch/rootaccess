@@ -714,3 +714,19 @@ test('google accounts: handles, and progress after signing in', async () => {
     assert.match(w, /child\('handle'\)/);
   }
 });
+
+test('password accounts: logins, messages, and rules', async () => {
+  const { loginAddress, loginEmailFor, isEmail, authMessage, LOGIN_DOMAIN } = await import('../src/account.js');
+  assert.equal(loginEmailFor('Zero_Day'), `zero_day@${LOGIN_DOMAIN}`);
+  assert.equal(loginAddress('  n3m0 '), `n3m0@${LOGIN_DOMAIN}`, 'a username logs in with its made-up address');
+  assert.equal(loginAddress('me@school.org'), 'me@school.org', 'an email logs in as itself');
+  assert.ok(isEmail('a@b.co') && !isEmail('nope') && !isEmail('a@b'));
+  assert.match(authMessage({ code: 'auth/invalid-credential' }), /Wrong username\/email or password/);
+  assert.match(authMessage({ code: 'auth/operation-not-allowed' }), /Enable Email\/Password/);
+  // Google (verified) and password accounts can both save progress and post scores.
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url))).rules;
+  for (const w of [rules.users.$uid['.write'], rules.handles.$name['.write'], rules.stats.$uid['.write'], rules.daily.$date.$uid['.write']]) {
+    assert.match(w, /sign_in_provider === 'password'/);
+    assert.match(w, /email_verified === true/);
+  }
+});

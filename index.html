@@ -180,6 +180,33 @@
     <button id="howClose" class="primary">Got it</button>
   </dialog>
 
+  <!-- LOG IN / CREATE ACCOUNT -->
+  <dialog id="authDialog" aria-labelledby="authTitle">
+    <h2 id="authTitle">// ACCOUNT</h2>
+    <div class="tabs" role="tablist">
+      <button id="tabLogin" class="mini-btn selected" type="button" role="tab" aria-selected="true">Log in</button>
+      <button id="tabSignup" class="mini-btn" type="button" role="tab" aria-selected="false">Create account</button>
+    </div>
+    <form id="loginForm" class="auth-form">
+      <label>Username or email<input id="loginId" autocomplete="username" spellcheck="false" maxlength="80"></label>
+      <label>Password<input id="loginPw" type="password" autocomplete="current-password" maxlength="100"></label>
+      <p id="loginMsg" class="err small" role="alert"></p>
+      <div class="actions">
+        <button class="primary" type="submit" id="loginBtn">Log in</button>
+        <button type="button" id="forgotBtn" class="link-btn">Forgot password?</button>
+      </div>
+    </form>
+    <form id="signupForm" class="auth-form" hidden>
+      <label>Username <span class="dim small">(your name in the game, 2-14 letters, digits, _ . -)</span><input id="signupUser" autocomplete="username" spellcheck="false" maxlength="14"></label>
+      <label>Password <span class="dim small">(at least 6 characters)</span><input id="signupPw" type="password" autocomplete="new-password" maxlength="100"></label>
+      <label>Email <span class="dim small">(optional, lets you reset a forgotten password)</span><input id="signupEmail" type="email" autocomplete="email" spellcheck="false" maxlength="80"></label>
+      <p class="dim small">No email? Then your username is how you log in, and a forgotten password can't be reset.</p>
+      <p id="signupMsg" class="err small" role="alert"></p>
+      <div class="actions"><button class="primary" type="submit" id="signupBtn">Create account</button></div>
+    </form>
+    <div class="actions"><button type="button" id="googleAuthBtn" class="google-btn">Continue with Google</button><button type="button" id="authClose">Close</button></div>
+  </dialog>
+
   <!-- PICK A HANDLE (after Google sign-in) -->
   <dialog id="handleDialog" aria-labelledby="handleTitle">
     <h2 id="handleTitle">// PICK YOUR HANDLE</h2>

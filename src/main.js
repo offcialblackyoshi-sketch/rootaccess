@@ -10,7 +10,7 @@ import { el, load, save, playerList, COLORS, fmtTime } from './util.js';
 import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
-import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle } from './account.js';
+import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle, createAccount, logIn, resetPassword } from './account.js';
 import { globalBoard, pushMyStats, winRate } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
@@ -177,8 +177,9 @@ function renderAccount(a) {
     nameInput.title = 'Your account handle. Use "Change handle" to edit it.';
     save('ra-name', a.handle);
     box.append(
-      el('span', { class: 'acct-name' }, '● ', a.handle, el('span', { class: 'dim small' }, ' (Google)')),
-      el('button', { class: 'mini-btn', type: 'button', onclick: () => openHandleDialog() }, 'Change handle'),
+      el('span', { class: 'acct-name' }, '● ', a.handle, el('span', { class: 'dim small' }, a.provider === 'google.com' ? ' (Google)' : ' (account)')),
+      // Username-only accounts log in with their username, so it can't change.
+      a.noEmail ? null : el('button', { class: 'mini-btn', type: 'button', onclick: () => openHandleDialog() }, 'Change handle'),
       el('button', { class: 'mini-btn', type: 'button', id: 'signOutBtn', onclick: () => signOut() }, 'Sign out'));
   } else if (a.user) {
     nameInput.readOnly = false;
@@ -190,8 +191,10 @@ function renderAccount(a) {
     nameInput.readOnly = false;
     nameInput.title = '';
     box.append(
-      el('button', { class: 'mini-btn google-btn', type: 'button', id: 'signInBtn', onclick: doSignIn }, 'Sign in with Google'),
-      el('span', { class: 'dim small' }, ' saves your progress and puts you on the leaderboards'));
+      el('button', { class: 'mini-btn google-btn', type: 'button', id: 'signInBtn', onclick: doSignIn }, 'Continue with Google'),
+      el('button', { class: 'mini-btn', type: 'button', id: 'loginOpenBtn', onclick: () => openAuth('login') }, 'Log in'),
+      el('button', { class: 'mini-btn primary', type: 'button', id: 'signupOpenBtn', onclick: () => openAuth('signup') }, 'Create account'),
+      el('span', { class: 'dim small' }, 'optional: saves your progress and puts you on the leaderboards'));
   }
   renderLevel();
   renderColors();
@@ -208,6 +211,63 @@ async function doSignIn() {
       : `Could not sign in: ${e.message}`);
   }
 }
+
+// ---- Log in / create account dialog ----
+function openAuth(which) {
+  showAuthTab(which);
+  for (const id of ['loginMsg', 'signupMsg']) $(id).textContent = '';
+  $('authDialog').showModal();
+  $(which === 'login' ? 'loginId' : 'signupUser').focus();
+}
+function showAuthTab(which) {
+  const login = which === 'login';
+  $('loginForm').hidden = !login;
+  $('signupForm').hidden = login;
+  $('tabLogin').classList.toggle('selected', login);
+  $('tabSignup').classList.toggle('selected', !login);
+  $('tabLogin').setAttribute('aria-selected', String(login));
+  $('tabSignup').setAttribute('aria-selected', String(!login));
+}
+$('tabLogin').addEventListener('click', () => showAuthTab('login'));
+$('tabSignup').addEventListener('click', () => showAuthTab('signup'));
+$('authClose').addEventListener('click', () => $('authDialog').close());
+$('googleAuthBtn').addEventListener('click', async () => { $('authDialog').close(); await doSignIn(); });
+
+async function busy(btn, msgEl, fn) {
+  btn.disabled = true;
+  msgEl.className = 'err small';
+  msgEl.textContent = '';
+  try {
+    await fn();
+  } catch (e) {
+    msgEl.textContent = e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+$('loginForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  busy($('loginBtn'), $('loginMsg'), async () => {
+    await logIn($('loginId').value, $('loginPw').value);
+    $('loginPw').value = '';
+    $('authDialog').close();
+  });
+});
+$('forgotBtn').addEventListener('click', () => busy($('forgotBtn'), $('loginMsg'), async () => {
+  await resetPassword($('loginId').value);
+  $('loginMsg').className = 'ok small';
+  $('loginMsg').textContent = 'Check your email for a link to reset your password.';
+}));
+$('signupForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  busy($('signupBtn'), $('signupMsg'), async () => {
+    await createAccount({ username: $('signupUser').value, password: $('signupPw').value, email: $('signupEmail').value });
+    $('signupPw').value = '';
+    $('authDialog').close();
+    pushMyStats({ name: accountState().handle, color: myColor });
+    menuMessage(`Welcome, ${accountState().handle}! Your progress now saves to your account.`, 'ok');
+  });
+});
 
 function openHandleDialog() {
   const a = accountState();

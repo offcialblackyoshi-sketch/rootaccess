@@ -19,6 +19,14 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Username and password accounts
+- The menu now offers **Continue with Google**, **Log in** and **Create account**. All of them are optional, and guests still play everything.
+- **Create account** asks for a username and password, with email optional. With an email, a verification email is sent and **Forgot password?** works. Without one, the username is the login. (It uses a made-up `@players.rootaccess.invalid` address behind the scenes, and nothing is ever sent to it.)
+- Usernames are checked against `handles/` before the account is created. If the claim still fails, the new account is deleted again.
+- Password accounts can save progress and post scores just like Google accounts. The rules now accept `sign_in_provider === 'password'` or a verified email.
+- **Setup:** enable **Email/Password** in Firebase → Authentication → Sign-in method, and publish the updated rules.
+
+
 ### Google sign-in
 - **Sign in with Google** on the menu (when online play is available). The first time, you pick a unique handle (2–14 letters, digits, `_ . -`), claimed at `handles/<handle>` so no two players share one. You can change it later.
 - Your XP, rounds, wins and title are saved to `users/<uid>` after every round. The first sign-in uploads this device's progress, and after that the account's progress is used on any device.

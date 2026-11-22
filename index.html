@@ -39,6 +39,10 @@
     <p class="tagline" id="tagline">a multiplayer hacking game <span class="dim">· every hack is fake, the fun is real</span></p>
 
     <div class="panel menu-panel">
+      <div class="field account-row" id="accountRow" hidden>
+        <span>&gt; account</span>
+        <div id="accountBox" class="account-box"></div>
+      </div>
       <label class="field">
         <span>&gt; handle</span>
         <input id="nameInput" maxlength="14" autocomplete="off" spellcheck="false">
@@ -174,6 +178,20 @@
     <p>Everyone gets the same Hack Gauntlet today. Your score is your time plus 5 seconds for each mistake, and the lowest score tops <strong>Today's board</strong>. Play as often as you like; only your best counts.</p>
     <p class="dim">Root Access is a game. None of these commands do anything to real computers.</p>
     <button id="howClose" class="primary">Got it</button>
+  </dialog>
+
+  <!-- PICK A HANDLE (after Google sign-in) -->
+  <dialog id="handleDialog" aria-labelledby="handleTitle">
+    <h2 id="handleTitle">// PICK YOUR HANDLE</h2>
+    <p class="dim">This is your name on the leaderboards. 2-14 letters, digits, <code>_</code> <code>.</code> or <code>-</code>. It must be unique.</p>
+    <form id="handleForm" method="dialog">
+      <input id="handleInput" maxlength="14" autocomplete="off" spellcheck="false" aria-label="Handle">
+      <p id="handleError" class="err small" role="alert"></p>
+      <div class="actions">
+        <button id="handleSave" class="primary" type="submit">Save</button>
+        <button id="handleCancel" type="button">Later</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- LEADERBOARDS -->

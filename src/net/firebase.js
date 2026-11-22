@@ -19,21 +19,27 @@ export async function createFirebaseNet(config) {
   const { user } = await A.signInAnonymously(auth);
   const db = D.getDatabase(app);
 
-  // All-time stats need an ID that stays the same in this browser, so they use
-  // a second app instance whose guest sign-in is remembered (rooms are unchanged).
-  let statsCtx = null;
-  async function statsDb() {
-    if (!statsCtx) {
-      statsCtx = (async () => {
-        const sApp = initializeApp(config, 'stats');
-        const sAuth = A.getAuth(sApp);
-        await A.setPersistence(sAuth, A.browserLocalPersistence);
-        const cred = sAuth.currentUser ? { user: sAuth.currentUser } : await A.signInAnonymously(sAuth);
-        return { db: D.getDatabase(sApp), uid: cred.user.uid };
-      })().catch((e) => { statsCtx = null; throw e; });
+  // Accounts (Google sign-in) use a second app instance whose sign-in is
+  // remembered across visits. Rooms keep their own per-tab guest sign-in.
+  let acct = null;
+  function account() {
+    if (!acct) {
+      const aApp = initializeApp(config, 'account');
+      const auth = A.getAuth(aApp);
+      acct = { auth, db: D.getDatabase(aApp), ready: A.setPersistence(auth, A.browserLocalPersistence) };
     }
-    return statsCtx;
+    return acct;
   }
+  // The signed-in Google user, or null (guests don't count as accounts).
+  const signedIn = () => {
+    const u = account().auth.currentUser;
+    return u && !u.isAnonymous ? u : null;
+  };
+  const mustSignIn = () => {
+    const u = signedIn();
+    if (!u) throw new Error('sign in with Google first');
+    return u;
+  };
 
   let offset = 0;
   D.onValue(D.ref(db, '.info/serverTimeOffset'), (s) => {
@@ -133,14 +139,50 @@ export async function createFirebaseNet(config) {
 
     // Daily Challenge board: daily/<YYYY-MM-DD>/<uid>. Only a better score replaces yours.
     async submitDaily(date, entry) {
-      const ref = D.ref(db, `daily/${date}/${user.uid}`);
+      const u = mustSignIn();
+      const ref = D.ref(account().db, `daily/${date}/${u.uid}`);
       const old = (await D.get(ref)).val();
       if (old && old.score <= entry.score) return;
       await D.set(ref, { ...entry, at: D.serverTimestamp() });
     },
-    // Global leaderboard: stats/<stable uid>, highest XP first.
+    // ---- Accounts ----
+    accountUid: () => signedIn()?.uid || null,
+    account: {
+      // cb({ uid, email, name } | null) now and whenever sign-in changes.
+      onUser(cb) {
+        const { auth, ready } = account();
+        ready.then(() => A.onAuthStateChanged(auth, (u) => cb(u && !u.isAnonymous ? { uid: u.uid, email: u.email, name: u.displayName } : null)));
+      },
+      async signIn() {
+        const { auth, ready } = account();
+        await ready;
+        await A.signInWithPopup(auth, new A.GoogleAuthProvider());
+      },
+      signOut: () => A.signOut(account().auth),
+      async loadProfile() {
+        const u = mustSignIn();
+        return (await D.get(D.ref(account().db, `users/${u.uid}`))).val();
+      },
+      // Claims a unique handle (case-insensitive) and frees the old one.
+      async claimHandle(handle, oldHandle) {
+        const u = mustSignIn();
+        const { db: adb } = account();
+        const key = handle.toLowerCase();
+        const res = await D.runTransaction(D.ref(adb, `handles/${key}`), (cur) => (cur === null || cur === u.uid ? u.uid : undefined));
+        if (!res.committed) throw new Error(`"${handle}" is taken. Try another.`);
+        await D.update(D.ref(adb, `users/${u.uid}`), { handle });
+        if (oldHandle && oldHandle.toLowerCase() !== key) await D.remove(D.ref(adb, `handles/${oldHandle.toLowerCase()}`)).catch(() => {});
+      },
+      async saveProfile(p) {
+        const u = mustSignIn();
+        await D.update(D.ref(account().db, `users/${u.uid}`), p);
+      },
+    },
+
+    // Global leaderboard: stats/<account uid>, highest XP first (signed-in players only).
     async submitStats(stats) {
-      const s = await statsDb();
+      const u = mustSignIn();
+      const s = { db: account().db, uid: u.uid };
       const ref = D.ref(s.db, `stats/${s.uid}`);
       // The rules let XP rise by at most 500 per save (catch up over a few saves).
       const old = (await D.get(ref)).val();
@@ -149,11 +191,10 @@ export async function createFirebaseNet(config) {
       return s.uid;
     },
     async statsBoard(limit = 50) {
-      const s = await statsDb();
-      const snap = await D.get(D.query(D.ref(s.db, 'stats'), D.orderByChild('xp'), D.limitToLast(limit)));
+      const snap = await D.get(D.query(D.ref(db, 'stats'), D.orderByChild('xp'), D.limitToLast(limit)));
       const rows = [];
       snap.forEach((c) => { rows.push({ id: c.key, ...c.val() }); });
-      return { rows: rows.reverse(), me: s.uid };
+      return { rows: rows.reverse(), me: signedIn()?.uid || null };
     },
     async dailyBoard(date, limit = 20) {
       const snap = await D.get(D.query(D.ref(db, `daily/${date}`), D.orderByChild('score'), D.limitToFirst(limit)));

@@ -691,3 +691,26 @@ test('global leaderboard: your row comes from your progress, and the rules prote
   assert.match(rules.$uid['.write'], /auth\.uid === \$uid/);
   assert.match(rules.$uid['.validate'], /\+ 500/);
 });
+
+test('google accounts: handles, and progress after signing in', async () => {
+  const { validHandle, suggestHandle, mergeProgress } = await import('../src/account.js');
+  for (const h of ['ab', 'n3m0', 'Zero_Day.99', 'a-b']) assert.ok(validHandle(h), h);
+  for (const h of ['a', 'way_too_long_handle', 'has space', 'émoji', '']) assert.ok(!validHandle(h), h);
+  assert.ok(validHandle(suggestHandle('Jane Doe!')));
+  assert.equal(suggestHandle('Jane Doe!'), 'JaneDoe');
+  assert.ok(validHandle(suggestHandle('x')));
+  // First sign-in: this device's progress goes up to the account.
+  const local = { xp: 300, rounds: 5, wins: 2, title: '' };
+  assert.deepEqual(mergeProgress(local, null), { progress: local, upload: true });
+  // Later: the account's progress wins (it may have been played elsewhere).
+  const m = mergeProgress(local, { xp: 900, rounds: 20, wins: 9, handle: 'n3m0' });
+  assert.equal(m.upload, false);
+  assert.equal(m.progress.xp, 900);
+  assert.equal(m.progress.rounds, 20);
+  // The rules only let signed-in Google accounts post, under their own handle.
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url))).rules;
+  for (const w of [rules.stats.$uid['.write'], rules.daily.$date.$uid['.write']]) {
+    assert.match(w, /email_verified === true/);
+    assert.match(w, /child\('handle'\)/);
+  }
+});

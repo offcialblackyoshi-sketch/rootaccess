@@ -10,6 +10,7 @@ import { el, load, save, playerList, COLORS, fmtTime } from './util.js';
 import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
+import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle } from './account.js';
 import { globalBoard, pushMyStats, winRate } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
@@ -161,6 +162,76 @@ $('titlePick').addEventListener('change', (e) => {
 });
 renderLevel();
 
+// ---------------------------------------------------------------------------
+// Google account
+// ---------------------------------------------------------------------------
+function renderAccount(a) {
+  $('accountRow').hidden = !a.available;
+  const box = $('accountBox');
+  box.innerHTML = '';
+  const nameInput = $('nameInput');
+  if (a.user && a.handle) {
+    // Your account handle is your name everywhere.
+    nameInput.value = a.handle;
+    nameInput.readOnly = true;
+    nameInput.title = 'Your account handle. Use "Change handle" to edit it.';
+    save('ra-name', a.handle);
+    box.append(
+      el('span', { class: 'acct-name' }, '● ', a.handle, el('span', { class: 'dim small' }, ' (Google)')),
+      el('button', { class: 'mini-btn', type: 'button', onclick: () => openHandleDialog() }, 'Change handle'),
+      el('button', { class: 'mini-btn', type: 'button', id: 'signOutBtn', onclick: () => signOut() }, 'Sign out'));
+  } else if (a.user) {
+    nameInput.readOnly = false;
+    box.append(el('span', { class: 'dim small' }, 'Signed in. '),
+      el('button', { class: 'mini-btn primary', type: 'button', onclick: () => openHandleDialog() }, 'Pick a handle'),
+      el('button', { class: 'mini-btn', type: 'button', onclick: () => signOut() }, 'Sign out'));
+    if (!$('handleDialog').open) openHandleDialog();
+  } else {
+    nameInput.readOnly = false;
+    nameInput.title = '';
+    box.append(
+      el('button', { class: 'mini-btn google-btn', type: 'button', id: 'signInBtn', onclick: doSignIn }, 'Sign in with Google'),
+      el('span', { class: 'dim small' }, ' saves your progress and puts you on the leaderboards'));
+  }
+  renderLevel();
+  renderColors();
+}
+
+async function doSignIn() {
+  try {
+    await signIn();
+  } catch (e) {
+    const code = e.code || '';
+    if (code.includes('popup-closed') || code.includes('cancelled-popup')) return;
+    menuMessage(code.includes('unauthorized-domain')
+      ? 'Sign-in is not allowed on this website yet. Add it under Firebase → Authentication → Settings → Authorized domains.'
+      : `Could not sign in: ${e.message}`);
+  }
+}
+
+function openHandleDialog() {
+  const a = accountState();
+  $('handleInput').value = a.handle || suggestHandle($('nameInput').value || a.user?.name);
+  $('handleError').textContent = '';
+  $('handleDialog').showModal();
+  $('handleInput').select();
+}
+$('handleForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('handleSave').disabled = true;
+  try {
+    await setHandle($('handleInput').value.trim());
+    await syncProgress({ color: myColor });
+    $('handleDialog').close();
+    pushMyStats({ name: accountState().handle, color: myColor });
+  } catch (err) {
+    $('handleError').textContent = err.message;
+  } finally {
+    $('handleSave').disabled = false;
+  }
+});
+$('handleCancel').addEventListener('click', () => $('handleDialog').close());
+
 function myName() {
   const n = $('nameInput').value.trim().replace(/[^\w.\-]/g, '').slice(0, 14) || 'anon';
   save('ra-name', n);
@@ -307,7 +378,7 @@ async function renderBoard(listEl, noteEl) {
     el('span', { class: 'dim' }, r.mistakes ? `${fmtTime(r.ms)} + ${r.mistakes}×${PENALTY_MS / 1000}s` : fmtTime(r.ms)),
     el('strong', {}, fmtScore(r.score)))));
   const best = myBest(date);
-  noteEl.textContent = `${date} (UTC) · ${where === 'online' ? 'everyone online' : 'this device only'}${best !== null ? ` · your best ${fmtScore(best)}` : ''}`;
+  noteEl.textContent = `${date} (UTC) · ${where === 'online' ? 'everyone online' : 'this device only'}${best !== null ? ` · your best ${fmtScore(best)}` : ''}${where === 'online' && !accountState().handle ? ' · sign in with Google to get on the board' : ''}`;
 }
 const fmtScore = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
@@ -326,10 +397,8 @@ async function renderStatsBoard() {
     el('strong', {}, String(r.xp)),
     el('span', {}, `${r.wins}/${r.rounds}`),
     el('span', {}, `${winRate(r)}%`))));
-  statsNoteText(where);
-}
-function statsNoteText(where) {
-  $('statsNote').textContent = where === 'online' ? 'Everyone online · top 50' : 'This device only (online play is not set up or not reachable).';
+  $('statsNote').textContent = where !== 'online' ? 'This device only (online play is not set up or not reachable).'
+    : accountState().handle ? 'Everyone online · top 50' : 'Everyone online · top 50 · sign in with Google to get on the board';
 }
 function showTab(which) {
   for (const [t, pane] of [['tabAll', 'paneAll'], ['tabToday', 'paneToday']]) {
@@ -553,6 +622,7 @@ function finishResults(room, results, me) {
       renderLevel();
       renderColors();
       pushMyStats({ name: myName(), color: myColor }); // update the global leaderboard
+      syncProgress({ color: myColor }); // and your Google account, if signed in
     }
     // Team games mark each player's result as won or not.
     const mine = results.find((r) => r.id === me);
@@ -659,6 +729,7 @@ if (invited && isRoomCode(invited.toUpperCase())) {
   menuMessage(`You've been invited to room ${invited.toUpperCase()}. Pick a name and press Join.`, 'ok');
 }
 connectOnline().then(() => (invited ? false : resumeSeat()));
+initAccount(renderAccount).catch((e) => console.warn('account:', e.message));
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

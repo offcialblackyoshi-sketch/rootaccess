@@ -885,3 +885,12 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .stats-board li.board-head { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 .board li.board-head strong, .board li.board-head span { color: var(--dim); }
 @media (max-width: 600px) { .stats-board li { grid-template-columns: 2.5em minmax(0, 1fr) 3.5em 4em; } .stats-board li > :nth-child(n+5) { display: none; } }
+
+/* Google account */
+.account-box { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.acct-name { color: var(--accent); font-weight: bold; }
+.google-btn { border-color: var(--fg); color: var(--fg); text-transform: none; letter-spacing: 0; }
+.google-btn::before { content: "G"; font-weight: bold; color: #4285f4; margin-right: 2px; }
+#nameInput[readonly] { opacity: 0.85; cursor: default; }
+#handleInput { width: 100%; font-size: 18px; letter-spacing: 0.05em; }
+.err { color: var(--red); min-height: 1.2em; }

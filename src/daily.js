@@ -4,6 +4,7 @@
 import { getLocalNet, getOnlineNet, onlineConfigured } from './net/index.js';
 import { hashString } from './rng.js';
 import { load, save } from './util.js';
+import { accountState } from './account.js';
 
 export const PENALTY_MS = 5000; // each mistake adds 5 seconds
 export const BOARD_SIZE = 20;
@@ -43,8 +44,9 @@ export async function submitDaily(date, { name, ms, mistakes }) {
   saveLocal(date, getLocalNet().uid, { ...entry, id: getLocalNet().uid, at: Date.now() });
   try {
     const net = await onlineNet();
-    if (net) {
-      await net.submitDaily(date, entry);
+    // Only signed-in players go on the online board.
+    if (net?.accountUid?.() && accountState().handle) {
+      await net.submitDaily(date, { ...entry, name: accountState().handle });
       return { where: 'online', entry };
     }
   } catch (e) {
@@ -57,7 +59,7 @@ export async function submitDaily(date, { name, ms, mistakes }) {
 export async function dailyBoard(date) {
   try {
     const net = await onlineNet();
-    if (net) return { where: 'online', rows: sortBoard(await net.dailyBoard(date, BOARD_SIZE)), me: net.uid };
+    if (net) return { where: 'online', rows: sortBoard(await net.dailyBoard(date, BOARD_SIZE)), me: net.accountUid?.() || null, signedIn: !!net.accountUid?.() };
   } catch (e) {
     console.warn('daily board: showing this device only:', e.message);
   }

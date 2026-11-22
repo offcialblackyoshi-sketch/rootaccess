@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Google sign-in
+- **Sign in with Google** on the menu (when online play is available). The first time, you pick a unique handle (2–14 letters, digits, `_ . -`), claimed at `handles/<handle>` so no two players share one. You can change it later.
+- Your XP, rounds, wins and title are saved to `users/<uid>` after every round. The first sign-in uploads this device's progress, and after that the account's progress is used on any device.
+- Only signed-in players appear on the All-time and Today boards. The rules require a verified Google account, and the name on the board must match your handle. Guests can still play and view the boards.
+- **Verified:** unit tests cover handle validation and suggestions, the progress merge on sign-in, and the rules. Real Google sign-in couldn't be tested from the build container (Google's servers are blocked there), so try it on the live site.
+
+
 ### Code Memory rework and a global leaderboard
 - **Code Memory** now works like a pattern hack: the code is one lit cell in each column. Decoy patterns flicker first, then the real code flashes 3 times, all at once. You enter it column by column (↑/↓ and Space/Enter, or click). A wrong cell is a mistake and replays the show. Grids grow from 4×3 to 6×6, with 3 to 7 decoys.
 - **Leaderboards** (menu): an **All-time** tab ranks everyone by XP and shows level, title, rounds, wins and win %, plus a **Today** tab for the Daily Challenge. Stats are saved after every round to `stats/<uid>`. That uses a separate guest sign-in that this browser remembers, so your row stays yours. The rules only let you write your own row, keep wins ≤ rounds, and let XP rise by at most 500 per save. It shows just your own row when online play isn't available.

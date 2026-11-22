@@ -28,11 +28,11 @@ async function onlineNet() {
   return net?.submitStats ? net : null;
 }
 
-// Sends this device's stats (quietly does nothing when offline).
+// Sends your stats to the board (only when signed in with Google).
 export async function pushMyStats(profile) {
   try {
     const net = await onlineNet();
-    if (net) await net.submitStats(myStats(getProgress(), profile));
+    if (net?.accountUid?.()) await net.submitStats(myStats(getProgress(), profile));
   } catch (e) {
     console.warn('leaderboard: could not save stats:', e.message);
   }
@@ -43,9 +43,9 @@ export async function globalBoard(profile) {
   try {
     const net = await onlineNet();
     if (net) {
-      await net.submitStats(myStats(getProgress(), profile)).catch(() => {});
+      if (net.accountUid?.()) await net.submitStats(myStats(getProgress(), profile)).catch(() => {});
       const { rows, me } = await net.statsBoard(BOARD_SIZE);
-      return { where: 'online', rows, me };
+      return { where: 'online', rows, me, signedIn: !!me };
     }
   } catch (e) {
     console.warn('leaderboard: showing this device only:', e.message);

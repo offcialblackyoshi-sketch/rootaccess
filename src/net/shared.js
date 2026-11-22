@@ -37,3 +37,6 @@ export function setPath(obj, path, value) {
     node[last] = JSON.parse(JSON.stringify(value));
   }
 }
+
+// A private chat's id: both players' ids, sorted, so either side finds it.
+export const convId = (a, b) => [a, b].sort().join('_');

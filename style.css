@@ -982,3 +982,43 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .badge-alpha { color: #021016; background: linear-gradient(90deg, #4dd9ff, #b388ff); box-shadow: 0 0 10px rgba(77, 217, 255, 0.5); }
 .side-row .pname { display: flex; align-items: center; gap: 4px; }
 .podium-name .name-badge { display: block; width: fit-content; margin: 2px auto 0; }
+
+/* Online players panel (left side) */
+.social { position: fixed; left: 0; top: 0; bottom: 0; z-index: 25; pointer-events: none; }
+.social-tab { pointer-events: auto; position: fixed; left: 0; top: 50%; transform: translateY(-50%); border-radius: 0 10px 10px 0; border-left: none; background: var(--panel-solid); padding: 12px 8px; writing-mode: horizontal-tb; text-transform: none; letter-spacing: 0; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.social.open .social-tab { display: none; }
+.social-tab.ping { animation: pop-in 0.6s ease-out; }
+.social-unread { background: var(--red); color: #fff; border-radius: 99px; font-size: 11px; font-weight: bold; min-width: 18px; padding: 0 5px; text-align: center; line-height: 18px; }
+.social-panel { pointer-events: auto; position: fixed; left: 12px; top: 64px; bottom: 12px; width: 250px; display: none; flex-direction: column; gap: 8px; padding: 12px; background: var(--panel-solid); overflow: hidden; }
+.social.open .social-panel { display: flex; animation: screen-in 0.2s ease-out; }
+.social-panel h2 { margin: 0; font-size: 13px; letter-spacing: 0.1em; color: var(--accent); }
+.social-panel input[type="search"] { width: 100%; background: var(--term-bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; }
+.social-toggle { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.social-toggle .mini-btn { min-width: 3.5em; border-color: var(--line); color: var(--dim); }
+.social-toggle .mini-btn.selected { border-color: var(--accent); color: var(--accent); }
+.social-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; display: grid; gap: 4px; align-content: start; }
+.social-row { width: 100%; display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; text-align: left; padding: 6px 8px; border-color: transparent; text-transform: none; letter-spacing: 0; color: var(--fg); background: rgba(255, 255, 255, 0.02); }
+.social-row:hover { border-color: var(--line); background: var(--accent-soft); }
+.social-row.blocked { opacity: 0.4; }
+.social-row .dot, .social-msg .dot { width: 10px; height: 10px; border-radius: 50%; }
+.social-who { display: grid; min-width: 0; }
+.social-who .pname { font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.social-empty { padding: 10px 4px; }
+.social-recent { display: grid; gap: 4px; }
+.social-recent:empty { display: none; }
+.social-msg { text-align: left; text-transform: none; letter-spacing: 0; padding: 4px 8px; border-color: var(--red); color: var(--fg); font-size: 13px; }
+.profile-dialog { width: min(380px, 92vw); }
+.profile-dialog[open] { display: grid; gap: 12px; }
+.profile-top { display: flex; gap: 12px; align-items: center; }
+.profile-name { font-size: 20px; }
+.profile-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.profile-stat { display: grid; justify-items: center; padding: 8px 4px; border: 1px solid var(--line); border-radius: 8px; }
+.profile-stat strong { font-size: 18px; color: var(--accent); }
+.dm-box { position: fixed; left: 274px; bottom: 12px; width: 300px; height: 360px; z-index: 26; display: flex; flex-direction: column; gap: 6px; padding: 10px; background: var(--panel-solid); }
+.dm-box[hidden] { display: none; }
+.social:not(.open) ~ .dm-box { left: 52px; }
+.dm-log { flex: 1; overflow-y: auto; display: grid; gap: 4px; align-content: start; font-size: 13px; }
+.dm-msg { padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, 0.04); width: fit-content; max-width: 90%; word-break: break-word; }
+.dm-msg.mine { justify-self: end; background: var(--accent-soft); color: var(--fg); }
+.dm-note { margin: 0; }
+@media (max-width: 700px) { .social-panel { width: calc(100vw - 24px); } .dm-box { left: 12px !important; right: 12px; width: auto; } }

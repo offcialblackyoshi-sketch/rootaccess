@@ -1,7 +1,7 @@
 // Online multiplayer through Firebase Realtime Database + Anonymous Auth.
 // The Firebase SDK is loaded from Google's CDN only when online play is used.
 
-import { randomRoomCode } from './shared.js';
+import { randomRoomCode, convId } from './shared.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/13.4.0/';
 
@@ -41,6 +41,7 @@ export async function createFirebaseNet(config) {
     return u;
   };
 
+  let presenceArmed = false;
   let offset = 0;
   D.onValue(D.ref(db, '.info/serverTimeOffset'), (s) => {
     offset = s.val() || 0;
@@ -145,6 +146,31 @@ export async function createFirebaseNet(config) {
       if (old && old.score <= entry.score) return;
       await D.set(ref, { ...entry, at: D.serverTimestamp() });
     },
+    // ---- Online players, profiles and private messages ----
+    // presence/<uid>: who's online (removed automatically when the tab closes).
+    async presenceSet(info) {
+      const ref = D.ref(db, `presence/${user.uid}`);
+      if (!presenceArmed) { presenceArmed = true; D.onDisconnect(ref).remove().catch(() => { presenceArmed = false; }); }
+      await D.set(ref, { ...info, at: D.serverTimestamp() });
+    },
+    presenceClear: () => D.remove(D.ref(db, `presence/${user.uid}`)).catch(() => {}),
+    presenceWatch(cb) {
+      return D.onValue(D.ref(db, 'presence'), (s) => cb(s.val() || {}));
+    },
+    // Private chats: dms/<uidA_uidB>/<msg>, plus inbox/<uid>/<conv> to notify.
+    async dmSend(other, msg) {
+      const conv = convId(user.uid, other);
+      const m = { ...msg, from: user.uid, at: D.serverTimestamp() };
+      await D.push(D.ref(db, `dms/${conv}`), m);
+      await D.set(D.ref(db, `inbox/${other}/${conv}`), { from: user.uid, name: msg.name, color: msg.color || '', text: msg.text, at: D.serverTimestamp() });
+    },
+    dmWatch(other, cb) {
+      return D.onValue(D.query(D.ref(db, `dms/${convId(user.uid, other)}`), D.limitToLast(100)), (s) => cb(s.val() || {}));
+    },
+    inboxWatch(cb) {
+      return D.onValue(D.ref(db, `inbox/${user.uid}`), (s) => cb(s.val() || {}));
+    },
+
     // ---- Public lobby: open rooms + lobby chat ----
     lobbyWatch(cb) {
       let rooms = {};

@@ -568,7 +568,7 @@ await step('pwa', async () => {
   const sw = await D.eval(`navigator.serviceWorker.ready.then(r => !!r.active)`);
   check('pwa: service worker active', sw === true);
   await sleep(500);
-  const cached = await D.eval(`caches.open('root-access-v12').then(c => c.keys()).then(k => k.length)`);
+  const cached = await D.eval(`caches.open('root-access-v13').then(c => c.keys()).then(k => k.length)`);
   check('pwa: all files cached', cached >= 26, `(${cached})`);
   const inst = await D.send('Page.getInstallabilityErrors');
   const errs = inst.result?.installabilityErrors ?? [];

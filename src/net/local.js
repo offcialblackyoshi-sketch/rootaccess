@@ -2,7 +2,7 @@
 // same computer can play together. Used for Practice mode, for testing, and
 // when online play isn't set up.
 
-import { randomRoomCode, setPath } from './shared.js';
+import { randomRoomCode, setPath, convId } from './shared.js';
 
 const PREFIX = 'ra-room-';
 const HB = 'ra-hb-';
@@ -84,9 +84,31 @@ export function createLocalNet() {
     notifyLobby();
   }
 
+  // Small shared key/value store (presence, private chats, inboxes) for tabs.
+  const kvWatchers = new Map(); // key -> Set<cb>
+  const kvGet = (k) => { try { return JSON.parse(store.get(k)) || {}; } catch { return {}; } };
+  const kvNotify = (k) => { const v = kvGet(k); for (const cb of kvWatchers.get(k) || []) queueMicrotask(() => cb(v)); };
+  async function kvMutate(k, fn) {
+    const run = () => { const v = kvGet(k); fn(v); store.set(k, JSON.stringify(v)); };
+    if (navigator.locks) await navigator.locks.request(k, run);
+    else run();
+    kvNotify(k);
+  }
+  function kvWatch(k, cb, map = (v) => v) {
+    const wrapped = (v) => cb(map(v));
+    if (!kvWatchers.has(k)) kvWatchers.set(k, new Set());
+    kvWatchers.get(k).add(wrapped);
+    wrapped(kvGet(k));
+    return () => kvWatchers.get(k)?.delete(wrapped);
+  }
+  const PRESENCE = 'ra-presence';
+  const freshPresence = (all) => Object.fromEntries(Object.entries(all).filter(([, p]) => Date.now() - (p.at || 0) < 15000));
+  window.addEventListener('beforeunload', () => { try { const all = kvGet(PRESENCE); delete all[uid]; store.set(PRESENCE, JSON.stringify(all)); } catch { /* ignore */ } });
+
   window.addEventListener('storage', (e) => {
     if (e.key && e.key.startsWith(PREFIX)) notify(e.key.slice(PREFIX.length));
     if (e.key === LOBBY) notifyLobby();
+    if (e.key && kvWatchers.has(e.key)) kvNotify(e.key);
   });
 
   // Read-modify-write under a cross-tab lock so tabs don't overwrite each other.
@@ -133,6 +155,33 @@ export function createLocalNet() {
   }
 
   const net = {
+    presenceSet(info) {
+      return kvMutate(PRESENCE, (all) => { all[uid] = { ...info, at: Date.now() }; });
+    },
+    presenceClear() {
+      return kvMutate(PRESENCE, (all) => { delete all[uid]; });
+    },
+    presenceWatch(cb) {
+      const off = kvWatch(PRESENCE, cb, freshPresence);
+      const t = setInterval(() => cb(freshPresence(kvGet(PRESENCE))), 5000);
+      return () => { off(); clearInterval(t); };
+    },
+    async dmSend(other, msg) {
+      const conv = convId(uid, other);
+      const at = Date.now();
+      await kvMutate('ra-dm-' + conv, (m) => {
+        m[at.toString(36) + Math.random().toString(36).slice(2, 5)] = { ...msg, from: uid, at };
+        const keys = Object.keys(m).sort();
+        for (const k of keys.slice(0, -100)) delete m[k];
+      });
+      await kvMutate('ra-inbox-' + other, (box) => { box[conv] = { from: uid, name: msg.name, color: msg.color || '', text: msg.text, at }; });
+    },
+    dmWatch(other, cb) {
+      return kvWatch('ra-dm-' + convId(uid, other), cb);
+    },
+    inboxWatch(cb) {
+      return kvWatch('ra-inbox-' + uid, cb);
+    },
     lobbyWatch(cb) {
       lobbyListeners.add(cb);
       cb(readLobby());

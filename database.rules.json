@@ -96,6 +96,31 @@
           ".validate": "newData.hasChildren(['uid', 'name', 'text', 'at']) && newData.child('uid').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 200 && newData.child('at').val() <= now"
         }
       }
+    },
+    "presence": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && newData.child('at').val() <= now"
+      }
+    },
+    "dms": {
+      "$conv": {
+        ".read": "auth != null && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid))",
+        "$msg": {
+          ".write": "auth != null && !data.exists() && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid))",
+          ".validate": "newData.hasChildren(['from', 'name', 'text', 'at']) && newData.child('from').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 300 && newData.child('at').val() <= now"
+        }
+      }
+    },
+    "inbox": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$conv": {
+          ".write": "auth != null && ($conv.beginsWith(auth.uid + '_') || $conv.endsWith('_' + auth.uid)) && ($conv.beginsWith($uid + '_') || $conv.endsWith('_' + $uid)) && (auth.uid === $uid || root.child('presence').child($uid).child('dm').val() !== false)",
+          ".validate": "newData.hasChildren(['from', 'name', 'text', 'at']) && newData.child('from').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length <= 16 && newData.child('text').isString() && newData.child('text').val().length <= 300 && newData.child('at').val() <= now"
+        }
+      }
     }
   }
 }

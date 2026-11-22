@@ -793,3 +793,14 @@ test('special-title badges: names are matched however they are shown', async () 
   assert.equal(specialKind('n3m0'), null);
   for (const n of [...OWNERS, ...ALPHA_TESTERS]) assert.equal(n, n.toLowerCase(), 'lists are lowercase');
 });
+
+test('online players and private chats: only the two people in a chat can read or write it', async () => {
+  const { convId } = await import('../src/net/shared.js');
+  assert.equal(convId('bob', 'alice'), convId('alice', 'bob'), 'same chat from either side');
+  const R = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url))).rules;
+  assert.match(R.presence.$uid['.write'], /auth\.uid === \$uid/);
+  assert.match(R.dms.$conv['.read'], /beginsWith\(auth\.uid \+ '_'\)/);
+  assert.match(R.dms.$conv.$msg['.write'], /!data\.exists\(\)/);
+  assert.match(R.inbox.$uid['.read'], /auth\.uid === \$uid/);
+  assert.match(R.inbox.$uid.$conv['.write'], /child\('dm'\)\.val\(\) !== false/, 'people with messages off cannot be messaged');
+});

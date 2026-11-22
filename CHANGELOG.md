@@ -19,6 +19,14 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Online players, profiles and private messages
+- A panel on the left lists everyone online with their level and what they're doing (on the menu, in the lobby, playing a mode). It's open on the menu and multiplayer lobby screens on wide displays; elsewhere it folds into a 👥 tab with a red unread count.
+- **Search** by name. Click a player for their **profile**: level, XP, rounds, wins, win %, trophies, title, and guest or account.
+- **💬 Message** opens a private chat window. New messages show up in the panel and on the tab.
+- **Safety:** a **Block** button per player (stored on this device), and **Private messages: on/off**. The database rules refuse messages to players who turned them off, and only the two people in a chat can read it. The chat window reminds players never to share passwords or personal info.
+- Online through Firebase (`presence`, `dms`, `inbox`), and between tabs in local mode. **Setup:** publish the updated `database.rules.json`.
+
+
 ### Multiplayer lobby
 - **Multiplayer lobby** is now the main button on the menu. It shows open public rooms (name, mode and players, with a Join button) and a **lobby chat** for everyone browsing.
 - **Create public room** lists your room there. In the room lobby, the host can switch **Room: private (code) / public (listed)**. The host keeps the listing up to date, and it disappears when the game starts, the room fills, it goes private, or the host disconnects. A new host takes it over.

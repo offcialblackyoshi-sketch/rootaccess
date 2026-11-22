@@ -16,6 +16,8 @@ import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { specialTitle } from './progress.js';
 import { startBadges } from './badges.js';
+import { createSocial } from './social.js';
+import { trophyCount as countTrophies } from './trophies.js';
 import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag } from './trophies.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
@@ -41,6 +43,7 @@ initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); updateRain(); }
 // Icons on the menu buttons.
 for (const b of document.querySelectorAll('button[data-icon]')) b.prepend(iconEl(b.dataset.icon));
 
+let social = null; // online players panel (created once the menu is ready)
 const state = {
   net: null,
   code: null,
@@ -67,6 +70,7 @@ function show(name) {
     }
   }
   document.body.dataset.screen = name;
+  social?.setScreen(name);
 }
 
 const reducedMotion = () => document.documentElement.classList.contains('reduce-motion');
@@ -369,6 +373,7 @@ async function connectOnline() {
   const res = await getOnlineNet();
   if (res.net) {
     state.online = res.net;
+    social?.touch(); // move the online-players panel onto the real network
     status.innerHTML = '';
     status.append(el('span', { class: 'ok' }, '● ONLINE'), ' Ready to create or join rooms.');
   } else {
@@ -811,6 +816,7 @@ function finishResults(room, results, me) {
       renderLevel();
       renderColors();
       pushMyStats({ name: myName(), color: myColor }); // update the global leaderboard
+      social?.touch(); // and what others see in the online-players panel
       syncProgress({ color: myColor }); // and your Google account, if signed in
     }
     if (won) {
@@ -980,4 +986,28 @@ if ('serviceWorker' in navigator) {
 
 // Exposed for automated tests.
 window.__ra = { state, sfx, rain, renderAccount };
-startBadges(); // special titles next to names everywhere // renderAccount: lets tests preview the account card
+startBadges(); // special titles next to names everywhere
+
+// Online players panel: what others see about you, and what you're doing.
+social = createSocial({
+  sfx,
+  getNet: roomNet,
+  profile: () => {
+    const p = getProgress();
+    const a = accountState();
+    return {
+      name: myName(), color: myColor, level: levelFor(p.xp).level, title: myTitle(), xp: p.xp,
+      rounds: p.rounds, wins: Math.min(p.wins, p.rounds), trophies: countTrophies(), signedIn: !!(a.user && a.handle),
+    };
+  },
+  status: () => {
+    const scr = document.body.dataset.screen;
+    const room = state.room;
+    if (scr === 'game' && room) return `playing ${MODES[room.mode]?.name || 'a game'}`;
+    if (scr === 'results') return 'finishing a round';
+    if (scr === 'lobby') return room?.practice ? 'practicing' : 'in a room';
+    if (scr === 'browse') return 'in the multiplayer lobby';
+    return 'on the menu';
+  },
+});
+social.setScreen(document.body.dataset.screen || 'menu'); // renderAccount: lets tests preview the account card

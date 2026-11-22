@@ -23,11 +23,15 @@ export function generate(rng, stage) {
   return { password, strips };
 }
 
-// Which letter of a strip is in the highlighted row after `ms` milliseconds.
+// Where a strip has scrolled to after `ms` milliseconds (a smooth position, in letters).
+export function stripPos(strip, ms, slow = 1) {
+  return strip.offset + (ms / 1000) * strip.speed * slow * strip.dir;
+}
+
+// Which letter of a strip is in the highlighted row: the one closest to its center.
 export function letterAt(strip, ms, slow = 1) {
-  const p = strip.offset + (ms / 1000) * strip.speed * slow * strip.dir;
   const n = strip.letters.length;
-  return ((Math.floor(p) % n) + n) % n;
+  return ((Math.round(stripPos(strip, ms, slow)) % n) + n) % n;
 }
 
 export default {
@@ -45,18 +49,28 @@ export default {
 
     const target = el('div', { class: 'll-target' }, [...data.password].map((c) => el('span', {}, c)));
     const cols = data.strips.map((strip, i) => {
-      const cells = [0, 1, 2, 3, 4].map((k) => el('span', { class: k === 2 ? 'mid' : '' }));
-      const col = el('button', { class: 'll-col', tabindex: -1, 'aria-label': `column ${i + 1}`, onclick: () => i === cur && press() }, cells);
-      return { strip, col, cells };
+      // 7 letters on a track that slides smoothly behind a 5-letter window.
+      const cells = Array.from({ length: 7 }, () => el('span'));
+      const track = el('div', { class: 'll-track' }, cells);
+      const col = el('button', { class: 'll-col', tabindex: -1, 'aria-label': `column ${i + 1}`, onclick: () => i === cur && press() },
+        el('div', { class: 'll-window' }, track, el('div', { class: 'll-line' })));
+      return { strip, col, cells, track };
     });
     box.append(el('div', { class: 'letterlock' }, el('div', { class: 'dim small' }, 'PASSWORD'), target, el('div', { class: 'll-cols' }, cols.map((c) => c.col))));
 
     function render() {
       const ms = performance.now() - t0;
-      cols.forEach(({ strip, col, cells }, i) => {
+      cols.forEach(({ strip, col, cells, track }, i) => {
         const n = strip.letters.length;
-        const idx = i < cur ? lockedAt[i] : letterAt(strip, ms, slow);
-        cells.forEach((cell, k) => { cell.textContent = strip.letters[(((idx + k - 2) % n) + n) % n]; });
+        const p = i < cur ? lockedAt[i] : stripPos(strip, ms, slow);
+        const base = Math.floor(p);
+        const frac = p - base;
+        const mid = frac < 0.5 ? 3 : 4; // the cell nearest the highlighted line
+        cells.forEach((cell, k) => {
+          cell.textContent = strip.letters[(((base + k - 3) % n) + n) % n];
+          cell.className = k === mid ? 'mid' : '';
+        });
+        track.style.transform = `translateY(${-(1 + frac) * 1.3}em)`;
         col.className = 'll-col' + (i < cur ? ' locked' : i === cur ? ' active' : '');
       });
       [...target.children].forEach((s, i) => { s.className = i < cur ? 'done' : i === cur ? 'next' : ''; });

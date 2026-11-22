@@ -729,13 +729,17 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .ll-target span.next { color: var(--amber); border-color: var(--amber); }
 .ll-target span.done { color: var(--accent); border-color: var(--accent); text-shadow: 0 0 8px var(--glow); }
 .ll-cols { display: flex; gap: 1.2cqw; font-size: clamp(18px, min(9cqh, 7cqw), 64px); }
-.ll-col { flex-direction: column; gap: 0; padding: 0.2em 0; width: 2.1em; border-color: var(--line); color: var(--rest); font: 1em var(--font); }
-.ll-col span { display: block; line-height: 1.3; width: 100%; text-align: center; }
-.ll-col span.mid { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.ll-col { padding: 0.2em 0; width: 2.1em; border-color: var(--line); color: var(--rest); font: 1em var(--font); }
+.ll-window { position: relative; height: 6.5em; width: 100%; overflow: hidden; -webkit-mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent); mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent); }
+.ll-track { will-change: transform; }
+.ll-col span { display: block; height: 1.3em; line-height: 1.3em; width: 100%; text-align: center; }
+.ll-line { position: absolute; left: 0; right: 0; top: 2.6em; height: 1.3em; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); pointer-events: none; }
 .ll-col.active { border-color: var(--amber); color: var(--dim); box-shadow: 0 0 14px -4px var(--amber); }
-.ll-col.active span.mid { color: var(--amber); background: rgba(255, 176, 0, 0.14); font-weight: bold; border-color: var(--amber); }
+.ll-col.active .ll-line { border-color: var(--amber); background: rgba(255, 176, 0, 0.14); }
+.ll-col.active span.mid { color: var(--amber); font-weight: bold; }
 .ll-col.locked { border-color: var(--accent); color: transparent; }
-.ll-col.locked span.mid { color: var(--accent); background: var(--accent-soft); font-weight: bold; text-shadow: 0 0 8px var(--glow); }
+.ll-col.locked .ll-line { border-color: var(--accent); background: var(--accent-soft); }
+.ll-col.locked span.mid { color: var(--accent); font-weight: bold; text-shadow: 0 0 8px var(--glow); }
 
 /* Print Match */
 .printmatch { --c: clamp(6px, min(5.5cqh, 1.7cqw), 26px); display: flex; gap: 4cqw; align-items: center; justify-content: center; }

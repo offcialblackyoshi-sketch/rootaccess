@@ -221,7 +221,7 @@ function googleError(e) {
   if (code.includes('unauthorized-domain')) return `This website (${location.hostname}) isn't allowed to sign in yet. In Firebase: Authentication → Settings → Authorized domains → add "${location.hostname}".`;
   if (code.includes('operation-not-allowed')) return 'Google sign-in is turned off. In Firebase: Authentication → Sign-in method → Google → Enable, then Save.';
   if (code.includes('popup-blocked')) return 'Your browser blocked the Google window. Allow pop-ups for this site, then try again.';
-  if (code.includes('popup-closed') || code.includes('cancelled-popup')) return 'The Google window closed before signing in. If it closed by itself, make sure Google sign-in is enabled in Firebase and this site is an authorized domain.';
+  if (code.includes('popup-closed') || code.includes('cancelled-popup')) return 'Google sign-in didn\'t finish. School Google accounts are often blocked from signing in to games ("request access"). Use "Create account" instead, or a personal Gmail.';
   if (code.includes('network-request-failed')) return 'No connection to Google. Check your internet (some school networks block it).';
   if (code.includes('internal-error')) return 'Google sign-in hit an error. Check that Google is enabled in Firebase → Authentication → Sign-in method, with a support email set.';
   return `Could not sign in (${code || e?.message || e}).`;

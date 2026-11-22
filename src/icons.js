@@ -12,6 +12,10 @@ export const ICONS = {
   signaltune: svg('<path d="M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/><path d="M2 20h20"/>'),
   circuit: svg('<path d="M4 4h6v6h6v6h4"/><circle cx="4" cy="4" r="1.5"/><circle cx="20" cy="16" r="1.5"/><path d="M4 14v6h8"/>'),
   memory: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><path d="M6.5 6.5h.01M17.5 17.5h.01"/>'),
+  gauntlet: svg('<path d="M4 20 20 4"/><path d="M14 4h6v6"/><path d="M4 14v6h6"/><circle cx="12" cy="12" r="2"/>'),
+  wirecut: svg('<path d="M3 6c5 0 5 4 9 4s4-4 9-4"/><path d="M3 18c5 0 5-4 9-4s4 4 9 4"/><path d="m10 2 4 4M14 2l-4 4"/>'),
+  portsweep: svg('<rect x="3" y="3" width="5" height="5"/><rect x="10" y="3" width="5" height="5"/><rect x="17" y="3" width="4" height="5"/><rect x="3" y="10" width="5" height="5"/><rect x="10" y="10" width="5" height="5" fill="currentColor"/><rect x="17" y="10" width="4" height="5"/><rect x="3" y="17" width="5" height="4"/><rect x="10" y="17" width="5" height="4"/><rect x="17" y="17" width="4" height="4"/>'),
+  bitflip: svg('<rect x="3" y="8" width="7" height="12" rx="2"/><rect x="14" y="8" width="7" height="12" rx="2"/><circle cx="6.5" cy="12" r="1.5"/><circle cx="17.5" cy="16" r="1.5"/><path d="M6 4h1M17 4h1"/>'),
   // Menu
   play: svg('<path d="M7 4v16l13-8z"/>'),
   join: svg('<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/>'),

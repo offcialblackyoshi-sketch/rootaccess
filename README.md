@@ -15,7 +15,7 @@ A multiplayer hacking game that runs in the browser and installs as an app on Ch
 
 ### Quick Hacks (easy, no typing)
 
-Five short visual mini-games for beginners, each its own mode (1–8 players, bots OK). You play with the arrow keys, <kbd>Space</kbd>/<kbd>Enter</kbd>, or the mouse. Each has 5 stages that get harder, and everyone gets the same puzzles. A mistake locks you out for 3 seconds, and nobody is knocked out. The first player to clear all 5 stages wins.
+Eight short visual mini-games for beginners, plus a Gauntlet that mixes them. Each is its own mode (1–8 players, bots OK). You play with the arrow keys, <kbd>Space</kbd>/<kbd>Enter</kbd>, or the mouse. Each has 5 stages that get harder, and everyone gets the same puzzles. A mistake locks you out for 3 seconds, and nobody is knocked out. The first player to clear all 5 stages wins.
 
 | Mode | What you do |
 |---|---|
@@ -24,6 +24,10 @@ Five short visual mini-games for beginners, each its own mode (1–8 players, bo
 | **Signal Tune** | Turn the frequency, height, and shift knobs until your wave sits on the target. |
 | **Circuit Path** | Steer a signal through a maze to the exit without bumping the walls. |
 | **Code Memory** | Watch cells flash, then repeat the sequence in order. |
+| **Wire Cut** | Use the first rule on the card that is true, and cut those wires in order. |
+| **Port Sweep** | Close each port while it is lit up. Hitting a dark one is a mistake. |
+| **Bit Flip** | Flip switches until their values add up to the target number. |
+| **Hack Gauntlet** | A different mini-game every stage, back to back. |
 
 Type `help` in any mode to see its commands. <kbd>Tab</kbd> auto-completes, and <kbd>↑</kbd>/<kbd>↓</kbd> bring back earlier commands. In Race, type `hint` if you get stuck.
 

@@ -16,13 +16,16 @@ import { normalizeSettings, defaultSettings } from '../src/settings.js';
 import { secondsCrossed } from '../src/sfx.js';
 import { columnCount, rainbowColor } from '../src/matrix.js';
 import { roundTime, fmtTime } from '../src/util.js';
-import { MODES, MODE_ORDER, PUZZLES } from '../src/modes/index.js';
+import { MODES, MODE_ORDER, PUZZLES, gauntletOrder, GAUNTLET } from '../src/modes/index.js';
 import { quickStatsText, stageRng, STAGES } from '../src/modes/quickhack.js';
 import * as letterlock from '../src/modes/minigames/letterlock.js';
 import * as printmatch from '../src/modes/minigames/printmatch.js';
 import * as signaltune from '../src/modes/minigames/signaltune.js';
 import * as circuit from '../src/modes/minigames/circuit.js';
 import * as memory from '../src/modes/minigames/memory.js';
+import * as wirecut from '../src/modes/minigames/wirecut.js';
+import * as portsweep from '../src/modes/minigames/portsweep.js';
+import * as bitflip from '../src/modes/minigames/bitflip.js';
 
 const SEEDS = Array.from({ length: 300 }, (_, i) => i * 7919 + 13);
 
@@ -394,7 +397,7 @@ test('duel snippets and defend scoring', () => {
 // ---------------------------------------------------------------------------
 // Quick hacks
 // ---------------------------------------------------------------------------
-const QUICK = { letterlock, printmatch, signaltune, circuit, memory };
+const QUICK = { letterlock, printmatch, signaltune, circuit, memory, wirecut, portsweep, bitflip };
 const QSEEDS = SEEDS.slice(0, 200);
 
 test('quick hacks: every mini-game is its own easy mode, listed after the classic modes', () => {
@@ -509,4 +512,84 @@ test('quick hack stats text', () => {
   assert.equal(quickStatsText({ stage: 5, mistakes: 2, fastest: 9000 }), '5/5 stages · 2 mistakes · fastest stage 0:09');
   assert.equal(quickStatsText({ stage: 1, mistakes: 1 }), '1/5 stages · 1 mistake');
   assert.equal(quickStatsText(), '0/5 stages · 0 mistakes');
+});
+
+test('wire cut: exactly one rule applies, and it names real, distinct wires in order', () => {
+  for (const seed of QSEEDS) {
+    for (let st = 0; st < STAGES; st++) {
+      const d = wirecut.generate(stageRng('wirecut', seed, st), st);
+      assert.equal(new Set(d.order).size, d.order.length);
+      d.order.forEach((i) => assert.ok(i >= 0 && i < d.wires.length));
+      const real = d.rules.findIndex((r) => r.real);
+      assert.ok(real >= 0, 'has a real rule');
+      // Re-solve from the card text: every rule before the real one must be false.
+      for (const r of d.rules.slice(0, real)) assert.ok(!ruleTrue(r.text, d.wires), `decoy is false: ${r.text} / ${d.wires}`);
+      if (!d.rules[real].text.startsWith('Otherwise')) assert.ok(ruleTrue(d.rules[real].text, d.wires), d.rules[real].text);
+      const cuts = d.rules[real].text.split(/: cut |, then /).slice(1).map((t) => findWire(t.replace(/\.$/, ''), d.wires));
+      assert.deepEqual(cuts, d.order, d.rules[real].text);
+    }
+  }
+  function ruleTrue(text, w) {
+    const cond = text.match(/^If (.*): cut/)[1];
+    const n = (c) => w.filter((x) => x === c).length;
+    let m;
+    if ((m = cond.match(/more than (\d+) (\w+) wires?/))) return m[2] === 'wires' ? w.length > Number(m[1]) : n(m[2]) > Number(m[1]);
+    if ((m = cond.match(/no (\w+) wires/))) return n(m[1]) === 0;
+    if ((m = cond.match(/last wire is (\w+)/))) return w[w.length - 1] === m[1];
+    if ((m = cond.match(/first wire is (\w+)/))) return w[0] === m[1];
+    if ((m = cond.match(/an (odd|even) number/))) return (w.length % 2 ? 'odd' : 'even') === m[1];
+    if (cond === 'there is at least 1 wire') return true;
+    throw new Error('unknown rule ' + cond);
+  }
+  function findWire(t, w) {
+    let m;
+    if ((m = t.match(/^the first (\w+) wire$/))) return w.indexOf(m[1]);
+    if ((m = t.match(/^the last (\w+) wire$/))) return w.lastIndexOf(m[1]);
+    if ((m = t.match(/^wire (\d+)$/))) return Number(m[1]) - 1;
+    throw new Error('unknown wire ' + t);
+  }
+});
+
+test('port sweep: harder each stage, and the open order never repeats a port back to back', () => {
+  let prev = { need: 0, openMs: Infinity };
+  for (let st = 0; st < STAGES; st++) {
+    const d = portsweep.generate(stageRng('portsweep', 7, st), st);
+    assert.ok(d.need > prev.need && d.openMs < prev.openMs);
+    // Enough ports open in a 3-minute round to clear the stage many times over.
+    assert.ok(180000 / (d.openMs * 0.6 + d.gapMs) > d.need * 5);
+    const seq = portsweep.openSequence(d, 100);
+    seq.forEach((p, i) => { assert.ok(p >= 0 && p < d.size * d.size); if (i) assert.notEqual(p, seq[i - 1]); });
+    assert.deepEqual(seq, portsweep.openSequence(d, 100), 'same order for everyone');
+    prev = d;
+  }
+});
+
+test('bit flip: the target is always reachable with the switches', () => {
+  for (const seed of QSEEDS) {
+    for (let st = 0; st < STAGES; st++) {
+      const d = bitflip.generate(stageRng('bitflip', seed, st), st);
+      assert.ok(d.target >= 1 && d.target <= d.values.reduce((a, b) => a + b, 0));
+      // Greedy from the biggest switch always reaches it (values are powers of two).
+      let left = d.target;
+      for (const v of d.values) if (v <= left) left -= v;
+      assert.equal(left, 0);
+      assert.equal(d.hex, st >= 3);
+    }
+  }
+  assert.equal(bitflip.show(171, true), '0xAB');
+});
+
+test('hack gauntlet: a different real mini-game every stage, the same for everyone', () => {
+  assert.equal(MODE_ORDER[4], 'gauntlet');
+  assert.ok(MODES.gauntlet.quick && MODES.gauntlet.bots);
+  assert.equal(fmtTime(roundTime(MODES.gauntlet, 'normal')), '4:00');
+  const kinds = new Set();
+  for (const seed of QSEEDS) {
+    const order = gauntletOrder(seed);
+    assert.equal(order.length, STAGES);
+    assert.equal(new Set(order).size, STAGES, 'no repeats');
+    assert.deepEqual(order, gauntletOrder(seed));
+    order.forEach((id, st) => { assert.ok(PUZZLES[id]); assert.equal(GAUNTLET.pick(seed, st).id, id); kinds.add(id); });
+  }
+  assert.equal(kinds.size, Object.keys(PUZZLES).length, 'every mini-game shows up');
 });

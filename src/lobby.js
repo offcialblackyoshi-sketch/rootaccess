@@ -10,6 +10,7 @@ const $ = (id) => document.getElementById(id);
 // Accent color per mode (mode cards, icons).
 const MODE_ACCENT = {
   race: '#4dd9ff', duel: '#ff5a5a', defend: '#39ff6a', heist: '#ffb000',
+  gauntlet: '#ff6b4d', wirecut: '#ff5a5a', portsweep: '#39ff6a', bitflip: '#4dd9ff',
   letterlock: '#c6ff4d', printmatch: '#ff4dd2', signaltune: '#4dd9ff', circuit: '#ffb000', memory: '#b388ff',
 };
 
@@ -82,6 +83,7 @@ export function renderLobby({ room, net, code, onLeave }) {
     const unavailable = room.practice && !m.bots; // needs other humans
     const card = el('button', {
       class: 'mode-card' + (selected ? ' selected' : ''),
+      'data-mode': id,
       style: { '--mode': MODE_ACCENT[id] || 'var(--accent)' },
       disabled: (!isHost && !selected) || unavailable,
       'aria-pressed': selected ? 'true' : 'false',

@@ -2,7 +2,7 @@
 // Strategy: network first (so players always get the newest version when
 // online), falling back to the cache when offline. Only files from this site
 // are cached; Firebase traffic is never touched.
-const CACHE = 'root-access-v3';
+const CACHE = 'root-access-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -40,6 +40,9 @@ const ASSETS = [
   './src/modes/minigames/signaltune.js',
   './src/modes/minigames/circuit.js',
   './src/modes/minigames/memory.js',
+  './src/modes/minigames/wirecut.js',
+  './src/modes/minigames/portsweep.js',
+  './src/modes/minigames/bitflip.js',
   './src/modes/tutorial.js',
 ];
 

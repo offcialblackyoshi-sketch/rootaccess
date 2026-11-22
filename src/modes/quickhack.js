@@ -32,7 +32,7 @@ export function makeQuickMode(puzzle) {
     max: 8,
     bots: true,
     quick: true,
-    timeLimit: TIME_LIMIT,
+    timeLimit: puzzle.timeLimit || TIME_LIMIT,
     blurb: puzzle.blurb,
 
     setup({ players }) {
@@ -60,9 +60,12 @@ export function makeQuickMode(puzzle) {
       const note = el('div', { class: 'qh-note', 'aria-live': 'polite' });
       const lockEl = el('div', { class: 'qh-lock', hidden: true }, lockWhy, el('div', { class: 'track' }, lockFill));
       const area = el('div', { class: 'qh-area' });
+      const howEl = el('div', { class: 'dim small qh-how' }, puzzle.howTo);
+      // The puzzle for a stage: always the same one, or (Gauntlet) a different one each stage.
+      const puzzleFor = (st) => (puzzle.pick ? puzzle.pick(ctx.seed, st) : puzzle);
       const box = el('div', { class: 'stage-box quick-box', tabindex: 0, 'aria-label': `${puzzle.name}. ${puzzle.howTo}` },
         el('div', { class: 'qh-head' }, stageLabel, pips, el('span', { class: 'spacer' }), el('span', { class: 'dim small' }, 'Esc = chat')),
-        el('div', { class: 'dim small qh-how' }, puzzle.howTo),
+        howEl,
         area, note, lockEl);
       ctx.stage.append(box);
 
@@ -85,7 +88,7 @@ export function makeQuickMode(puzzle) {
       });
 
       function renderHead() {
-        stageLabel.textContent = done() ? 'ALL STAGES CLEARED' : `STAGE ${stage + 1}/${STAGES}`;
+        stageLabel.textContent = done() ? 'ALL STAGES CLEARED' : `STAGE ${stage + 1}/${STAGES}${puzzle.pick ? ` · ${puzzleFor(stage).name.toUpperCase()}` : ''}`;
         pips.textContent = bar(stage / STAGES, STAGES);
       }
 
@@ -98,9 +101,11 @@ export function makeQuickMode(puzzle) {
           area.append(el('div', { class: 'qh-done' }, '◆ ACCESS GRANTED ◆', el('div', { class: 'dim small' }, 'Waiting for the round to end…')));
           return;
         }
-        data = puzzle.generate(stageRng(puzzle.id, ctx.seed, stage), stage);
+        const P = puzzleFor(stage);
+        howEl.textContent = puzzle.pick ? `${P.name.toUpperCase()}: ${P.howTo}` : P.howTo;
+        data = P.generate(stageRng(P.id, ctx.seed, stage), stage);
         stageStart = ctx.now();
-        inst = puzzle.start(area, {
+        inst = P.start(area, {
           data,
           stage,
           lockMs: LOCK_MS,
@@ -205,7 +210,7 @@ export function makeQuickMode(puzzle) {
       term.setEnabled(false);
       startStage();
       // Test hook: solve the current stage, or read its puzzle data.
-      if (window.__ra) window.__ra.quick = { solve: () => !done() && solved(), data: () => data, stage: () => stage, locked };
+      if (window.__ra) window.__ra.quick = { solve: () => !done() && solved(), data: () => data, stage: () => stage, locked, puzzle: () => puzzleFor(stage).id };
 
       return {
         focus: () => box.focus({ preventScroll: true }),

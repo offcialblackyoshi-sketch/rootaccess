@@ -568,7 +568,7 @@ await step('pwa', async () => {
   const sw = await D.eval(`navigator.serviceWorker.ready.then(r => !!r.active)`);
   check('pwa: service worker active', sw === true);
   await sleep(500);
-  const cached = await D.eval(`caches.open('root-access-v3').then(c => c.keys()).then(k => k.length)`);
+  const cached = await D.eval(`caches.open('root-access-v4').then(c => c.keys()).then(k => k.length)`);
   check('pwa: all files cached', cached >= 26, `(${cached})`);
   const inst = await D.send('Page.getInstallabilityErrors');
   const errs = inst.result?.installabilityErrors ?? [];
@@ -624,19 +624,19 @@ await step('quick hacks', async () => {
   };
   const KEYS = { ArrowUp: ['ArrowUp', 38], ArrowDown: ['ArrowDown', 40], ArrowLeft: ['ArrowLeft', 37], ArrowRight: ['ArrowRight', 39], ' ': ['Space', 32], Enter: ['Enter', 13], e: ['KeyE', 69], q: ['KeyQ', 81] };
   const key = (k) => D.press(k, KEYS[k][0], KEYS[k][1]);
-  const ids = ['letterlock', 'printmatch', 'signaltune', 'circuit', 'memory'];
+  const ids = ['letterlock', 'printmatch', 'signaltune', 'circuit', 'memory', 'wirecut', 'portsweep', 'bitflip', 'gauntlet'];
   await backToMenu();
   await D.click('#practiceBtn');
   await D.waitFor(`document.body.dataset.screen === 'lobby'`);
-  check('quick hacks: lobby shows a QUICK HACKS group with 5 modes',
-    (await D.eval(`document.querySelector('.mode-group')?.innerText || ''`)).includes('QUICK HACKS') && (await D.eval(`document.querySelectorAll('.mode-card').length`)) === 9);
+  check('quick hacks: lobby shows a QUICK HACKS group with 9 modes',
+    (await D.eval(`document.querySelector('.mode-group')?.innerText || ''`)).includes('QUICK HACKS') && (await D.eval(`document.querySelectorAll('.mode-card').length`)) === 13);
   await D.shot('30-quick-lobby.png');
   for (const [i, id] of ids.entries()) {
     if (i) {
       await D.click('#resultsActions button:first-child'); // back to the lobby
       await D.waitFor(`document.body.dataset.screen === 'lobby'`, 5000, 'lobby again');
     }
-    await D.click(`.mode-card:nth-child(${6 + i})`);
+    await D.click(`.mode-card[data-mode=${id}]`);
     await D.waitFor(`window.__ra.state.room.mode === '${id}'`);
     await D.click('#startBtn');
     await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden && !!window.__ra.quick?.data()`, 8000, `${id} starts`);
@@ -667,6 +667,25 @@ await step('quick hacks', async () => {
         cur = c;
       }
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'sequence repeated').catch(() => false);
+    } else if (id === 'wirecut') {
+      for (const w of data.order) await D.press(String(w + 1), `Digit${w + 1}`, 49 + w);
+      played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'wires cut').catch(() => false);
+    } else if (id === 'portsweep') {
+      const end = Date.now() + 25000;
+      while ((await D.eval('window.__ra.quick.stage()')) === 0 && Date.now() < end) {
+        const open = await D.eval(`[...document.querySelectorAll('.ps-port')].findIndex((c) => c.classList.contains('open'))`);
+        if (open >= 0) { await D.press(String(open + 1), `Digit${open + 1}`, 49 + open); await sleep(60); } else await sleep(40);
+      }
+      played = (await D.eval('window.__ra.quick.stage()')) === 1;
+    } else if (id === 'bitflip') {
+      for (const [b, v] of data.values.entries()) if (data.target & v) await D.press(String(b + 1), `Digit${b + 1}`, 49 + b);
+      await key('Enter');
+      played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'bits flipped').catch(() => false);
+    } else if (id === 'gauntlet') {
+      const seen = new Set();
+      for (let st = 0; st < 5; st++) { seen.add(await D.eval('window.__ra.quick.puzzle()')); if (st < 4) { await D.eval('window.__ra.quick.solve()'); await sleep(150); } }
+      check('quick hacks: gauntlet runs 5 different mini-games', seen.size === 5, [...seen].join(','));
+      played = true;
     } else if (id === 'printmatch') {
       for (const [j, o] of data.options.entries()) if (o.real) await D.click(`.pm-option:nth-child(${j + 1})`);
       await key('Enter');

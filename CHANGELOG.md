@@ -19,6 +19,12 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### More Quick Hacks and the Hack Gauntlet
+- 3 new mini-game modes: **Wire Cut** (rule card, cut wires in order), **Port Sweep** (close ports while they're lit), and **Bit Flip** (switches that add up to a target, shown in hex in later stages).
+- **Hack Gauntlet:** a different mini-game every stage, chosen from the room seed so everyone gets the same order. It has a 4-minute round.
+- **Verified:** unit tests re-solve Wire Cut from the card text for 200 seeds, check that every Bit Flip target is reachable, that Port Sweep gets harder by stage, and that the Gauntlet never repeats a game and uses all of them. The e2e test plays each new game with real key presses.
+
+
 ### Quick Hacks: 5 easy mini-game modes
 - New lobby group **QUICK HACKS · easy · no typing** with 5 separate modes: Letter Lock, Print Match, Signal Tune, Circuit Path, and Code Memory. You play with the arrow keys, Space/Enter, or the mouse.
 - Shared rules (`src/modes/quickhack.js`): 1–8 players with bots, a 3-minute round, and 5 stages that get harder. Everyone gets the same puzzle per stage from the room seed. A mistake means a 3 s lockout, never a knock-out. The first to clear 5 stages wins. Results show stages, mistakes, and fastest stage.

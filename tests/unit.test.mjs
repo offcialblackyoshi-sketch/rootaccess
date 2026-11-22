@@ -593,3 +593,41 @@ test('hack gauntlet: a different real mini-game every stage, the same for everyo
   }
   assert.equal(kinds.size, Object.keys(PUZZLES).length, 'every mini-game shows up');
 });
+
+test('teams: balancing, start checks, and who wins', async () => {
+  const { balanceTeams, teamProblem, teamWinner, teamLeader } = await import('../src/teams.js');
+  const ppl = (h, b) => [...Array.from({ length: h }, (_, i) => ({ id: 'h' + i })), ...Array.from({ length: b }, (_, i) => ({ id: 'b' + i, bot: true }))];
+  for (let size = 1; size <= 4; size++) {
+    for (let humans = 1; humans <= size * 2; humans++) {
+      const list = ppl(humans, size * 2 - humans);
+      const t = balanceTeams(list, size);
+      const withTeams = list.map((p) => ({ ...p, team: t[p.id] }));
+      assert.equal(teamProblem(withTeams, size), '', `${size}v${size} with ${humans} humans is ready`);
+      const hA = withTeams.filter((p) => !p.bot && p.team === 'A').length;
+      assert.ok(Math.abs(hA - (humans - hA)) <= 1, 'humans are spread across teams');
+    }
+  }
+  // Too many players: the extras get no team, so the round can't start.
+  const extra = ppl(3, 0);
+  const t = balanceTeams(extra, 1);
+  assert.equal(Object.values(t).filter((x) => x === null).length, 1);
+  assert.match(teamProblem(extra.map((p) => ({ ...p, team: t[p.id] })), 1), /picked a team/);
+  assert.match(teamProblem([{ team: 'A' }, { team: 'A' }], 1), /1v1 needs 1 on each team \(now 2 vs 0\)/);
+  assert.equal(teamProblem([{ team: 'A' }], 0), '', 'free-for-all never blocks');
+  // A team only loses once everyone on it is down.
+  const state = [{ team: 'A', out: true, hp: 0 }, { team: 'A', out: false, hp: 10 }, { team: 'B', out: false, hp: 90 }];
+  assert.equal(teamWinner(state), null);
+  state[1].out = true;
+  assert.equal(teamWinner(state), 'B');
+  assert.equal(teamLeader([{ team: 'A', hp: 60 }, { team: 'B', hp: 40 }, { team: 'B', hp: 30 }]), 'B');
+  assert.equal(teamLeader([{ team: 'A', hp: 50 }, { team: 'B', hp: 50 }]), null);
+});
+
+test('letter lock: a press just past the line still counts, a far one does not', () => {
+  const strip = { letters: [...'ABCDEFGHIJ'], speed: 1, dir: 1, offset: 0 };
+  assert.equal(letterlock.lockable(strip, 0, 'A'), 0, 'dead center');
+  assert.equal(letterlock.lockable(strip, 600, 'A'), 0, 'B is nearer, but A is still within reach');
+  assert.equal(letterlock.lockable(strip, 600, 'B'), 1);
+  assert.equal(letterlock.lockable(strip, 900, 'A'), -1, 'too late');
+  assert.equal(letterlock.lockable(strip, 0, 'E'), -1, 'far away');
+});

@@ -835,3 +835,10 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .bf-foot { display: flex; gap: 12px; align-items: center; font-size: clamp(14px, 3cqh, 22px); }
 .bf-total { font-weight: bold; color: var(--amber); min-width: 3ch; }
 .bf-total.match { color: var(--accent); text-shadow: 0 0 8px var(--glow); }
+
+/* Team duels */
+.team-head { list-style: none; display: flex; justify-content: space-between; align-items: center; margin: 8px 0 2px; padding: 2px 8px; border-left: 3px solid var(--tc); color: var(--tc); font: bold 12px var(--font-head); letter-spacing: 0.1em; background: rgba(255, 255, 255, 0.03); }
+#lobbyPlayers li[data-team] { border-left: 2px solid transparent; }
+#lobbyPlayers li[data-team="A"] { border-left-color: #4dd9ff; }
+#lobbyPlayers li[data-team="B"] { border-left-color: #ff6b4d; }
+.team-btn { padding: 0 8px; font-size: 11px; border-color: var(--tc); color: var(--tc); }

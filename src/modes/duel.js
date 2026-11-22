@@ -4,6 +4,7 @@
 import { makeRng } from '../rng.js';
 import { el, fmtTime } from '../util.js';
 import { botParams, between } from '../bots.js';
+import { TEAMS, TEAM_COLORS, teamWinner, teamLeader } from '../teams.js';
 
 const MAX_HP = 100;
 const TIME_LIMIT = 4 * 60 * 1000;
@@ -60,9 +61,10 @@ export default {
   timeLimit: TIME_LIMIT,
   blurb: 'Type hacker commands fast and exactly to blast other players\' firewalls. Last one standing wins.',
 
-  setup({ players }) {
+  setup({ players, room }) {
     const out = {};
-    for (const p of players) out[p.id] = { hp: MAX_HP, out: false };
+    const teams = !!room?.teamSize;
+    for (const p of players) out[p.id] = { hp: MAX_HP, out: false, team: teams ? p.team || null : null };
     return { players: out };
   },
 
@@ -96,6 +98,10 @@ export default {
 
     const alive = () => ctx.players().filter((p) => !p.s?.out);
     const isOut = (id) => !!ctx.player(id)?.s?.out;
+    // Team duels: only the other team can be hit (no friendly fire).
+    const teamOf = (id) => ctx.player(id)?.s?.team || null;
+    const teamsOn = () => ctx.players().some((p) => p.s?.team);
+    const enemiesOf = (id) => alive().filter((p) => p.id !== id && (!teamOf(id) || p.s?.team !== teamOf(id)));
 
     function nextSnippet(force = null) {
       bonus = force || pickPowerup(rng, sinceBonus);
@@ -138,7 +144,7 @@ export default {
     }
 
     function pickTarget(step = 0) {
-      const opponents = alive().filter((p) => p.id !== me);
+      const opponents = enemiesOf(me);
       if (!opponents.length) { target = null; return; }
       let i = opponents.findIndex((p) => p.id === target);
       if (i < 0) i = 0;
@@ -243,15 +249,24 @@ export default {
       ctx.side.innerHTML = '';
       ctx.side.append(el('h2', {}, '// FIREWALLS'));
       const rows = ctx.players().sort((a, b) => (b.s?.hp ?? 0) - (a.s?.hp ?? 0));
-      for (const p of rows) {
-        const hp = Math.max(0, p.s?.hp ?? MAX_HP);
-        const canTarget = p.id !== me && !p.s?.out && !isOut(me);
-        ctx.side.append(el('div', { class: 'side-row' + (p.s?.out ? ' out' : '') + (p.id === target ? ' target' : '') },
-          el('span', { class: 'dot', style: { background: p.color } }),
-          el('span', { class: 'pname', style: { color: p.color } }, p.name + (p.id === me ? ' (you)' : '')),
-          el('span', { class: 'progress-text' }, p.s?.out ? 'DOWN' : `${(p.s?.shieldUntil || 0) > ctx.now() ? '🛡 ' : ''}${hp} HP`),
-          canTarget ? el('button', { onclick: () => { target = p.id; renderMeta(); renderSide(); term.focus(); } }, 'aim') : null));
+      const groups = teamsOn() ? TEAMS.map((t) => [t, rows.filter((p) => p.s?.team === t)]) : [[null, rows]];
+      for (const [team, list] of groups) {
+        if (team) {
+          const total = list.reduce((n, p) => n + (p.s?.out ? 0 : Math.max(0, p.s?.hp ?? MAX_HP)), 0);
+          ctx.side.append(el('div', { class: 'team-head', style: { '--tc': TEAM_COLORS[team] } },
+            `TEAM ${team}${team === teamOf(me) ? ' (yours)' : ''}`, el('span', { class: 'progress-text' }, `${total} HP`)));
+        }
+        for (const p of list) renderRow(p);
       }
+    }
+    function renderRow(p) {
+      const hp = Math.max(0, p.s?.hp ?? MAX_HP);
+      const canTarget = p.id !== me && !p.s?.out && !isOut(me) && (!teamOf(me) || p.s?.team !== teamOf(me));
+      ctx.side.append(el('div', { class: 'side-row' + (p.s?.out ? ' out' : '') + (p.id === target ? ' target' : '') },
+        el('span', { class: 'dot', style: { background: p.color } }),
+        el('span', { class: 'pname', style: { color: p.color } }, p.name + (p.id === me ? ' (you)' : '')),
+        el('span', { class: 'progress-text' }, p.s?.out ? 'DOWN' : `${(p.s?.shieldUntil || 0) > ctx.now() ? '🛡 ' : ''}${hp} HP`),
+        canTarget ? el('button', { onclick: () => { target = p.id; renderMeta(); renderSide(); term.focus(); } }, 'aim') : null));
     }
 
     // ---- Host: bots, timer, finish ----
@@ -282,7 +297,7 @@ export default {
           saveStats(p.id, b.stats);
           continue;
         }
-        const opponents = alive().filter((o) => o.id !== p.id);
+        const opponents = enemiesOf(p.id);
         if (!opponents.length) continue;
         const t = opponents[Math.floor(Math.random() * opponents.length)];
         ctx.push('actions', { type: 'hit', from: p.id, to: t.id, dmg: 6 + Math.min(b.streak, 6), at: now });
@@ -292,10 +307,14 @@ export default {
         saveStats(p.id, b.stats);
       }
       const stillIn = alive();
-      if (stillIn.length <= 1 || left <= 0) finish();
+      if (teamsOn() ? !!teamWinner(teamState()) : stillIn.length <= 1) finish();
+      else if (left <= 0) finish();
     });
 
+    const teamState = () => ctx.players().map((p) => ({ team: p.s?.team, out: !!p.s?.out, hp: p.s?.hp ?? MAX_HP }));
+
     function finish() {
+      if (teamsOn()) return finishTeams();
       const rows = ctx.players().sort((a, b) =>
         (a.s?.out ? 1 : 0) - (b.s?.out ? 1 : 0) || (b.s?.hp ?? 0) - (a.s?.hp ?? 0) || (b.s?.outAt || 0) - (a.s?.outAt || 0));
       const now = ctx.now();
@@ -305,6 +324,22 @@ export default {
         detail: p.s?.out ? `firewall down at ${fmtTime((p.s.outAt || ctx.now()) - ctx.startedAt)}` : `${p.s?.hp ?? MAX_HP} HP left`,
       }));
       ctx.end(results, `${rows[0]?.name || 'Nobody'} wins the duel!`);
+    }
+
+    // Team duel: the team still standing (or with more HP at the buzzer) wins together.
+    function finishTeams() {
+      const win = teamWinner(teamState()) || teamLeader(teamState());
+      const now = ctx.now();
+      const rank = (p) => (p.s?.team === win ? 0 : 1);
+      const rows = ctx.players().sort((a, b) => rank(a) - rank(b) || (a.s?.out ? 1 : 0) - (b.s?.out ? 1 : 0) || (b.s?.hp ?? 0) - (a.s?.hp ?? 0));
+      const results = rows.map((p) => ({
+        id: p.id, name: `${p.name} [${p.s?.team || '-'}]`, color: p.color,
+        place: win ? rank(p) + 1 : 1,
+        won: !!win && p.s?.team === win,
+        stats: duelStatsText(p.s?.stats, (p.s?.out ? p.s.outAt : now) - ctx.startedAt),
+        detail: p.s?.out ? `firewall down at ${fmtTime((p.s.outAt || now) - ctx.startedAt)}` : `${p.s?.hp ?? MAX_HP} HP left`,
+      }));
+      ctx.end(results, win ? `Team ${win} wins the duel!` : "Time's up! The teams are tied.");
     }
 
     term.print('DUEL STARTED. Type the command shown above exactly, then press Enter.', 'dim');

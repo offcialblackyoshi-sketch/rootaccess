@@ -4,6 +4,7 @@ import { el, playerList, COLORS, BOT_NAMES, ROUND_LENGTHS, roundTime, fmtTime } 
 import { randomSeed } from './rng.js';
 import { BOT_LEVELS } from './bots.js';
 import { iconEl } from './icons.js';
+import { TEAMS, TEAM_SIZES, TEAM_COLORS, teamLabel, teamProblem, balanceTeams } from './teams.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -45,8 +46,28 @@ export function renderLobby({ room, net, code, onLeave }) {
   }
   const list = $('lobbyPlayers');
   list.innerHTML = '';
-  for (const p of players) {
+  // Team duels: list players grouped by team, each with a team switch.
+  const teamSize = room.mode === 'duel' ? room.teamSize || 0 : 0;
+  const ordered = teamSize ? [...TEAMS, null].flatMap((t) => players.filter((p) => (TEAMS.includes(p.team) ? p.team : null) === t)) : players;
+  let lastTeam;
+  for (const p of ordered) {
+    const team = TEAMS.includes(p.team) ? p.team : null;
+    if (teamSize && team !== lastTeam) {
+      lastTeam = team;
+      const n = players.filter((q) => (TEAMS.includes(q.team) ? q.team : null) === team).length;
+      list.append(el('li', { class: 'team-head', style: { '--tc': TEAM_COLORS[team] || 'var(--dim)' } }, team ? `TEAM ${team}  ${n}/${teamSize}` : 'NO TEAM'));
+    }
     const tags = [];
+    // You can switch your own team; the host can also move bots.
+    if (teamSize && (p.id === me || (isHost && p.bot))) {
+      for (const t of TEAMS) {
+        if (t === team) continue;
+        tags.push(el('button', {
+          class: 'mini-btn team-btn', 'data-team': t, style: { '--tc': TEAM_COLORS[t] },
+          onclick: () => net.update(code, { [`players/${p.id}/team`]: t }),
+        }, `→ ${t}`));
+      }
+    }
     if (p.id === room.hostId) tags.push(el('span', { class: 'tag host' }, 'HOST'));
     if (p.bot) tags.push(el('span', { class: 'tag' }, 'BOT'));
     else if (p.id !== room.hostId) tags.push(el('span', { class: 'tag ' + (p.ready ? 'ready' : 'wait') }, p.ready ? 'READY' : 'NOT READY'));
@@ -66,7 +87,7 @@ export function renderLobby({ room, net, code, onLeave }) {
     const cls = [!seenPlayers.has(p.id) ? 'enter' : '', p.ready && wasReady.get(p.id) === false ? 'just-ready' : ''].join(' ').trim();
     seenPlayers.add(p.id);
     wasReady.set(p.id, !!p.ready);
-    list.append(el('li', { class: cls || null, style: { '--pc': p.color } },
+    list.append(el('li', { class: cls || null, style: { '--pc': p.color }, 'data-team': team || null },
       el('span', { class: 'dot', style: { background: p.color, color: p.color } }), el('span', { class: 'pname' }, p.name), ...tags, remove));
   }
   $('lobbyCount').textContent = `${players.length}/8`;
@@ -109,12 +130,17 @@ export function renderLobby({ room, net, code, onLeave }) {
   let problem = '';
   if (players.length < mode.min) problem = `${mode.name} needs at least ${mode.min} players${mode.bots ? ' (add a bot or invite friends)' : ''}.`;
   else if (players.length > mode.max) problem = `${mode.name} allows at most ${mode.max} players.`;
+  else if (teamProblem(players, teamSize)) problem = teamProblem(players, teamSize);
   else if (humans.some((p) => p.id !== room.hostId && !p.ready)) problem = 'Waiting for everyone to be ready…';
 
   if (isHost) {
     actions.append(el('button', { class: 'primary', id: 'startBtn', disabled: !!problem, onclick: () => startGame(room, net, code) }, '▶ START'));
     if (mode.bots && players.length < Math.min(8, mode.max)) {
       actions.append(el('button', { id: 'addBotBtn', onclick: () => addBot(room, net, code) }, '+ Add bot'));
+    }
+    if (teamSize) {
+      actions.append(el('button', { id: 'shuffleBtn', onclick: () => setTeams(room, net, code, teamSize) }, '⇄ Shuffle teams'));
+      if (players.length < teamSize * 2) actions.append(el('button', { id: 'fillBtn', onclick: () => fillBots(room, net, code, teamSize) }, '+ Fill with bots'));
     }
   } else {
     actions.append(el('button', {
@@ -136,6 +162,19 @@ export function renderLobby({ room, net, code, onLeave }) {
         disabled: !isHost && l !== len,
         onclick: () => isHost && l !== len && net.update(code, { roundLength: l }),
       }, `${l} ${fmtTime(roundTime(mode, l))}`))));
+  }
+
+  // Teams (Typing Duel only).
+  if (room.mode === 'duel') {
+    actions.append(el('div', { class: 'option-row', role: 'group', 'aria-label': 'Teams' },
+      el('span', { class: 'dim' }, 'Teams:'),
+      ...TEAM_SIZES.map((n) => el('button', {
+        class: 'mini-btn' + (n === teamSize ? ' selected' : ''),
+        'data-teams': n,
+        'aria-pressed': n === teamSize ? 'true' : 'false',
+        disabled: !isHost && n !== teamSize,
+        onclick: () => isHost && n !== teamSize && setTeams(room, net, code, n),
+      }, n ? teamLabel(n) : 'FFA'))));
   }
 
   // Bot difficulty (only matters when there are bots).
@@ -161,7 +200,30 @@ function addBot(room, net, code) {
   const usedColors = new Set(players.map((p) => p.color));
   const color = COLORS.find((c) => !usedColors.has(c)) || COLORS[players.length % COLORS.length];
   const id = 'bot-' + Math.random().toString(36).slice(2, 8);
-  net.update(code, { [`players/${id}`]: { name, color, bot: true, ready: true, joinedAt: net.now() } });
+  const bot = { name, color, bot: true, ready: true, joinedAt: net.now() };
+  // In team duels a new bot joins the smaller team.
+  const size = room.mode === 'duel' ? room.teamSize || 0 : 0;
+  if (size) {
+    const [a, b] = TEAMS.map((t) => players.filter((p) => p.team === t).length);
+    bot.team = a <= b ? 'A' : 'B';
+  }
+  return net.update(code, { [`players/${id}`]: bot });
+}
+
+// Switch team size (0 = free-for-all) and deal everyone onto balanced teams.
+function setTeams(room, net, code, size) {
+  const changes = { teamSize: size };
+  if (size) for (const [id, t] of Object.entries(balanceTeams(playerList(room), size))) changes[`players/${id}/team`] = t;
+  return net.update(code, changes);
+}
+
+// Add bots until both teams are full.
+async function fillBots(room, net, code, size) {
+  let r = room;
+  while (playerList(r).length < size * 2) {
+    await addBot(r, net, code);
+    r = await net.getRoom(code);
+  }
 }
 
 export function startGame(room, net, code) {

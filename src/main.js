@@ -418,7 +418,9 @@ function renderResults(room) {
 
   if (state.shownResultsFor !== room.round) {
     state.shownResultsFor = room.round;
-    const won = room.summaryWin ?? results[0]?.id === me;
+    // Team games mark each player's result as won or not.
+    const mine = results.find((r) => r.id === me);
+    const won = mine && typeof mine.won === 'boolean' ? mine.won : room.summaryWin ?? results[0]?.id === me;
     if (won) {
       sfx.win();
       rain.burst({ color: '#ffd23d' });

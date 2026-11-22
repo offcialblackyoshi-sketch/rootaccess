@@ -9,7 +9,7 @@ A multiplayer hacking game that runs in the browser and installs as an app on Ch
 | Mode | Players | What you do |
 |---|---|---|
 | **Terminal Race** | 1–8 (bots OK) | Everyone breaks into the same server through 5 layers: find a password in the logs, decrypt a file, crack a PIN, find the backdoor, then `sudo` with the key. First to root wins. |
-| **Typing Duel** | 2–8 (bots OK) | Type the command shown exactly to hit your target's firewall. Streaks hit harder, and <kbd>Tab</kbd> switches target. Last firewall standing wins. |
+| **Typing Duel** | 2–8 (bots OK) | Type the command shown exactly to hit your target's firewall. Streaks hit harder, and <kbd>Tab</kbd> switches target. Last firewall standing wins. Play free-for-all or in **teams: 1v1, 2v2, 3v3 or 4v4**. |
 | **Hack & Defend** | 2–6 (bots OK) | You own 3 servers. Use `scan`, `breach`, `trace`, `kill`, and `patch`, all of which cost CPU. Most data when time runs out wins. |
 | **Co-op Heist** | 2–4 (humans) | Infiltrator, Analyst, and Lookout each see different clues and must talk in chat to get through the door, the login, and the vault before the alarm goes off. |
 

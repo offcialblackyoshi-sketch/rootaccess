@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Team duels (1v1, 2v2, 3v3, 4v4)
+- Typing Duel has a **Teams** option in the lobby: FFA, 1v1, 2v2, 3v3 or 4v4. The player list groups by team. You can switch your own team (the host can also move bots), and the host has **Shuffle teams** (humans spread out first) and **Fill with bots**. START waits until both teams are full.
+- In game there's no friendly fire: targets, aim buttons and bots only go after the other team. The side panel shows each team's total HP. The last team standing wins together, or the team with more HP when time runs out.
+- Letter Lock: a press just past the line still counts, since the columns now keep moving.
+- **Verified:** unit tests cover team balancing for every size and mix of humans and bots, start checks, and who wins. The e2e test plays a 2v2 practice duel: it can't start short-handed, Fill with bots works, you never target a teammate, and both winners share 1st place.
+
+
 ### More Quick Hacks and the Hack Gauntlet
 - 3 new mini-game modes: **Wire Cut** (rule card, cut wires in order), **Port Sweep** (close ports while they're lit), and **Bit Flip** (switches that add up to a target, shown in hex in later stages).
 - **Hack Gauntlet:** a different mini-game every stage, chosen from the room seed so everyone gets the same order. It has a 4-minute round.

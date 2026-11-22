@@ -28,6 +28,20 @@ export function stripPos(strip, ms, slow = 1) {
   return strip.offset + (ms / 1000) * strip.speed * slow * strip.dir;
 }
 
+// A press counts if the wanted letter is within this many letters of the line
+// (a little forgiving, since the column keeps moving while you press).
+export const LOCK_SLACK = 0.7;
+
+// The strip index of `letter` if it is close enough to the line, else -1.
+export function lockable(strip, ms, letter, slow = 1) {
+  const p = stripPos(strip, ms, slow);
+  const n = strip.letters.length;
+  for (const i of [Math.floor(p), Math.ceil(p)]) {
+    if (Math.abs(p - i) <= LOCK_SLACK && strip.letters[((i % n) + n) % n] === letter) return ((i % n) + n) % n;
+  }
+  return -1;
+}
+
 // Which letter of a strip is in the highlighted row: the one closest to its center.
 export function letterAt(strip, ms, slow = 1) {
   const n = strip.letters.length;
@@ -81,9 +95,11 @@ export default {
     function press() {
       if (!canAct() || cur >= data.password.length) return;
       const strip = data.strips[cur];
-      const idx = letterAt(strip, performance.now() - t0, slow);
-      if (strip.letters[idx] === data.password[cur]) {
-        lockedAt[cur] = idx;
+      const ms = performance.now() - t0;
+      const hit = lockable(strip, ms, data.password[cur], slow);
+      const idx = letterAt(strip, ms, slow);
+      if (hit >= 0) {
+        lockedAt[cur] = hit;
         cur++;
         if (cur >= data.password.length) onSolve();
         else onStep?.();

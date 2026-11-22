@@ -719,6 +719,49 @@ await step('quick hacks', async () => {
 });
 
 // ---------------------------------------------------------------------------
+await step('team duel', async () => {
+  await D.eval('window.confirm = () => true');
+  if ((await D.screen()) !== 'menu') {
+    if ((await D.screen()) === 'results') await D.click('#resultsActions button:last-child');
+    else await D.click((await D.screen()) === 'game' ? '#gameLeave' : '#leaveBtn');
+    await D.waitFor(`document.body.dataset.screen === 'menu'`, 5000);
+  }
+  await D.click('#practiceBtn');
+  await D.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await D.click('.mode-card[data-mode=duel]');
+  await D.waitFor(`window.__ra.state.room.mode === 'duel'`);
+  await D.click('[data-teams="2"]');
+  await D.waitFor(`window.__ra.state.room.teamSize === 2`);
+  check('team duel: 2v2 with 3 players cannot start', await D.eval(`document.getElementById('startBtn').disabled`));
+  await D.click('#fillBtn');
+  await D.waitFor(`Object.keys(window.__ra.state.room.players).length === 4 && !document.getElementById('startBtn').disabled`, 5000, 'teams filled');
+  await D.shot('40-team-lobby.png');
+  await D.click('#startBtn');
+  await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden`, 8000);
+  const me = await D.eval('window.__ra.state.net.uid');
+  let friendly = 0;
+  for (let i = 0; i < 80 && (await D.screen()) === 'game'; i++) {
+    const r = await D.room();
+    const tgt = await D.eval(`document.querySelector('.duel-meta strong')?.innerText || ''`);
+    const t = Object.values(r.players).find((x) => x.name === tgt);
+    if (t && t.s.team === r.players[me].s.team) friendly++;
+    if (r.players[me].s.out) break;
+    await D.cmd(await D.eval(`document.querySelector('.snippet').innerText`));
+    await sleep(120);
+  }
+  check('team duel: you never target a teammate', friendly === 0, `${friendly}`);
+  await D.shot('41-team-duel.png');
+  await D.waitFor(`document.body.dataset.screen === 'results'`, 120000, 'team duel ends');
+  const res = (await D.room()).results;
+  const winners = res.filter((r) => r.won);
+  check('team duel: a whole team wins together', winners.length === 2 && winners.every((r) => r.place === 1) && /Team [AB] wins/.test(await D.eval(`document.getElementById('resultsSummary').innerText`)), JSON.stringify(res.map((r) => [r.name, r.place, r.won])));
+  await D.click('#resultsActions button:first-child');
+  await D.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await D.click('[data-teams="0"]');
+  await D.waitFor(`window.__ra.state.room.teamSize === 0`);
+});
+
+// ---------------------------------------------------------------------------
 await step('styles', async () => {
   const toMenu = async () => {
     const screen = await D.screen();

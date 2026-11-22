@@ -3,6 +3,7 @@
 
 import { getOnlineNet, onlineConfigured } from './net/index.js';
 import { getProgress, saveProgress } from './progress.js';
+import { getTrophyState, saveTrophyState, mergeTrophies } from './trophies.js';
 
 export const HANDLE_RE = /^[A-Za-z0-9_.-]{2,14}$/;
 export const MIN_PASSWORD = 6;
@@ -74,6 +75,10 @@ export async function initAccount(onChange) {
       const remote = await net.account.loadProfile();
       const { progress, upload } = mergeProgress(getProgress(), remote);
       saveProgress(progress);
+      // Trophies: keep everything earned here or on any other device.
+      const trophies = mergeTrophies(getTrophyState(), remote?.trophies);
+      saveTrophyState(trophies);
+      net.account.saveProfile({ trophies }).catch(() => {});
       if (upload) await net.account.saveProfile({ xp: progress.xp, rounds: progress.rounds, wins: Math.min(progress.wins, progress.rounds), title: progress.title || '' });
       current = { configured: true, available: true, user, handle: remote?.handle || null, provider: net.account.provider(), noEmail: String(user.email || '').endsWith('@' + LOGIN_DOMAIN) };
     } catch (e) {
@@ -161,7 +166,7 @@ export async function syncProgress(extra = {}) {
   if (!net || !current.user || !current.handle) return;
   const p = getProgress();
   try {
-    await net.account.saveProfile({ xp: p.xp, rounds: p.rounds, wins: Math.min(p.wins, p.rounds), title: p.title || '', ...extra });
+    await net.account.saveProfile({ xp: p.xp, rounds: p.rounds, wins: Math.min(p.wins, p.rounds), title: p.title || '', trophies: getTrophyState(), ...extra });
   } catch (e) {
     console.warn('account: could not save progress:', e.message);
   }

@@ -11,9 +11,10 @@ import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
 import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle, createAccount, logIn, resetPassword } from './account.js';
-import { globalBoard, pushMyStats, winRate } from './stats.js';
+import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { specialTitle } from './progress.js';
+import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag } from './trophies.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
@@ -198,6 +199,8 @@ function renderAccount(a) {
         a.noEmail ? null : el('button', { class: 'mini-btn', type: 'button', onclick: () => openHandleDialog() }, 'Change name'),
         el('button', { class: 'mini-btn', type: 'button', id: 'signOutBtn', onclick: () => { signOut(); acctMsg(''); } }, 'Sign out')));
     if (!a.error) acctMsg('Your progress saves to your account.', 'ok');
+    const got = markFlag('account', levelFor(getProgress().xp).level);
+    if (got.length) acctMsg(`🏆 Trophy unlocked: ${got.map((tr) => tr.name).join(', ')}`, 'ok');
   } else if (a.user) {
     box.append(el('div', { class: 'acct-who' }, el('strong', {}, 'Almost done: pick your name')),
       el('div', { class: 'acct-actions' },
@@ -486,14 +489,14 @@ async function renderStatsBoard() {
   list.append(el('li', { class: 'dim' }, 'Loading…'));
   const { rows, where, me } = await globalBoard({ name: myName(), color: myColor });
   list.innerHTML = '';
-  list.append(el('li', { class: 'board-head dim' }, el('span', {}, '#'), el('span', {}, 'player'), el('span', {}, 'level'), el('span', {}, 'XP'), el('span', {}, 'wins'), el('span', {}, 'win %')));
+  list.append(el('li', { class: 'board-head dim' }, el('span', {}, '#'), el('span', {}, 'player'), el('span', {}, 'level'), el('span', {}, 'XP'), el('span', {}, 'wins'), el('span', {}, '🏆')));
   rows.forEach((r, i) => list.append(el('li', { class: r.id === me ? 'me' : '' },
     el('span', { class: 'place' }, `#${i + 1}`),
     el('span', { class: 'pname' }, el('span', { class: 'dot', style: { background: r.color } }), ` ${r.name}`, specialTitle(r.name) ? el('span', { class: 'small special-title' }, ` · ${specialTitle(r.name)}`) : r.title ? el('span', { class: 'dim small' }, ` · ${r.title}`) : null),
     el('span', {}, `LV${r.level}`),
     el('strong', {}, String(r.xp)),
     el('span', {}, `${r.wins}/${r.rounds}`),
-    el('span', {}, `${winRate(r)}%`))));
+    el('span', {}, String(r.trophies ?? '–')))));
   $('statsNote').textContent = where !== 'online' ? 'This device only (online play is not set up or not reachable).'
     : accountState().handle ? 'Everyone online · top 50' : 'Everyone online · top 50 · sign in with Google to get on the board';
 }
@@ -705,10 +708,17 @@ function finishResults(room, results, me) {
     state.shownResultsFor = room.round;
     // XP for this round (once per round, spectators and quitters get none).
     const mineR = results.find((r) => r.id === me);
+    // Team games mark each player's result as won or not; co-op uses summaryWin.
+    const won = mineR && typeof mineR.won === 'boolean' ? mineR.won : room.summaryWin ?? results[0]?.id === me;
     $('xpGain').hidden = !mineR;
+    $('trophyGain').hidden = true;
     if (mineR) {
       const humansAndBots = results.length;
       const award = awardRound({ place: mineR.place, players: humansAndBots, won: mineR.won ?? mineR.place === 1, modeId: room.mode });
+      // Trophies earned this round.
+      const tr = applyRound(getTrophyState(), roundEvent({ room, mine: mineR, won }), award.after.level);
+      saveTrophyState(tr.state);
+      showNewTrophies(tr.unlocked);
       $('xpGain').innerHTML = '';
       $('xpGain').append(...[
         el('span', { class: 'xp-plus' }, `+${award.gained} XP`),
@@ -721,15 +731,69 @@ function finishResults(room, results, me) {
       pushMyStats({ name: myName(), color: myColor }); // update the global leaderboard
       syncProgress({ color: myColor }); // and your Google account, if signed in
     }
-    // Team games mark each player's result as won or not.
-    const mine = results.find((r) => r.id === me);
-    const won = mine && typeof mine.won === 'boolean' ? mine.won : room.summaryWin ?? results[0]?.id === me;
     if (won) {
       sfx.win();
       rain.burst({ color: '#ffd23d' });
     } else sfx.lose();
   }
 }
+
+// "🏆 Trophy unlocked" cards on the results screen.
+function showNewTrophies(list) {
+  const box = $('trophyGain');
+  box.innerHTML = '';
+  box.hidden = !list.length;
+  for (const [i, tr] of list.entries()) {
+    box.append(el('div', { class: 'trophy-pop' + (tr.week ? ' weekly' : ''), style: { '--i': i } },
+      el('span', { class: 'trophy-icon' }, tr.icon),
+      el('div', {}, el('div', { class: 'small dim' }, tr.week ? 'WEEKLY TROPHY UNLOCKED' : 'TROPHY UNLOCKED'), el('strong', {}, tr.name))));
+  }
+  if (list.length) setTimeout(() => { sfx.ok(); rain.burst({ color: '#ffd23d' }); }, 900);
+}
+
+// ---------------------------------------------------------------------------
+// Trophy case (menu)
+// ---------------------------------------------------------------------------
+function fmtLeft(ms) {
+  const h = Math.max(0, Math.floor(ms / 3600000));
+  return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${Math.max(0, Math.floor((ms % 3600000) / 60000))}m`;
+}
+function trophyCard(tr, got, extra = null) {
+  return el('div', { class: 'trophy' + (got ? ' got' : ''), title: tr.desc },
+    el('span', { class: 'trophy-icon' }, got ? tr.icon : '🔒'),
+    el('div', {}, el('strong', {}, tr.name), el('div', { class: 'small dim' }, tr.desc), extra));
+}
+function renderTrophies() {
+  const s = getTrophyState();
+  const box = $('trophyList');
+  box.innerHTML = '';
+  const total = TROPHIES.length;
+  const have = TROPHIES.filter((tr) => s.unlocked[tr.id]).length;
+  const weeklies = Object.keys(s.unlocked).filter((id) => id.startsWith('weekly-')).sort().reverse();
+  $('trophyCount').textContent = `${have}/${total} trophies · ${weeklies.length} weekly`;
+  // This week's trophy first.
+  const wk = weeklyFor();
+  const got = !!s.unlocked[wk.id];
+  const n = s.w?.week === wk.week ? s.w.n : 0;
+  box.append(el('h3', {}, `// THIS WEEK · new one in ${fmtLeft(weekEndsAt() - Date.now())}`),
+    el('div', { class: 'trophy-grid' }, trophyCard(wk, got, el('div', { class: 'small trophy-progress' }, got ? 'Earned!' : `${Math.min(n, wk.target)}/${wk.target}`))));
+  if (weeklies.length) {
+    box.append(el('h3', {}, '// PAST WEEKLY TROPHIES'),
+      el('div', { class: 'trophy-grid' }, weeklies.filter((id) => id !== wk.id).map((id) => trophyCard(trophyInfo(id), true, el('div', { class: 'small dim' }, id.slice(7))))));
+  }
+  const cats = [...new Set(TROPHIES.map((tr) => tr.cat))];
+  for (const cat of cats) {
+    const list = TROPHIES.filter((tr) => tr.cat === cat);
+    box.append(el('h3', {}, `// ${cat.toUpperCase()} · ${list.filter((tr) => s.unlocked[tr.id]).length}/${list.length}`),
+      el('div', { class: 'trophy-grid' }, list.map((tr) => trophyCard(tr, !!s.unlocked[tr.id]))));
+  }
+}
+$('trophyBtn').addEventListener('click', () => {
+  renderTrophies();
+  $('trophyDialog').showModal();
+});
+$('trophyClose').addEventListener('click', () => $('trophyDialog').close());
+$('trophyDialog').addEventListener('click', (e) => { if (e.target === $('trophyDialog')) $('trophyDialog').close(); });
 
 // Top-3 podium on the results screen (only when there are places).
 function renderPodium(results) {

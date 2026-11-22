@@ -4,6 +4,7 @@
 import { getOnlineNet, onlineConfigured } from './net/index.js';
 import { getProgress, levelFor, currentTitle, specialTitle } from './progress.js';
 import { load } from './util.js';
+import { trophyCount } from './trophies.js';
 
 export const BOARD_SIZE = 50;
 
@@ -18,6 +19,7 @@ export function myStats(progress = getProgress(), profile = {}) {
     xp: progress.xp,
     rounds: progress.rounds,
     wins: Math.min(progress.wins, progress.rounds),
+    trophies: trophyCount(),
   };
 }
 

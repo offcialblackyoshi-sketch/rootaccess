@@ -75,7 +75,10 @@
           <button id="dailyBtn" data-icon="calendar" class="daily-btn">Daily challenge</button>
           <button id="boardBtn" data-icon="trophy">Leaderboards</button>
         </div>
-        <button id="howBtn" data-icon="help">How to play</button>
+        <div class="join-row">
+          <button id="trophyBtn" data-icon="trophy" class="trophy-btn">Trophies</button>
+          <button id="howBtn" data-icon="help">How to play</button>
+        </div>
       </div>
 
       <p id="netStatus" class="net-status"></p>
@@ -137,6 +140,7 @@
       <h2>// MISSION REPORT</h2>
       <p id="resultsSummary" class="summary"></p>
       <p id="xpGain" class="xp-gain" hidden></p>
+      <div id="trophyGain" class="trophy-gain" hidden></div>
       <div id="dailyResults" class="daily-results" hidden>
         <p id="dailyScore" class="daily-score"></p>
         <h3>// TODAY'S BOARD</h3>
@@ -220,6 +224,13 @@
         <button id="handleCancel" type="button">Later</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- TROPHIES -->
+  <dialog id="trophyDialog" class="trophy-dialog" aria-labelledby="trophyTitle">
+    <div class="acct-head"><h2 id="trophyTitle">// TROPHIES</h2><button type="button" id="trophyClose" class="icon-x" aria-label="Close">✕</button></div>
+    <p id="trophyCount" class="dim small"></p>
+    <div id="trophyList"></div>
   </dialog>
 
   <!-- LEADERBOARDS -->

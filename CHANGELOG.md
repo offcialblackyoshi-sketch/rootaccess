@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Trophies
+- 55 permanent trophies in 9 groups: getting started, winning, levels, a champion trophy for every mode, quick hacks, the Daily Challenge, teams, social and habits.
+- **A new weekly trophy every Monday (UTC):** a challenge picked from the week number, such as "Win 3 rounds", "Clear 5 quick hacks" or "Win a round of Wire Cut". It's the same for everyone that week. Earn it before Sunday ends to keep it, and past weekly trophies stay in your collection.
+- Unlocked trophies pop up on the results screen. The **Trophies** button on the menu shows the collection, this week's progress and a countdown to the next weekly trophy.
+- Trophies save to your account when you're signed in (merged across devices), and the All-time leaderboard shows each player's trophy count.
+
+
 ### Username and password accounts
 - The menu now offers **Continue with Google**, **Log in** and **Create account**. All of them are optional, and guests still play everything.
 - **Create account** asks for a username and password, with email optional. With an email, a verification email is sent and **Forgot password?** works. Without one, the username is the login. (It uses a made-up `@players.rootaccess.invalid` address behind the scenes, and nothing is ever sent to it.)

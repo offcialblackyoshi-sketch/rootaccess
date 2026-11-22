@@ -740,3 +740,35 @@ test('special titles: only the named account gets one', async () => {
   assert.equal(myStats({ xp: 0, rounds: 0, wins: 0, title: '' }, { name: 'brisky2swifty' }).title, '👑 owner');
   assert.equal(myStats({ xp: 0, rounds: 0, wins: 0, title: '' }, { name: 'n3m0' }).title, 'script kiddie');
 });
+
+test('trophies: 50+ unique trophies, a new weekly one each week, and unlocking works', async () => {
+  const T = await import('../src/trophies.js');
+  assert.ok(T.TROPHIES.length >= 50, `${T.TROPHIES.length} trophies`);
+  assert.equal(new Set(T.TROPHIES.map((t) => t.id)).size, T.TROPHIES.length, 'ids are unique');
+  for (const t of T.TROPHIES) assert.ok(t.name && t.desc && t.icon && /^[a-z0-9-]+$/.test(t.id), t.id);
+  // Weeks: Monday to Sunday share a key, the next Monday is a new week.
+  assert.equal(T.weekKey(new Date('2026-11-23T00:00:00Z')), T.weekKey(new Date('2026-11-29T23:59:00Z')));
+  assert.notEqual(T.weekKey(new Date('2026-11-29T23:59:00Z')), T.weekKey(new Date('2026-11-30T00:00:00Z')));
+  assert.equal(T.weekEndsAt(new Date('2026-11-25T12:00:00Z')), Date.UTC(2026, 10, 30));
+  // The weekly trophy is the same for everyone that week, and changes over the weeks.
+  const weeks = Array.from({ length: 20 }, (_, i) => T.weekKey(new Date(Date.UTC(2026, 0, 5 + 7 * i))));
+  assert.equal(new Set(weeks).size, 20);
+  const kinds = new Set(weeks.map((w) => T.weeklyFor(w).name));
+  assert.ok(kinds.size >= 6, 'weekly challenges vary');
+  assert.deepEqual(T.weeklyFor(weeks[0]).name, T.weeklyFor(weeks[0]).name);
+  for (const w of weeks) { const wk = T.weeklyFor(w); assert.ok(wk.id === `weekly-${w}` && wk.target >= 1 && typeof wk.match === 'function'); }
+  // Playing rounds unlocks trophies.
+  const ev = { mode: 'gauntlet', won: true, players: 3, humans: 1, host: true, online: false, daily: false, botLevel: 'hard', teamSize: 0, clear: true, mistakes: 0, ms: 45000, hour: 23, day: 6, date: '2026-11-28', week: '2026-W48' };
+  let { state, unlocked } = T.applyRound(T.emptyState(), ev, 1);
+  const ids = unlocked.map((t) => t.id);
+  for (const id of ['rounds-1', 'wins-1', 'beat-hard', 'win-gauntlet', 'quickclears-1', 'flawless-1', 'speedrun', 'night-owl', 'weekend']) assert.ok(ids.includes(id), id);
+  // Nothing unlocks twice.
+  ({ unlocked } = T.applyRound(state, ev, 1));
+  assert.ok(!unlocked.some((t) => ids.includes(t.id)));
+  // Merging two devices keeps everything.
+  const merged = T.mergeTrophies(state, { unlocked: { 'level-3': 1 }, c: { rounds: 7, modeWins: { race: 2 } } });
+  assert.ok(merged.unlocked['level-3'] && merged.unlocked['wins-1']);
+  assert.equal(merged.c.rounds, 7);
+  assert.equal(merged.c.modeWins.race, 2);
+  assert.equal(merged.c.modeWins.gauntlet, 1);
+});

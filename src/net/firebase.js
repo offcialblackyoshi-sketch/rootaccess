@@ -114,6 +114,20 @@ export async function createFirebaseNet(config) {
       // onDisconnect removes us when the tab closes; nothing to do here.
       void code;
     },
+
+    // Daily Challenge board: daily/<YYYY-MM-DD>/<uid>. Only a better score replaces yours.
+    async submitDaily(date, entry) {
+      const ref = D.ref(db, `daily/${date}/${user.uid}`);
+      const old = (await D.get(ref)).val();
+      if (old && old.score <= entry.score) return;
+      await D.set(ref, { ...entry, at: D.serverTimestamp() });
+    },
+    async dailyBoard(date, limit = 20) {
+      const snap = await D.get(D.query(D.ref(db, `daily/${date}`), D.orderByChild('score'), D.limitToFirst(limit)));
+      const rows = [];
+      snap.forEach((c) => { rows.push({ id: c.key, ...c.val() }); });
+      return rows;
+    },
   };
   return net;
 }

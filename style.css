@@ -858,3 +858,16 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .xp-bar span { display: block; height: 100%; background: var(--amber); }
 .xp-up { color: var(--amber); animation: pop-in 0.6s ease-out; text-shadow: 0 0 12px rgba(255, 176, 0, 0.7); }
 @keyframes pop-in { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.2); } 100% { transform: scale(1); opacity: 1; } }
+
+/* Daily Challenge */
+.daily-btn { flex: 1; border-color: var(--amber); color: var(--amber); }
+#boardBtn { flex: 1; }
+.daily-results { margin: 6px 0 12px; }
+.daily-results h3 { margin: 10px 0 6px; font-size: 13px; color: var(--accent); letter-spacing: 0.1em; }
+.daily-score { text-align: center; font-weight: bold; color: var(--amber); margin: 0; }
+.board { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; max-height: 240px; overflow-y: auto; }
+.board li { display: grid; grid-template-columns: 3em 1fr auto 5em; gap: 10px; align-items: center; padding: 4px 8px; border-radius: 6px; font-size: 13px; }
+.board li.me { background: var(--accent-soft); outline: 1px solid var(--accent); }
+.board li strong { text-align: right; color: var(--accent); }
+.board li .place { color: var(--amber); }
+#boardDialog { min-width: min(520px, 92vw); }

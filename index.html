@@ -65,6 +65,10 @@
         </div>
         <button id="tutorialBtn" data-icon="book">Tutorial <span class="badge" id="tutorialBadge">start here</span></button>
         <button id="practiceBtn" data-icon="bot">Practice vs bots</button>
+        <div class="join-row">
+          <button id="dailyBtn" data-icon="calendar" class="daily-btn">Daily challenge</button>
+          <button id="boardBtn" data-icon="trophy">Today's board</button>
+        </div>
         <button id="howBtn" data-icon="help">How to play</button>
       </div>
 
@@ -127,6 +131,12 @@
       <h2>// MISSION REPORT</h2>
       <p id="resultsSummary" class="summary"></p>
       <p id="xpGain" class="xp-gain" hidden></p>
+      <div id="dailyResults" class="daily-results" hidden>
+        <p id="dailyScore" class="daily-score"></p>
+        <h3>// TODAY'S BOARD</h3>
+        <ol id="dailyList" class="board"></ol>
+        <p id="dailyNote" class="dim small"></p>
+      </div>
       <div id="podium" class="podium" hidden></div>
       <ol id="resultsList" class="results"></ol>
       <div id="resultsActions" class="actions"></div>
@@ -160,8 +170,19 @@
       <li><strong>Bit Flip:</strong> flip switches until their values add up to the target, then press Enter.</li>
       <li><strong>Hack Gauntlet:</strong> a different mini-game every stage.</li>
     </ul>
+    <h3>Daily Challenge</h3>
+    <p>Everyone gets the same Hack Gauntlet today. Your score is your time plus 5 seconds for each mistake, and the lowest score tops <strong>Today's board</strong>. Play as often as you like; only your best counts.</p>
     <p class="dim">Root Access is a game. None of these commands do anything to real computers.</p>
     <button id="howClose" class="primary">Got it</button>
+  </dialog>
+
+  <!-- DAILY BOARD -->
+  <dialog id="boardDialog" aria-labelledby="boardTitle">
+    <h2 id="boardTitle">// TODAY'S BOARD</h2>
+    <p class="dim">The Daily Challenge is the same Hack Gauntlet for everyone today. Score = time + 5 s per mistake. Lowest wins.</p>
+    <ol id="boardList" class="board"></ol>
+    <p id="boardNote" class="dim small"></p>
+    <button id="boardClose" class="primary">Close</button>
   </dialog>
 
   <!-- DISPLAY SETTINGS -->

@@ -652,3 +652,23 @@ test('xp: levels cost a bit more each time, and better results earn more', async
   assert.deepEqual(titlesFor(1), ['script kiddie']);
   assert.equal(titlesFor(99).length, TITLES.length);
 });
+
+test('daily challenge: one seed per day, and mistakes add time', async () => {
+  const { dailySeed, dailyScore, todayKey, PENALTY_MS } = await import('../src/daily.js');
+  assert.equal(dailySeed('2026-11-22'), dailySeed('2026-11-22'));
+  assert.notEqual(dailySeed('2026-11-22'), dailySeed('2026-11-23'));
+  assert.ok(Number.isInteger(dailySeed('2026-11-22')) && dailySeed('2026-11-22') >= 0);
+  assert.equal(todayKey(new Date('2026-11-22T23:59:00Z')), '2026-11-22');
+  assert.equal(dailyScore({ ms: 61234.4, mistakes: 2 }), 61234 + 2 * PENALTY_MS);
+  assert.equal(dailyScore({ ms: 40000, mistakes: 0 }), 40000);
+  // The day's seed picks the same gauntlet for everyone.
+  assert.deepEqual(gauntletOrder(dailySeed('2026-11-22')), gauntletOrder(dailySeed('2026-11-22')));
+});
+
+test('database rules: the daily board is valid JSON with a checked score', () => {
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const d = rules.rules.daily;
+  assert.ok(d['.read'] && d.$date['.indexOn'].includes('score'));
+  assert.match(d.$date.$uid['.write'], /auth\.uid === \$uid/);
+  assert.match(d.$date.$uid['.validate'], /\* 5000/);
+});

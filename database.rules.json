@@ -7,13 +7,19 @@
         "players": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && data.parent().parent().exists() && (data.exists() || !newData.exists() || (!data.parent().parent().child('kicked').child(auth.uid).exists() && (data.parent().parent().child('status').val() === 'lobby' || newData.child('spectator').val() === true)))",
-            "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
-            "color": { ".validate": "newData.isString() && newData.val().length <= 9" }
+            "name": {
+              ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+            },
+            "color": {
+              ".validate": "newData.isString() && newData.val().length <= 9"
+            }
           }
         },
         "chat": {
           "$msg": {
-            "text": { ".validate": "newData.isString() && newData.val().length <= 200" }
+            "text": {
+              ".validate": "newData.isString() && newData.val().length <= 200"
+            }
           }
         }
       }
@@ -22,8 +28,12 @@
       "$uid": {
         ".read": "auth != null",
         ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
-        "handle": { ".validate": "newData.isString() && newData.parent().parent().parent().child('handles').child(newData.val().toLowerCase()).val() === $uid" },
-        "xp": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 100000000" }
+        "handle": {
+          ".validate": "newData.isString() && newData.parent().parent().parent().child('handles').child(newData.val().toLowerCase()).val() === $uid"
+        },
+        "xp": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 100000000"
+        }
       }
     },
     "handles": {
@@ -47,6 +57,18 @@
         "$uid": {
           ".write": "auth != null && auth.uid === $uid && auth.token.email_verified === true",
           ".validate": "newData.hasChildren(['handle', 'xp']) && newData.child('handle').isString() && newData.child('handle').val().length <= 14 && newData.child('xp').isNumber() && newData.child('xp').val() >= 0"
+        }
+      }
+    },
+    "daily": {
+      ".read": "auth != null",
+      "$date": {
+        ".indexOn": [
+          "score"
+        ],
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && $date.matches(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/) && (!data.exists() || newData.child('score').val() < data.child('score').val())",
+          ".validate": "newData.hasChildren(['name', 'score', 'ms', 'mistakes', 'at']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && newData.child('ms').isNumber() && newData.child('ms').val() >= 10000 && newData.child('ms').val() <= 3600000 && newData.child('mistakes').isNumber() && newData.child('mistakes').val() >= 0 && newData.child('score').val() === newData.child('ms').val() + newData.child('mistakes').val() * 5000 && newData.child('at').val() <= now"
         }
       }
     }

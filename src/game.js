@@ -20,7 +20,7 @@ export function startSession({ net, code, room, sfx, sendChat, focusChat }) {
   side.innerHTML = '';
   timerEl.textContent = '';
   $('gameMode').textContent = mode.name;
-  $('gameRoom').textContent = room.practice ? 'PRACTICE' : `ROOM ${code}`;
+  $('gameRoom').textContent = room.daily ? `DAILY ${room.daily}` : room.practice ? 'PRACTICE' : `ROOM ${code}`;
   // Quick-hack mini-games are played on the stage, not by typing.
   $('screen-game').classList.toggle('quick-mode', !!mode.quick);
 

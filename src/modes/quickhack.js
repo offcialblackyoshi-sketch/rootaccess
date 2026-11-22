@@ -196,6 +196,7 @@ export function makeQuickMode(puzzle) {
         const results = rows.map(({ p, s }, i) => ({
           id: p.id, name: p.name, color: p.color, place: i + 1,
           stats: p.bot ? 'bot' : quickStatsText(s),
+          raw: { stage: s.stage || 0, mistakes: s.mistakes || 0, ms: (s.stage || 0) >= STAGES ? s.at - ctx.startedAt : null },
           detail: (s.stage || 0) >= STAGES ? `cleared in ${fmtTime(s.at - ctx.startedAt)}` : `cleared ${s.stage || 0}/${STAGES} stages`,
         }));
         const w = rows[0];

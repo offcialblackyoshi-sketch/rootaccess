@@ -230,7 +230,7 @@ async function fillBots(room, net, code, size) {
 export function startGame(room, net, code) {
   const mode = MODES[room.mode];
   const players = playerList(room);
-  const seed = randomSeed();
+  const seed = room.fixedSeed ?? randomSeed(); // the Daily Challenge uses the day's seed
   const setup = mode.setup ? mode.setup({ room, players, seed }) : {};
   const changes = {
     status: 'playing',

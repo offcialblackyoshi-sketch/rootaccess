@@ -34,7 +34,9 @@ export const LOCK_SLACK = 0.7;
 
 // The strip index of `letter` if it is close enough to the line, else -1.
 export function lockable(strip, ms, letter, slow = 1) {
-  const p = stripPos(strip, ms, slow);
+  return lockableAt(strip, stripPos(strip, ms, slow), letter);
+}
+export function lockableAt(strip, p, letter) {
   const n = strip.letters.length;
   for (const i of [Math.floor(p), Math.ceil(p)]) {
     if (Math.abs(p - i) <= LOCK_SLACK && strip.letters[((i % n) + n) % n] === letter) return ((i % n) + n) % n;
@@ -60,6 +62,7 @@ export default {
     let cur = 0;
     let raf = 0;
     const lockedAt = [];
+    const shownAt = []; // where each column was last drawn: a press locks what you see
 
     const target = el('div', { class: 'll-target' }, [...data.password].map((c) => el('span', {}, c)));
     const cols = data.strips.map((strip, i) => {
@@ -77,6 +80,7 @@ export default {
       cols.forEach(({ strip, col, cells, track }, i) => {
         const n = strip.letters.length;
         const p = i < cur ? lockedAt[i] : stripPos(strip, ms, slow);
+        shownAt[i] = p;
         const base = Math.floor(p);
         const frac = p - base;
         const mid = frac < 0.5 ? 3 : 4; // the cell nearest the highlighted line
@@ -95,9 +99,10 @@ export default {
     function press() {
       if (!canAct() || cur >= data.password.length) return;
       const strip = data.strips[cur];
-      const ms = performance.now() - t0;
-      const hit = lockable(strip, ms, data.password[cur], slow);
-      const idx = letterAt(strip, ms, slow);
+      const p = shownAt[cur] ?? stripPos(strip, performance.now() - t0, slow);
+      const hit = lockableAt(strip, p, data.password[cur]);
+      const n = strip.letters.length;
+      const idx = ((Math.round(p) % n) + n) % n;
       if (hit >= 0) {
         lockedAt[cur] = hit;
         cur++;

@@ -19,6 +19,13 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Daily Challenge
+- **Daily challenge** on the menu: a solo Hack Gauntlet seeded by the UTC date, so everyone gets the same 5 mini-games that day. Score = time + 5 s per mistake. **Try again** replays the same puzzles, and only your best counts.
+- **Today's board** (on the menu and after each run) shows the top 20. It's online through Firebase at `daily/<date>/<uid>`, where each player can only write their own entry, the score must equal time + 5 s × mistakes, and only a better score replaces yours. When online play isn't set up or a request fails, it falls back to this device.
+- **One-time step:** publish the updated `database.rules.json` in the Firebase console (Realtime Database → Rules).
+- **Verified:** unit tests cover the seed per day, the score, and the rules file. The e2e test plays a daily run, finds it on the board, checks that Try again gives the same puzzles, and opens the board from the menu.
+
+
 ### XP, levels and unlocks
 - Every round earns XP: 20 for playing, +10 for each player you beat, and +25 for a win (the tutorial gives 50). Each level costs 50 XP more than the one before.
 - The menu shows your level and XP bar, plus a title picker (script kiddie → … → zero-day legend). Extra name colors unlock at levels 3, 6, 9 and 12. The lobby shows each player's level and title.

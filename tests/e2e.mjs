@@ -568,7 +568,7 @@ await step('pwa', async () => {
   const sw = await D.eval(`navigator.serviceWorker.ready.then(r => !!r.active)`);
   check('pwa: service worker active', sw === true);
   await sleep(500);
-  const cached = await D.eval(`caches.open('root-access-v5').then(c => c.keys()).then(k => k.length)`);
+  const cached = await D.eval(`caches.open('root-access-v6').then(c => c.keys()).then(k => k.length)`);
   check('pwa: all files cached', cached >= 26, `(${cached})`);
   const inst = await D.send('Page.getInstallabilityErrors');
   const errs = inst.result?.installabilityErrors ?? [];
@@ -700,7 +700,7 @@ await step('quick hacks', async () => {
       }
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'password locked').catch(() => false);
     }
-    check(`quick hacks: ${id} has keyboard focus and stage 1 is playable with real keys`, focused && played === true);
+    check(`quick hacks: ${id} has keyboard focus and stage 1 is playable with real keys`, focused && played === true, `focused=${focused} played=${played} stage=${await D.eval('window.__ra.quick.stage()')} mistakes=${(await D.room()).players[await D.eval('window.__ra.state.net.uid')].s.mistakes}`);
     await D.shot(`31-quick-${id}.png`);
     if (id === 'signaltune') {
       // Stage 2 starts off target, so Enter right away is a mistake.
@@ -759,6 +759,43 @@ await step('team duel', async () => {
   await D.waitFor(`document.body.dataset.screen === 'lobby'`);
   await D.click('[data-teams="0"]');
   await D.waitFor(`window.__ra.state.room.teamSize === 0`);
+});
+
+// ---------------------------------------------------------------------------
+await step('daily challenge and xp', async () => {
+  await D.eval('window.confirm = () => true');
+  const screen = await D.screen();
+  if (screen !== 'menu') {
+    if (screen === 'results') await D.click('#resultsActions button:last-child');
+    else await D.click(screen === 'game' ? '#gameLeave' : '#leaveBtn');
+    await D.waitFor(`document.body.dataset.screen === 'menu'`, 5000);
+  }
+  const xp0 = await D.eval(`JSON.parse(localStorage.getItem('ra-progress') || '{"xp":0}').xp`);
+  check('xp: earlier rounds earned XP, shown on the menu', xp0 > 0 && (await D.eval(`document.getElementById('levelXp').innerText`)).includes('XP'), `${xp0}`);
+  await D.click('#dailyBtn');
+  await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden && !!window.__ra.quick?.data()`, 10000, 'daily starts');
+  const r = await D.room();
+  check('daily: solo gauntlet with the day\'s seed', r.mode === 'gauntlet' && Object.keys(r.players).length === 1 && r.seed === r.fixedSeed && !!r.daily);
+  const first = await D.eval('window.__ra.quick.puzzle()');
+  for (let st = 0; st < 5; st++) await D.eval('window.__ra.quick.solve()');
+  await D.waitFor(`document.body.dataset.screen === 'results' && !document.getElementById('dailyList').innerText.includes('Loading')`, 8000, 'daily results');
+  const board = await D.eval(`document.getElementById('dailyList').innerText`);
+  const name = await D.eval(`window.__ra.state.room.players[window.__ra.state.net.uid].name`);
+  check('daily: your run is on today\'s board', board.includes(name) && (await D.eval(`!document.getElementById('dailyResults').hidden`)), board.replace(/\s+/g, ' '));
+  const xp1 = await D.eval(`JSON.parse(localStorage.getItem('ra-progress')).xp`);
+  const gain = await D.eval(`document.getElementById('xpGain').innerText`);
+  check('xp: a round awards XP once and shows it', xp1 > xp0 && /\+\d+ XP/.test(gain) && !gain.includes('null'), `${xp0} → ${xp1}: ${gain}`);
+  await D.shot('50-daily-results.png');
+  await D.click('#dailyAgainBtn');
+  await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden && !!window.__ra.quick?.data()`, 10000, 'daily retry');
+  check('daily: Try again replays the same puzzles', (await D.eval('window.__ra.quick.puzzle()')) === first);
+  await D.click('#gameLeave');
+  await D.waitFor(`document.body.dataset.screen === 'menu'`, 5000);
+  await D.click('#boardBtn');
+  await D.waitFor(`document.getElementById('boardList').innerText.includes(${JSON.stringify(name)})`, 5000, 'board dialog');
+  await D.shot('51-board.png');
+  await D.click('#boardClose');
+  check('daily: Today\'s board opens from the menu', true);
 });
 
 // ---------------------------------------------------------------------------

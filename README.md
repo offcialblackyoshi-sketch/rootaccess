@@ -38,6 +38,7 @@ Type `help` in any mode to see its commands. <kbd>Tab</kbd> auto-completes, and 
 - **Host tools:** pick the round length (short, normal, or long), add or remove bots, and kick players.
 - **Settings (⚙):** text size, high contrast, reduced motion, scanlines on/off, volume, and key-click sounds.
 - **Keyboard:** <kbd>Esc</kbd> switches between the terminal and chat, <kbd>Ctrl</kbd>+<kbd>L</kbd> clears, <kbd>Ctrl</kbd>+<kbd>C</kbd> cancels a line, and <kbd>PageUp</kbd>/<kbd>PageDown</kbd> scroll.
+- **Daily Challenge:** the same Hack Gauntlet for everyone each day (UTC). Score = time + 5 s per mistake, and **Today's board** ranks everyone's best. The board is online once the updated database rules are published (see below), and on this device until then.
 - **XP and levels:** every round earns XP (more for placing higher and winning). Levels unlock titles shown next to your name, and extra name colors at levels 3, 6, 9 and 12. Saved on this device.
 - **Reloading the page** while in a room puts you back in your seat.
 - **Results** show stats for each player: race layer times and hints used, duel speed (WPM) and accuracy, data stolen, and heist mistakes.
@@ -72,7 +73,7 @@ Online rooms use Firebase, which is free for this game's size and allows up to 1
    - This config is **not a secret**, so it is safe to commit to GitHub. The database rules are what protect your data.
 4. In Firebase, go to **Build → Authentication → Get started → Sign-in method**, then enable **Anonymous**.
 5. Go to **Build → Realtime Database → Create database**, pick a location, and start in **locked mode**.
-6. In the database, open the **Rules** tab, paste the contents of `database.rules.json`, and click **Publish**.
+6. In the database, open the **Rules** tab, paste the contents of `database.rules.json`, and click **Publish**. Do this again whenever `database.rules.json` changes (for example, the Daily Challenge board needs the `daily` rules).
 7. Reload the game. The menu should now say **● ONLINE**.
 
 > Some school networks block Firebase (`*.firebaseio.com`). If the menu says it can't connect on a school network, that is the likely reason.

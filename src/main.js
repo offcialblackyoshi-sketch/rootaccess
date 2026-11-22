@@ -6,10 +6,11 @@ import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
 import { createChat } from './chat.js';
 import { sfx } from './sfx.js';
-import { el, load, save, playerList, COLORS } from './util.js';
+import { el, load, save, playerList, COLORS, fmtTime } from './util.js';
 import { initSettingsDialog, getSettings } from './settings.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
+import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
@@ -275,6 +276,46 @@ $('practiceBtn').addEventListener('click', (e) => withBusy(e.target, async () =>
   enterRoom(net, code);
 }));
 
+// Daily Challenge: today's Hack Gauntlet, solo, same puzzles for everyone.
+async function startDaily() {
+  const net = getLocalNet();
+  const date = todayKey();
+  const now = net.now();
+  const room = {
+    hostId: net.uid, mode: 'gauntlet', status: 'lobby', createdAt: now, round: 0, practice: true,
+    daily: date, fixedSeed: dailySeed(date),
+    players: { [net.uid]: { ...makePlayer(net, {}), ready: true } },
+  };
+  const code = await net.createRoom(room);
+  await startGame(room, net, code);
+  enterRoom(net, code);
+}
+$('dailyBtn').addEventListener('click', (e) => withBusy(e.target, startDaily));
+
+// Draws today's board into a list element.
+async function renderBoard(listEl, noteEl) {
+  listEl.innerHTML = '';
+  listEl.append(el('li', { class: 'dim' }, 'Loading…'));
+  const date = todayKey();
+  const { rows, where, me } = await dailyBoard(date);
+  listEl.innerHTML = '';
+  if (!rows.length) listEl.append(el('li', { class: 'dim' }, 'No runs yet today. Be the first!'));
+  rows.forEach((r, i) => listEl.append(el('li', { class: r.id === me ? 'me' : '' },
+    el('span', { class: 'place' }, `#${i + 1}`),
+    el('span', { class: 'pname' }, r.name),
+    el('span', { class: 'dim' }, r.mistakes ? `${fmtTime(r.ms)} + ${r.mistakes}×${PENALTY_MS / 1000}s` : fmtTime(r.ms)),
+    el('strong', {}, fmtScore(r.score)))));
+  const best = myBest(date);
+  noteEl.textContent = `${date} (UTC) · ${where === 'online' ? 'everyone online' : 'this device only'}${best !== null ? ` · your best ${fmtScore(best)}` : ''}`;
+}
+const fmtScore = (ms) => `${(ms / 1000).toFixed(1)}s`;
+
+$('boardBtn').addEventListener('click', () => {
+  $('boardDialog').showModal();
+  renderBoard($('boardList'), $('boardNote'));
+});
+$('boardClose').addEventListener('click', () => $('boardDialog').close());
+
 $('tutorialBtn').addEventListener('click', (e) => withBusy(e.target, async () => {
   const net = getLocalNet();
   const room = practiceRoom(net, 'tutorial');
@@ -435,10 +476,32 @@ function renderResults(room) {
   }
   const actions = $('resultsActions');
   actions.innerHTML = '';
+  $('dailyResults').hidden = !room.daily;
+  if (room.daily) {
+    // Daily Challenge: retry the same puzzles, or leave.
+    actions.append(el('button', { class: 'primary', id: 'dailyAgainBtn', onclick: () => startGame(state.room, state.net, state.code) }, '↻ Try again'));
+    actions.append(el('button', { onclick: () => leaveRoom() }, 'Leave'));
+    if (state.boardFor !== room.round) {
+      state.boardFor = room.round;
+      const mine = (room.results || []).find((r) => r.id === me);
+      const run = mine?.raw;
+      const finished = run && run.ms !== null && run.stage >= 5;
+      $('dailyScore').textContent = finished
+        ? `Score ${fmtScore(run.ms + run.mistakes * PENALTY_MS)} (${fmtTime(run.ms)} + ${run.mistakes} mistake${run.mistakes === 1 ? '' : 's'} × ${PENALTY_MS / 1000}s)`
+        : 'Clear all 5 stages to get on the board.';
+      (finished ? submitDaily(room.daily, { name: mine.name, ms: run.ms, mistakes: run.mistakes }) : Promise.resolve())
+        .then(() => renderBoard($('dailyList'), $('dailyNote')));
+    }
+    return finishResults(room, results, me);
+  }
   if (isHost) actions.append(el('button', { class: 'primary', id: 'againBtn', onclick: () => backToLobby(state.room, state.net, state.code) }, '↻ Back to lobby'));
   else actions.append(el('p', { class: 'dim' }, 'Waiting for the host…'));
   actions.append(el('button', { onclick: () => leaveRoom() }, 'Leave'));
+  finishResults(room, results, me);
+}
 
+// XP, sounds and effects: once per round.
+function finishResults(room, results, me) {
   if (state.shownResultsFor !== room.round) {
     state.shownResultsFor = room.round;
     // XP for this round (once per round, spectators and quitters get none).
@@ -448,11 +511,11 @@ function renderResults(room) {
       const humansAndBots = results.length;
       const award = awardRound({ place: mineR.place, players: humansAndBots, won: mineR.won ?? mineR.place === 1, modeId: room.mode });
       $('xpGain').innerHTML = '';
-      $('xpGain').append(
+      $('xpGain').append(...[
         el('span', { class: 'xp-plus' }, `+${award.gained} XP`),
         el('span', { class: 'xp-level' }, `LEVEL ${award.after.level}`),
         el('span', { class: 'xp-bar' }, el('span', { style: { width: `${(100 * award.after.into) / award.after.need}%` } })),
-        award.levelUp ? el('strong', { class: 'xp-up' }, '▲ LEVEL UP!') : null);
+        award.levelUp ? el('strong', { class: 'xp-up' }, '▲ LEVEL UP!') : null].filter(Boolean));
       if (award.levelUp) setTimeout(() => rain.burst({ color: '#39ff6a' }), 600);
       renderLevel();
       renderColors();

@@ -211,9 +211,9 @@ export function createLocalNet() {
     mod: {
       announceWatch: (cb) => kvWatch(ANNOUNCE, (v) => cb(v && v.text ? v : null)),
       bansWatch: (cb) => kvWatch(BANS, cb),
-      announce: (text) => kvMutate(ANNOUNCE, (a) => {
+      announce: (text, by = '') => kvMutate(ANNOUNCE, (a) => {
         for (const k of Object.keys(a)) delete a[k];
-        if (text) Object.assign(a, { text, at: Date.now() });
+        if (text) Object.assign(a, { text, by: String(by).slice(0, 16), at: Date.now() });
       }),
       ban: (ids, until, name) => kvMutate(BANS, (b) => { for (const id of ids) b[id] = { until, name: String(name || '').slice(0, 16), at: Date.now() }; }),
       unban: (ids) => kvMutate(BANS, (b) => { for (const id of ids) delete b[id]; }),

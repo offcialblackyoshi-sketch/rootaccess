@@ -46,7 +46,8 @@ export function toast(text, kind = 'info', ms = 3500) {
 }
 
 // ---- Banner + owner window ----
-export function createOwnerTools({ isOwner, sfx }) {
+// ownerName(): the name shown on announcements ("brisky2swifty: ...").
+export function createOwnerTools({ isOwner, sfx, ownerName = () => '' }) {
   let net = null;
   let offAnnounce = null;
   let offBans = null;
@@ -55,16 +56,28 @@ export function createOwnerTools({ isOwner, sfx }) {
   const listeners = new Set();
 
   // Announcement banner (top of every screen). ✕ hides it until the next one.
-  const bannerText = el('span', { class: 'banner-text' });
+  const bannerMsg = el('span', { class: 'banner-text' });
+  let bannerBy = el('span', { class: 'pname banner-by' });
+  const bannerText = el('span');
+  bannerMsg.append(bannerBy, bannerText);
   const banner = el('div', { class: 'announce', role: 'status', hidden: true },
-    el('span', { class: 'banner-icon', 'aria-hidden': 'true' }, '📢'), bannerText,
+    el('span', { class: 'banner-icon', 'aria-hidden': 'true' }, '📢'), bannerMsg,
     el('button', { type: 'button', class: 'icon-x', 'aria-label': 'Hide announcement', onclick: () => { save('ra-announce-seen', announcement?.at || 0); renderBanner(); } }, '✕'));
   document.body.append(banner);
 
   function renderBanner() {
     const show = !!announcement?.text && load('ra-announce-seen', 0) !== announcement.at;
     banner.hidden = !show;
-    bannerText.textContent = announcement?.text || '';
+    // Who posted it. The name gets the owner's crown and gold glow from badges.js.
+    const by = String(announcement?.by || '').slice(0, 16);
+    if (bannerBy.dataset.name !== by) {
+      // A fresh element, so badges.js sees a new name and adds the crown.
+      const fresh = el('span', { class: 'pname banner-by', 'data-name': by }, by);
+      bannerBy.replaceWith(fresh);
+      bannerBy = fresh;
+    }
+    bannerBy.hidden = !by;
+    bannerText.textContent = (by ? ': ' : '') + (announcement?.text || '');
   }
 
   // Owner window.
@@ -90,7 +103,7 @@ export function createOwnerTools({ isOwner, sfx }) {
   async function post(text) {
     if (!isOwner()) return;
     try {
-      await net.mod.announce(text);
+      await net.mod.announce(text, ownerName());
       annMsg.className = 'small ok';
       annMsg.textContent = text ? 'Posted! Everyone online sees it now.' : 'Banner cleared.';
       if (text) annInput.value = '';

@@ -1116,14 +1116,16 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 /* Announcement banner (everyone) */
 .announce {
   position: fixed;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 62px; /* below the corner buttons */
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content; /* centered without transform, so the slide-in animation can't undo it */
   z-index: 35;
   display: flex;
   align-items: center;
   gap: 10px;
-  max-width: min(640px, calc(100% - 260px));
+  max-width: min(680px, calc(100% - 32px));
   padding: 8px 10px 8px 14px;
   border-radius: 10px;
   background: linear-gradient(90deg, #3a2a00, #1d1603);
@@ -1134,9 +1136,7 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 }
 .announce .banner-text { flex: 1; font-weight: bold; }
 .announce .icon-x { color: #ffd23d; }
-@media (max-width: 700px) {
-  .announce { top: 60px; max-width: calc(100% - 24px); }
-}
+
 
 /* Pop-up notices */
 .toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 95; display: grid; gap: 8px; justify-items: center; pointer-events: none; }

@@ -868,6 +868,8 @@ await step('owner tools', async () => {
   await O.shot('30-owner-tools.png');
   await O.click('#announcePost');
   await P.waitFor(`!document.querySelector('.announce').hidden && document.querySelector('.announce').innerText.includes('New mode out tonight!')`, 5000, 'banner shows');
+  const by = await P.eval(`(() => { const n = document.querySelector('.announce .banner-by'); return !!n && n.textContent.includes('brisky2swifty') && n.classList.contains('owner-name'); })()`);
+  check('owner: announcement shows the owner name with the crown', by);
   await P.shot('31-announcement.png');
   await P.click('.announce .icon-x');
   await P.waitFor(`document.querySelector('.announce').hidden`);

@@ -33,7 +33,7 @@ const $ = (id) => document.getElementById(id);
 // ---------------------------------------------------------------------------
 const LOCAL_OWNER_TEST = (() => { const q = new URLSearchParams(location.search); return q.has('local') && q.has('owner'); })();
 const ownerMode = () => !!accountState().owner || LOCAL_OWNER_TEST;
-const ownerTools = createOwnerTools({ isOwner: ownerMode, sfx });
+const ownerTools = createOwnerTools({ isOwner: ownerMode, sfx, ownerName: () => accountState().handle || myName() });
 function renderOwner() {
   const on = ownerMode();
   document.documentElement.classList.toggle('is-owner', on);

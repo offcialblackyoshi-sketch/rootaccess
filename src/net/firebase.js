@@ -225,9 +225,9 @@ export async function createFirebaseNet(config) {
     mod: {
       announceWatch: (cb) => D.onValue(D.ref(db, 'announce'), (s) => cb(s.val()), () => cb(null)),
       bansWatch: (cb) => D.onValue(D.ref(db, 'bans'), (s) => cb(s.val() || {}), () => cb({})),
-      announce: (text) => {
+      announce: (text, by = '') => {
         const ref = D.ref(account().db, 'announce');
-        return text ? D.set(ref, { text, at: D.serverTimestamp() }) : D.remove(ref);
+        return text ? D.set(ref, { text, by: String(by).slice(0, 16), at: D.serverTimestamp() }) : D.remove(ref);
       },
       ban: (ids, until, name) => D.update(D.ref(account().db, 'bans'),
         Object.fromEntries(ids.map((id) => [id, { until, name: String(name || '').slice(0, 16), at: D.serverTimestamp() }]))),

@@ -633,7 +633,7 @@ await step('quick hacks', async () => {
   await D.click('#practiceBtn');
   await D.waitFor(`document.body.dataset.screen === 'lobby'`);
   check('quick hacks: lobby shows a QUICK HACKS group with 9 modes',
-    (await D.eval(`document.querySelector('.mode-group')?.innerText || ''`)).includes('QUICK HACKS') && (await D.eval(`document.querySelectorAll('.mode-card').length`)) === 13);
+    (await D.eval(`document.querySelector('.mode-group')?.innerText || ''`)).includes('QUICK HACKS') && (await D.eval(`document.querySelectorAll('.mode-card').length`)) === 14);
   await D.shot('30-quick-lobby.png');
   for (const [i, id] of ids.entries()) {
     if (i) {
@@ -1348,6 +1348,84 @@ await step('music', async () => {
   check('music: back to the menu track after the game', true);
   check('music: no errors', M.errors.length === 0, M.errors.join(' | '));
   await M.close();
+});
+
+await step('king of the hill', async () => {
+  const K1 = await openTab('K1');
+  const K2 = await openTab('K2');
+  for (const [t, n] of [[K1, 'kai'], [K2, 'kit']]) {
+    await t.goto(URL_BASE);
+    await t.eval(`window.dispatchEvent(new Event('pointerdown'))`); // skip the first-visit intro
+    await t.eval(`document.getElementById('nameInput').value = '${n}'; window.confirm = () => true`);
+  }
+  await K1.click('#createBtn');
+  await K1.waitFor(`document.body.dataset.screen === 'lobby'`);
+  const code = await K1.eval('window.__ra.state.code');
+  await K1.click('.mode-card[data-mode=koth]');
+  await K1.waitFor(`window.__ra.state.room.mode === 'koth'`);
+  await K2.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await K2.click('#joinBtn');
+  await K2.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await K2.click('#readyBtn');
+  await K1.waitFor(`!!document.getElementById('startBtn') && !document.getElementById('startBtn').disabled`, 5000, 'start enabled');
+  await K1.click('#startBtn');
+  for (const t of [K1, K2]) await t.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden && !document.querySelector('#term input').disabled && !!window.__ra.koth`, 10000, 'game running');
+  const term = (t) => t.eval(`document.querySelector('#term .term-out').innerText`);
+  const holder = (t) => t.eval(`window.__ra.state.room.game?.holder || null`);
+  const [k1, k2] = [await K1.eval('window.__ra.state.net.uid'), await K2.eval('window.__ra.state.net.uid')];
+
+  // A wrong answer jams the lock; the right one captures the hill.
+  await K2.cmd('definitely-wrong');
+  await K2.waitFor(`document.querySelector('#term .term-out').innerText.includes('wrong answer')`, 3000, 'wrong answer');
+  const answer = await K1.eval('window.__ra.koth.answer()');
+  await K1.cmd(answer);
+  await K1.waitFor(`window.__ra.state.room.game?.holder === '${k1}'`, 5000, 'kai captures');
+  await K2.waitFor(`document.querySelector('#term .term-out').innerText.includes('captured the hill')`, 5000, 'kit told');
+  const newLock = await K2.eval('window.__ra.koth.lock()');
+  check('koth: wrong answers jam, the right answer captures the hill, and a new lock goes on', newLock === 1 && (await K1.eval(`document.querySelector('.koth-holder').innerText`)).includes('(you!)'));
+  await K1.shot('72-koth.png');
+
+  // Fortify blocks captures.
+  await K1.cmd('fortify');
+  await K2.waitFor(`(window.__ra.state.room.game?.shieldUntil || 0) > window.__ra.state.net.now()`, 5000, 'fortified');
+  await K2.cmd(await K2.eval('window.__ra.koth.answer()'));
+  await K2.waitFor(`document.querySelector('#term .term-out').innerText.includes('fortified right now')`, 3000, 'blocked');
+  check('koth: fortify blocks captures for a while', (await holder(K1)) === k1);
+  await K2.shot('73-koth-fortified.png');
+
+  // When the shield drops, Kit takes the hill; Kai gets credit for the time held.
+  await K2.waitFor(`(window.__ra.state.room.game?.shieldUntil || 0) <= window.__ra.state.net.now()`, 15000, 'shield drops');
+  await K2.cmd(await K2.eval('window.__ra.koth.answer()'));
+  await K2.waitFor(`window.__ra.state.room.game?.holder === '${k2}'`, 5000, 'kit captures');
+  await K1.waitFor(`document.querySelector('#term .term-out').innerText.includes('took the hill from you')`, 5000, 'kai told');
+  const kaiHeld = await K1.eval(`window.__ra.state.room.players['${k1}'].s.held || 0`);
+  check('koth: the hill changes hands and the old holder keeps their time', kaiHeld >= 9000, `kai held ${kaiHeld} ms`);
+
+  // Time's up: the most time on top wins.
+  await K1.eval(`(async () => { const { roundTime } = await import('./src/util.js'); const { MODES } = await import('./src/modes/index.js'); const { room, net, code } = window.__ra.state; await net.update(code, { startedAt: net.now() - roundTime(MODES.koth, room.roundLength) - 1000 }); })()`);
+  for (const t of [K1, K2]) await t.waitFor(`document.body.dataset.screen === 'results'`, 8000, 'results');
+  const summary = await K2.eval(`document.getElementById('resultsSummary').textContent`);
+  const res = await K2.eval(`document.getElementById('resultsList').innerText`);
+  check('koth: the most time on top wins', /kai is King of the Hill/.test(summary) && /held the hill/.test(res), `${summary} | ${res.replace(/\n/g, ' ')}`);
+  await K2.shot('74-koth-results.png');
+  for (const t of [K1, K2]) await t.close();
+
+  // Practice against a bot: hard bots crack locks too.
+  const KB = await openTab('KB');
+  await KB.goto(URL_BASE);
+  await KB.eval(`window.dispatchEvent(new Event('pointerdown')); window.confirm = () => true`);
+  await KB.click('#practiceBtn');
+  await KB.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await KB.click('.mode-card[data-mode=koth]');
+  await KB.eval(`(() => { const { net, code } = window.__ra.state; return net.update(code, { botLevel: 'hard' }); })()`);
+  await KB.waitFor(`window.__ra.state.room.mode === 'koth' && window.__ra.state.room.botLevel === 'hard'`);
+  await KB.click('#startBtn');
+  await KB.waitFor(`document.body.dataset.screen === 'game' && !!window.__ra.state.room.game`, 8000, 'practice game');
+  await KB.waitFor(`(() => { const r = window.__ra.state.room; return !!r.game?.holder && r.players[r.game.holder]?.bot; })()`, 20000, 'a bot captures');
+  check('koth: bots capture the hill too', true);
+  check('koth: no errors', [...K1.errors, ...K2.errors, ...KB.errors].length === 0, [...K1.errors, ...K2.errors, ...KB.errors].join(' | '));
+  await KB.click('#gameLeave');
+  await KB.close();
 });
 
 await step('small screen', async () => {

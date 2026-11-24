@@ -11,7 +11,7 @@ const $ = (id) => document.getElementById(id);
 
 // Accent color per mode (mode cards, icons).
 const MODE_ACCENT = {
-  race: '#4dd9ff', duel: '#ff5a5a', defend: '#39ff6a', heist: '#ffb000',
+  race: '#4dd9ff', duel: '#ff5a5a', defend: '#39ff6a', heist: '#ffb000', koth: '#e879f9',
   gauntlet: '#ff6b4d', wirecut: '#ff5a5a', portsweep: '#39ff6a', bitflip: '#4dd9ff',
   letterlock: '#c6ff4d', printmatch: '#ff4dd2', signaltune: '#4dd9ff', circuit: '#ffb000', memory: '#b388ff',
 };

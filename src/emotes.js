@@ -64,6 +64,7 @@ const QUICK = {
   race: ['Which layer are you on?', 'Found the password! 🔓', 'Stuck on the PIN 😅', 'So close!'],
   duel: ['Bring it! ⚡', 'Too fast 😮', 'Shields up!', 'Rematch?'],
   defend: ['Guard your servers!', 'I\'m being breached! 🚨', 'Nice steal 😎', 'Firewall up!'],
+  koth: ['Lock is …', 'Fortify now! 🛡', 'Coming for the hill 😎', 'Get them! ⚔️'],
   heist: ['What do you see?', 'Code is …', 'Alarm rising! 🚨', 'Which wire?'],
   quick: ['Too easy 😎', 'Locked out 😅', 'Which stage?', 'Speed run! ⚡'],
 };

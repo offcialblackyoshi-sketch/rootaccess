@@ -2,6 +2,7 @@ import race from './race.js';
 import duel from './duel.js';
 import defend from './defend.js';
 import heist from './heist.js';
+import koth from './koth.js';
 import tutorial from './tutorial.js';
 import { makeQuickMode, STAGES } from './quickhack.js';
 import { makeRng } from '../rng.js';
@@ -32,5 +33,5 @@ export const GAUNTLET = {
 
 const quick = Object.fromEntries([['gauntlet', GAUNTLET], ...Object.entries(PUZZLES)].map(([id, p]) => [id, makeQuickMode(p)]));
 
-export const MODES = { race, duel, defend, heist, tutorial, ...quick };
-export const MODE_ORDER = ['race', 'duel', 'defend', 'heist', 'gauntlet', ...Object.keys(PUZZLES)];
+export const MODES = { race, duel, defend, heist, koth, tutorial, ...quick };
+export const MODE_ORDER = ['race', 'duel', 'defend', 'heist', 'koth', 'gauntlet', ...Object.keys(PUZZLES)];

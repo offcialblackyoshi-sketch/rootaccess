@@ -6,6 +6,7 @@ export const ICONS = {
   race: svg('<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>'),
   duel: svg('<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>'),
   defend: svg('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/>'),
+  koth: svg('<path d="m2 20 7-11 4 6 2-3 7 8z"/><path d="M9 9V3l5 2-5 2"/>'),
   heist: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M12 8v1M12 15v1M8 12h1M15 12h1"/>'),
   letterlock: svg('<rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="16" rx="1"/><rect x="17" y="4" width="4" height="16" rx="1"/><path d="M2 12h20"/>'),
   printmatch: svg('<path d="M7 20c-1.5-2-2-4.5-2-8a7 7 0 0 1 14 0"/><path d="M9 20c-.8-2-1-4-1-8a4 4 0 0 1 8 0c0 3 .3 5 1 8"/><path d="M12 12c0 3 .5 5.5 1.5 8"/>'),

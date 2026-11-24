@@ -7,7 +7,7 @@ import { hashString } from './rng.js';
 const KEY = 'ra-trophies';
 const QUICK = ['gauntlet', 'letterlock', 'printmatch', 'signaltune', 'circuit', 'memory', 'wirecut', 'portsweep', 'bitflip'];
 const MODE_NAMES = {
-  race: 'Terminal Race', duel: 'Typing Duel', defend: 'Hack & Defend', heist: 'Co-op Heist', gauntlet: 'Hack Gauntlet',
+  race: 'Terminal Race', duel: 'Typing Duel', defend: 'Hack & Defend', heist: 'Co-op Heist', koth: 'King of the Hill', gauntlet: 'Hack Gauntlet',
   letterlock: 'Letter Lock', printmatch: 'Print Match', signaltune: 'Signal Tune', circuit: 'Circuit Path',
   memory: 'Code Memory', wirecut: 'Wire Cut', portsweep: 'Port Sweep', bitflip: 'Bit Flip',
 };

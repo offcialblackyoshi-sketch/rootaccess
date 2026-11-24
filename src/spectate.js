@@ -6,6 +6,7 @@ import { el, playerList, roundTime, fmtTime } from './util.js';
 import { avatarEl } from './avatar.js';
 import { score as defendScore } from './modes/defend.js';
 import { MODES, PUZZLES } from './modes/index.js';
+import { heldMs } from './modes/koth.js';
 
 const HEIST_STAGES = ['DOOR', 'LOGIN', 'VAULT'];
 
@@ -25,6 +26,10 @@ export function progressOf(modeId, s = {}, best = 1) {
     const sc = defendScore(s);
     return { value: best > 0 ? sc / best : 0, label: `${sc} data` };
   }
+  if (modeId === 'koth') {
+    const secs = Math.floor((s.held || 0) / 1000);
+    return { value: best > 0 ? (s.held || 0) / best : 0, label: `${s.king ? '👑 ' : ''}${secs}s on top` };
+  }
   if (modeId === 'heist') return { value: 0, label: s.role ? s.role : 'crew' };
   if (PUZZLES[modeId] || modeId === 'gauntlet') {
     const st = Math.min(s.stage || 0, 5);
@@ -36,9 +41,12 @@ export function progressOf(modeId, s = {}, best = 1) {
 // Players in the order a viewer cares about: furthest along first.
 export function spectateRows(room) {
   const players = playerList(room);
-  const best = Math.max(1, ...players.map((p) => (room.mode === 'defend' ? defendScore(p.s) : 0)));
+  const now = Date.now();
+  // King of the Hill: count the current holder's time too.
+  const koth = (p) => ({ ...(p.s || {}), held: heldMs(p, room.game, room.game?.since ? Math.max(now, room.game.since) : now), king: room.game?.holder === p.id });
+  const best = Math.max(1, ...players.map((p) => (room.mode === 'defend' ? defendScore(p.s) : room.mode === 'koth' ? koth(p).held : 0)));
   return players
-    .map((p) => ({ p, ...progressOf(room.mode, p.s || {}, best) }))
+    .map((p) => ({ p, ...progressOf(room.mode, room.mode === 'koth' ? koth(p) : p.s || {}, best) }))
     .sort((a, b) => b.value - a.value || String(a.p.name).localeCompare(String(b.p.name)));
 }
 

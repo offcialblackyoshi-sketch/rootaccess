@@ -1231,3 +1231,13 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 .spectate-side h3 { margin: 0 0 6px; font-size: 13px; color: var(--accent); }
 .spectate-side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 @media (max-width: 700px) { .spectate-row { grid-template-columns: 28px 1fr auto; } .spectate-bar { display: none; } }
+
+/* ---- King of the Hill ---- */
+.koth { display: grid; gap: 6px; text-align: center; }
+.koth-title { font-size: 22px; letter-spacing: 0.2em; color: #e879f9; text-shadow: 0 0 12px rgba(232, 121, 249, 0.5); }
+.koth-holder { font-size: 16px; }
+.koth-lock { font-size: 24px; font-weight: 700; letter-spacing: 0.08em; color: var(--fg); padding: 8px 12px; border: 1px dashed var(--line); border-radius: 8px; word-break: break-word; }
+.koth-lock.mine { font-size: 15px; color: var(--dim); border-style: solid; }
+.koth-shield { color: #4dd9ff; font-weight: 700; }
+.koth-shield[hidden] { display: none; }
+.koth.held-by-me { box-shadow: 0 0 0 1px #e879f9, 0 0 24px rgba(232, 121, 249, 0.25); }

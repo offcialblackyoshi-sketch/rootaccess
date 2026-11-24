@@ -588,7 +588,7 @@ test('bit flip: the target is always reachable with the switches', () => {
 });
 
 test('hack gauntlet: a different real mini-game every stage, the same for everyone', () => {
-  assert.equal(MODE_ORDER[4], 'gauntlet');
+  assert.equal(MODE_ORDER[MODE_ORDER.indexOf('koth') + 1], 'gauntlet', 'the gauntlet leads the quick hacks');
   assert.ok(MODES.gauntlet.quick && MODES.gauntlet.bots);
   assert.equal(fmtTime(roundTime(MODES.gauntlet, 'normal')), '4:00');
   const kinds = new Set();
@@ -1284,4 +1284,56 @@ test('music: three tracks in A minor, faster when tense, right track for the mom
   assert.equal(trackFor('game', 120000), 'game');
   assert.equal(trackFor('game', 25000), 'tense');
   assert.equal(trackFor('game', Infinity), 'game', 'modes without a time limit');
+});
+
+test('king of the hill: locks are fair and solvable, the host picks the first capture', async () => {
+  const { lockFor, checkAnswer, resolveAction, heldMs, LOCK_KINDS, SHIELD_MS, FORTIFY_COOLDOWN } = await import('../src/modes/koth.js');
+  const { caesar, reverse } = await import('../src/rng.js');
+  // Same lock for everyone, every kind shows up, and each one can be solved from its prompt.
+  const kinds = new Set();
+  for (let seed = 1; seed <= 60; seed++) {
+    for (let n = 0; n < 8; n++) {
+      const l = lockFor(seed, n);
+      assert.deepEqual(l, lockFor(seed, n));
+      kinds.add(l.kind);
+      assert.ok(checkAnswer(l, l.answer) && checkAnswer(l, `  ${l.answer.toUpperCase()} `), 'answers ignore case and spaces');
+      const shown = l.prompt.split(': ').pop();
+      if (l.kind === 'math') {
+        const [, a, op, b] = l.prompt.match(/(\d+) ([+-]) (\d+)/);
+        assert.equal(String(op === '+' ? +a + +b : a - b), l.answer);
+        assert.ok(+l.answer > 0);
+      } else if (l.kind === 'reverse') assert.equal(reverse(shown), l.answer);
+      else if (l.kind === 'caesar') assert.equal(caesar(shown, -Number(l.prompt.match(/\+(\d)/)[1])), l.answer);
+      else {
+        assert.equal([...shown].sort().join(''), [...l.answer].sort().join(''), 'scramble uses the same letters');
+        assert.notEqual(shown, l.answer, 'never already solved');
+      }
+    }
+  }
+  assert.deepEqual([...kinds].sort(), [...LOCK_KINDS].sort());
+  assert.notDeepEqual(lockFor(1, 0), lockFor(1, 1), 'each capture brings a new lock');
+
+  // The host's decisions.
+  const seed = 7;
+  const now = 100000;
+  const players = { a: { s: { held: 0, caps: 0 } }, b: { s: { held: 5000, caps: 1 } } };
+  const hill = { lock: 3, holder: 'b', since: now - 4000, shieldUntil: 0 };
+  const right = lockFor(seed, 3).answer;
+  const cap = (from, lock = 3, answer = right, h = hill) => resolveAction({ type: 'capture', from, lock, answer }, { hill: h, seed, players, now });
+  const won = cap('a');
+  assert.deepEqual(won.game, { lock: 4, holder: 'a', since: now, shieldUntil: 0 }, 'a takes the hill and a new lock goes on');
+  assert.equal(won['players/b/s/held'], 9000, 'b gets credit for the 4 seconds they held it');
+  assert.equal(won['players/a/s/caps'], 1);
+  assert.equal(cap('a', 2), null, 'too late: that lock was already cracked');
+  assert.equal(cap('a', 3, 'nope'), null, 'wrong answers never capture');
+  assert.equal(cap('b'), null, 'you cannot capture your own hill');
+  assert.equal(cap('a', 3, right, { ...hill, shieldUntil: now + 1 }), null, 'fortified hills cannot be captured');
+  const fort = resolveAction({ type: 'fortify', from: 'b' }, { hill, seed, players, now });
+  assert.deepEqual(fort, { 'game/shieldUntil': now + SHIELD_MS, 'players/b/s/fortAt': now });
+  assert.equal(resolveAction({ type: 'fortify', from: 'a' }, { hill, seed, players, now }), null, 'only the holder can fortify');
+  const recharging = { ...players, b: { s: { fortAt: now - FORTIFY_COOLDOWN + 1 } } };
+  assert.equal(resolveAction({ type: 'fortify', from: 'b' }, { hill, seed, players: recharging, now }), null, 'fortify has a cooldown');
+  // Time held counts the current holder's time.
+  assert.equal(heldMs({ id: 'b', s: { held: 5000 } }, hill, now), 9000);
+  assert.equal(heldMs({ id: 'a', s: { held: 2000 } }, hill, now), 2000);
 });

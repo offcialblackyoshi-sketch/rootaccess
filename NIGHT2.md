@@ -174,3 +174,19 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
     - **Two players:** a wrong answer jams; Kai captures the hill (a new lock goes on and Kit is told); Kai fortifies and Kit's answer is blocked. When the shield drops, Kit takes the hill and Kai keeps 10.5 s of credit. When time's up, "kai is King of the Hill!".
     - **Practice:** a hard bot captures the hill. No errors.
 - **Rules:** no change needed (it uses the same room data as the other modes).
+
+### 9. How to play, for every mode
+- **Before:** each mode card had only a one-line blurb, so new or younger players had to work out the rules by trial and error.
+- **Now:**
+  - **In the lobby:** a **"? How to play Terminal Race"** button next to MISSION follows the selected mode.
+  - **In a game:** a **?** in the top bar explains the game you're in.
+- **Each card (new `src/howto.js`) has:**
+  - 🎯 the goal and 3 short numbered steps.
+  - ⌨️ the controls and 💡 a tip.
+  - Player counts and "all hacking here is pretend".
+  - The quick-hack mini-games reuse their own one-line instructions.
+- **Accuracy:** I checked every command the guides mention against the real commands in each mode.
+- **Verified:**
+  - **Unit test (72 passing):** every mode in the lobby has a complete guide with short lines, and the kid-safe filter finds nothing in any of them.
+  - **Browser test:** the lobby button names the selected mode and opens the Terminal Race guide. It switches to King of the Hill when the mode changes, and the ? in a running game opens that game's guide. No errors.
+- **Rules:** no change needed.

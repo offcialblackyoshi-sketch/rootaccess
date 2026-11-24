@@ -1428,6 +1428,34 @@ await step('king of the hill', async () => {
   await KB.close();
 });
 
+await step('how to play', async () => {
+  const H = await openTab('H');
+  await H.goto(URL_BASE);
+  await H.eval(`window.dispatchEvent(new Event('pointerdown')); window.confirm = () => true`);
+  await H.click('#practiceBtn');
+  await H.waitFor(`document.body.dataset.screen === 'lobby'`);
+  const btn = () => H.eval(`document.getElementById('howToBtn').textContent`);
+  const first = await btn();
+  await H.click('#howToBtn');
+  await H.waitFor(`document.querySelector('.howto-dialog')?.open && /HOW TO PLAY: TERMINAL RACE/i.test(document.querySelector('.howto-dialog h2').textContent)`, 4000, 'guide opens (heading settled)');
+  const race = await H.eval(`document.querySelector('.howto-dialog').innerText`);
+  await H.shot('75-how-to-play.png');
+  await H.eval(`document.querySelector('.howto-dialog .primary').click()`);
+  await H.waitFor(`!document.querySelector('.howto-dialog').open`);
+  check('how to play: the lobby button explains the selected mode', /Terminal Race/.test(first) && /HOW TO PLAY: TERMINAL RACE/i.test(race) && /root/i.test(race) && /Tip/.test(race), race.slice(0, 120));
+  await H.click('.mode-card[data-mode=koth]');
+  await H.waitFor(`document.getElementById('howToBtn').textContent.includes('King of the Hill')`, 3000, 'button follows the mode');
+  await H.click('#startBtn');
+  await H.waitFor(`document.body.dataset.screen === 'game'`, 5000, 'game');
+  await H.click('#gameHowTo');
+  await H.waitFor(`document.querySelector('.howto-dialog')?.open && document.querySelector('.howto-dialog').innerText.includes('fortify')`, 3000, 'guide in game');
+  check('how to play: the ? in a game explains that game', true);
+  await H.eval(`document.querySelector('.howto-dialog').close()`);
+  check('how to play: no errors', H.errors.length === 0, H.errors.join(' | '));
+  await H.click('#gameLeave');
+  await H.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

@@ -5,6 +5,7 @@ import { hasBadWords } from './filter.js';
 import { quickChats } from './emotes.js';
 import { createSpectate } from './spectate.js';
 import { createMusic, trackFor } from './music.js';
+import { showHowTo } from './howto.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
@@ -1055,6 +1056,8 @@ function renderPodium(results) {
 $('gameLeave').addEventListener('click', () => {
   if (confirm('Leave this game?')) leaveRoom();
 });
+// How to play the selected mode (lobby) or the one you're in (game).
+for (const id of ['howToBtn', 'gameHowTo']) $(id).addEventListener('click', (e) => { e.currentTarget.blur(); if (state.room) showHowTo(state.room.mode); });
 $('gameAbort').addEventListener('click', () => {
   if (state.room && state.room.hostId === state.net.uid && confirm('End this round for everyone and go back to the lobby?')) {
     backToLobby(state.room, state.net, state.code);

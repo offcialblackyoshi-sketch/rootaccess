@@ -1337,3 +1337,20 @@ test('king of the hill: locks are fair and solvable, the host picks the first ca
   assert.equal(heldMs({ id: 'b', s: { held: 5000 } }, hill, now), 9000);
   assert.equal(heldMs({ id: 'a', s: { held: 2000 } }, hill, now), 2000);
 });
+
+test('how to play: every mode in the lobby has a kid-friendly guide', async () => {
+  const { guideFor } = await import('../src/howto.js');
+  const { hasBadWords } = await import('../src/filter.js');
+  for (const id of MODE_ORDER) {
+    const g = guideFor(id);
+    assert.ok(g, `${id} has a guide`);
+    assert.ok(g.goal && g.controls && g.tip && g.steps.length >= 3, `${id} guide is complete`);
+    for (const line of [g.goal, g.controls, g.tip, ...g.steps]) {
+      assert.ok(typeof line === 'string' && line.length > 5 && line.length < 200, `${id}: short, readable lines`);
+      assert.ok(!hasBadWords(line), `${id}: kid-safe text`);
+    }
+  }
+  assert.equal(guideFor('nope'), null);
+  assert.match(guideFor('koth').steps.join(' '), /fortify/);
+  assert.match(guideFor('letterlock').steps[0], /Space|Enter/, 'mini-games reuse their own instructions');
+});

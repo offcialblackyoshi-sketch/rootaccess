@@ -99,6 +99,8 @@ export function renderLobby({ room, net, code, onLeave, canModerate = false, onA
   $('lobbyCount').textContent = `${players.length}/8`;
 
   // ---- Modes ----
+  const howTo = $('howToBtn');
+  if (howTo) howTo.textContent = `? How to play ${MODES[room.mode]?.name || ''}`;
   const modesEl = $('lobbyModes');
   modesEl.innerHTML = '';
   for (const id of MODE_ORDER) {

@@ -1241,3 +1241,12 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 .koth-shield { color: #4dd9ff; font-weight: 700; }
 .koth-shield[hidden] { display: none; }
 .koth.held-by-me { box-shadow: 0 0 0 1px #e879f9, 0 0 24px rgba(232, 121, 249, 0.25); }
+
+/* ---- How to play ---- */
+.mission-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.mission-head h2 { margin: 0; }
+.howto-dialog { width: min(520px, calc(100% - 32px)); }
+.howto-goal { font-size: 16px; color: var(--accent); margin: 4px 0; }
+.howto-steps { margin: 0; padding-left: 22px; display: grid; gap: 6px; line-height: 1.45; }
+.howto-tip { border-left: 3px solid var(--accent); padding-left: 8px; }
+#gameHowTo { min-width: 32px; }

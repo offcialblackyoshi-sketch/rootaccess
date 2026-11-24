@@ -966,6 +966,15 @@ await step('trophy case', async () => {
   await T.shot('40-trophy-case.png');
   const total = Number((info.count.match(/\/(\d+) trophies/) || [])[1] || 0);
   check('trophies: the case lists 125+ trophies with hidden secret ones', total >= 125 && info.secrets >= 8, JSON.stringify(info));
+  // Progress bars on locked count trophies.
+  await T.eval(`document.getElementById('trophyDialog').close()`);
+  await T.eval(`localStorage.setItem('ra-trophies', JSON.stringify({ unlocked: {}, c: { rounds: 34 } }))`);
+  await T.click('#trophyBtn');
+  await T.waitFor(`document.getElementById('trophyDialog').open`);
+  const bar = await T.eval(`[...document.querySelectorAll('.trophy')].find((x) => x.innerText.includes('Play 100 rounds.'))?.querySelector('.trophy-bar')?.innerText || ''`);
+  await T.shot('41-trophy-progress.png');
+  check('trophies: locked trophies show progress like 34/100', bar.includes('34/100'), bar);
+  await T.eval(`localStorage.removeItem('ra-trophies')`);
   await T.eval(`document.getElementById('trophyDialog').close()`);
   // Try all three styles: the secret "Fashion Hacker" trophy pops up.
   for (const style of ['cyber', 'amber', 'green']) {

@@ -165,7 +165,7 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
 - **Also added:**
   - **Quick-chat:** "Lock is …", "Fortify now! 🛡", "Coming for the hill 😎" and "Get them! ⚔️".
   - **Spectators** see each player's time on top, with a 👑 for the holder.
-  - **New Explorer trophies:** "King of the Hill Regular" and "Expert", now 137 trophies in total.
+  - **New Explorer trophies:** "King of the Hill Champ", "Regular" and "Expert", now 138 trophies in total.
 - **Verified:**
   - **Unit tests (71 passing):**
     - **Locks:** 480 of them (60 seeds × 8 captures) are the same for everyone, use all 4 kinds, and each can be worked out from its prompt. Math is right, scrambles use the same letters and are never already solved, and answers ignore capitals and spaces.
@@ -189,4 +189,17 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
 - **Verified:**
   - **Unit test (72 passing):** every mode in the lobby has a complete guide with short lines, and the kid-safe filter finds nothing in any of them.
   - **Browser test:** the lobby button names the selected mode and opens the Terminal Race guide. It switches to King of the Hill when the mode changes, and the ? in a running game opens that game's guide. No errors.
+- **Rules:** no change needed.
+
+### 10. Trophy progress bars
+- **Before:** a locked trophy only said what to do, like "Play 100 rounds.", with no hint of how close you were.
+- **Now:** 81 of the 138 trophies show a small progress bar on their locked card ("34/100") once you've started on them:
+  - All the count trophies: rounds, wins, streaks, quick hacks, online rounds, days, and so on.
+  - Every level trophy: your level out of the target.
+  - The Explorer ones: modes tried out of 14, and plays or wins of a mode out of 10.
+- Yes/no trophies (like "send a chat message") and secret trophies don't get a bar.
+- **Verified:**
+  - **Unit test (73 passing):** progress for counts, levels and Explorer trophies, capped at 100%; no bar for yes/no trophies. For every trophy with a bar, it reads 100% whenever the trophy's own unlock rule passes, so bars and unlocking can never disagree.
+  - **Browser test:** with 34 rounds played, the locked "Play 100 rounds" card shows 34/100.
+  - **Full suite:** the full browser suite was run once after both #9 and #10.
 - **Rules:** no change needed.

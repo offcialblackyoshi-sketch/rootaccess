@@ -19,7 +19,9 @@ const MODE_NAMES = {
 const t = (id, cat, icon, name, desc, test, secret = false) => ({ id, cat, icon, name, desc, test, secret });
 // Secret trophies show as "???" until you earn them.
 const secret = (id, icon, name, desc, test) => t(id, 'Secret', icon, name, desc, test, true);
-const count = (n, field, cat, icon, name, desc) => t(`${field.toLowerCase()}-${n}`, cat, icon, name, desc, (c) => (c[field] || 0) >= n);
+const count = (n, field, cat, icon, name, desc) => ({ ...t(`${field.toLowerCase()}-${n}`, cat, icon, name, desc, (c) => (c[field] || 0) >= n), goal: (c) => [c[field] || 0, n] });
+// A trophy with a progress bar: goal(counters, level) -> [have, need].
+const withGoal = (tr, goal) => ({ ...tr, goal });
 
 export const TROPHIES = [
   // Getting started
@@ -39,7 +41,7 @@ export const TROPHIES = [
   t('beat-hard', 'Winning', '🤖', 'Bot Slayer', 'Win against hard bots.', (c) => (c.hardWins || 0) > 0),
   t('big-win', 'Winning', '👑', 'King of the Hill', 'Win a round with 4 or more players.', (c) => (c.bigWins || 0) > 0),
   // Levels
-  ...[3, 5, 8, 12, 16, 20].map((l, i) => t(`level-${l}`, 'Levels', ['⭐', '🌟', '✨', '💫', '🌠', '🪐'][i], `Level ${l}`, `Reach level ${l}.`, (c, ev, level) => level >= l)),
+  ...[3, 5, 8, 12, 16, 20].map((l, i) => withGoal(t(`level-${l}`, 'Levels', ['⭐', '🌟', '✨', '💫', '🌠', '🪐'][i], `Level ${l}`, `Reach level ${l}.`, (c, ev, level) => level >= l), (c, level) => [level, l])),
   // Every mode
   ...Object.entries(MODE_NAMES).map(([id, name]) => t(`win-${id}`, 'Every mode', '✔️', `${name} Champ`, `Win a round of ${name}.`, (c) => (c.modeWins?.[id] || 0) > 0)),
   // Quick hacks
@@ -78,13 +80,13 @@ export const TROPHIES = [
   count(10, 'bestStreak', 'Winning', '🌋', 'Meltdown', 'Win 10 rounds in a row.'),
   count(5, 'seconds', 'Winning', '🥈', 'So Close', 'Finish 2nd five times.'),
   t('underdog', 'Winning', '🐺', 'Underdog', 'Win against 3 or more hard bots at once.', (c) => (c.underdog || 0) > 0),
-  ...[25, 30, 40, 50].map((l, i) => t(`level-${l}`, 'Levels', ['🔱', '💠', '🌌', '🧿'][i], `Level ${l}`, `Reach level ${l}.`, (c, ev, level) => level >= l)),
+  ...[25, 30, 40, 50].map((l, i) => withGoal(t(`level-${l}`, 'Levels', ['🔱', '💠', '🌌', '🧿'][i], `Level ${l}`, `Reach level ${l}.`, (c, ev, level) => level >= l), (c, level) => [level, l])),
 
   // ---- Explorer: every mode ----
-  t('all-modes', 'Explorer', '🧭', 'Tourist', 'Play every mode at least once.', (c) => Object.keys(MODE_NAMES).every((m) => (c.modePlays?.[m] || 0) > 0)),
-  t('all-wins', 'Explorer', '🗺️', 'Jack of All Hacks', 'Win every mode at least once.', (c) => Object.keys(MODE_NAMES).every((m) => (c.modeWins?.[m] || 0) > 0)),
-  ...Object.entries(MODE_NAMES).map(([id, name]) => t(`play10-${id}`, 'Explorer', '🔁', `${name} Regular`, `Play 10 rounds of ${name}.`, (c) => (c.modePlays?.[id] || 0) >= 10)),
-  ...Object.entries(MODE_NAMES).map(([id, name]) => t(`win10-${id}`, 'Explorer', '🏵️', `${name} Expert`, `Win 10 rounds of ${name}.`, (c) => (c.modeWins?.[id] || 0) >= 10)),
+  withGoal(t('all-modes', 'Explorer', '🧭', 'Tourist', 'Play every mode at least once.', (c) => Object.keys(MODE_NAMES).every((m) => (c.modePlays?.[m] || 0) > 0)), (c) => [Object.keys(MODE_NAMES).filter((m) => (c.modePlays?.[m] || 0) > 0).length, Object.keys(MODE_NAMES).length]),
+  withGoal(t('all-wins', 'Explorer', '🗺️', 'Jack of All Hacks', 'Win every mode at least once.', (c) => Object.keys(MODE_NAMES).every((m) => (c.modeWins?.[m] || 0) > 0)), (c) => [Object.keys(MODE_NAMES).filter((m) => (c.modeWins?.[m] || 0) > 0).length, Object.keys(MODE_NAMES).length]),
+  ...Object.entries(MODE_NAMES).map(([id, name]) => withGoal(t(`play10-${id}`, 'Explorer', '🔁', `${name} Regular`, `Play 10 rounds of ${name}.`, (c) => (c.modePlays?.[id] || 0) >= 10), (c) => [c.modePlays?.[id] || 0, 10])),
+  ...Object.entries(MODE_NAMES).map(([id, name]) => withGoal(t(`win10-${id}`, 'Explorer', '🏵️', `${name} Expert`, `Win 10 rounds of ${name}.`, (c) => (c.modeWins?.[id] || 0) >= 10), (c) => [c.modeWins?.[id] || 0, 10])),
 
   // ---- Skill: one group per classic mode ----
   t('race-nohint', 'Skill', '🧠', 'No Hints Needed', 'Win a Terminal Race without using a hint.', (c) => (c.raceNoHint || 0) > 0),
@@ -396,3 +398,11 @@ export function trophyInfo(id) {
 }
 
 export const trophyCount = (s = getTrophyState()) => Object.keys(s.unlocked).length;
+
+// How close you are to a locked trophy: { have, need, pct } (null if it isn't a count).
+export function trophyProgress(tr, counters = {}, level = 1) {
+  if (!tr?.goal) return null;
+  const [have, need] = tr.goal(counters, level);
+  const h = Math.max(0, Math.min(Number(have) || 0, need));
+  return { have: h, need, pct: Math.round((100 * h) / need) };
+}

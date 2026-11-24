@@ -1354,3 +1354,24 @@ test('how to play: every mode in the lobby has a kid-friendly guide', async () =
   assert.match(guideFor('koth').steps.join(' '), /fortify/);
   assert.match(guideFor('letterlock').steps[0], /Space|Enter/, 'mini-games reuse their own instructions');
 });
+
+test('trophy progress: locked count trophies show how close you are', async () => {
+  const { TROPHIES, trophyProgress } = await import('../src/trophies.js');
+  const find = (id) => TROPHIES.find((t) => t.id === id);
+  assert.deepEqual(trophyProgress(find('rounds-100'), { rounds: 34 }), { have: 34, need: 100, pct: 34 });
+  assert.deepEqual(trophyProgress(find('rounds-100'), { rounds: 340 }), { have: 100, need: 100, pct: 100 }, 'never over 100%');
+  assert.deepEqual(trophyProgress(find('rounds-100'), {}), { have: 0, need: 100, pct: 0 });
+  assert.deepEqual(trophyProgress(find('level-25'), {}, 12), { have: 12, need: 25, pct: 48 });
+  assert.equal(trophyProgress(find('play10-koth'), { modePlays: { koth: 3 } }).have, 3);
+  assert.equal(trophyProgress(find('all-modes'), { modePlays: { race: 1, duel: 2 } }).have, 2);
+  assert.equal(trophyProgress(find('chat'), { chatSent: true }), null, 'yes/no trophies have no bar');
+  assert.ok(TROPHIES.filter((t) => t.goal).length >= 60, 'most trophies have a goal');
+  // Progress agrees with unlocking: 100% exactly when the trophy's test passes.
+  for (const tr of TROPHIES.filter((t) => t.goal)) {
+    for (const n of [0, 1, 9, 10, 49, 50, 100, 1000]) {
+      const c = { rounds: n, wins: n, quickClears: n, modePlays: { race: n, koth: n }, modeWins: { race: n, koth: n } };
+      const p = trophyProgress(tr, c, n);
+      if (tr.test(c, {}, n)) assert.equal(p.pct, 100, `${tr.id} at ${n}`);
+    }
+  }
+});

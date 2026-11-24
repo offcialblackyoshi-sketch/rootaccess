@@ -27,7 +27,7 @@ import { confetti } from './fx/confetti.js';
 import { scrambleHeadings } from './fx/scramble.js';
 import { createSocial } from './social.js';
 import { trophyCount as countTrophies } from './trophies.js';
-import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag, bumpCounter } from './trophies.js';
+import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag, bumpCounter, trophyProgress } from './trophies.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
@@ -987,6 +987,9 @@ function fmtLeft(ms) {
 function trophyCard(tr, got, extra = null) {
   // Secret trophies stay a mystery until you earn them.
   const hidden = tr.secret && !got;
+  // Locked count trophies show how close you are.
+  const prog = !got && !hidden && !extra ? trophyProgress(tr, getTrophyState().c, lvl()) : null;
+  if (prog && prog.have > 0) extra = el('div', { class: 'trophy-bar', title: `${prog.have} of ${prog.need}` }, el('span', { style: { width: `${prog.pct}%` } }), el('em', { class: 'small' }, `${prog.have}/${prog.need}`));
   const desc = hidden ? 'Secret trophy. Keep playing to find it!' : tr.desc;
   return el('div', { class: 'trophy' + (got ? ' got' : '') + (tr.secret ? ' secret' : ''), title: desc },
     el('span', { class: 'trophy-icon' }, got ? tr.icon : hidden ? '❓' : '🔒'),

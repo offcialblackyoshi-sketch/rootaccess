@@ -19,6 +19,12 @@ Work happens on the `overnight` branch, one focused improvement per commit. Ever
 
 ## Done
 
+### Decoration: trophy tiers
+- Every trophy is now 🥉 **bronze** (first steps), 🥈 **silver** (mid goals) or 🥇 **gold** (the hard ones). Weekly trophies are 🗓️ **cyan**.
+- Earned trophies take their tier's color, with a glowing icon and a shine that sweeps across on hover. Gold ones shimmer on their own, and unlock pop-ups on the results screen shine as they appear.
+- The trophy case header counts your gold, silver, bronze and weekly trophies. Shine effects are off with **Reduce motion**.
+
+
 ### Decoration: pixel avatars
 - Every player gets a pixel-art avatar made from their name, in their color: a mirrored 5×5 pattern that's the same on every device.
 - Shown in the room lobby, the online-players panel, profiles (large), the results list, the leaderboard and the account card.

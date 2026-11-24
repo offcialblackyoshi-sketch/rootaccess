@@ -919,3 +919,15 @@ test('login: failed logins explain username vs email and Caps Lock', async () =>
   assert.match(loginFailMessage({ code: 'auth/too-many-requests' }, 'x'), /Too many tries/);
   assert.match(loginFailMessage({ code: 'auth/network-request-failed' }, 'x'), /No connection/);
 });
+
+test('trophy tiers: every trophy has one, and all tiers are used', async () => {
+  const T = await import('../src/trophies.js');
+  const tiers = T.TROPHIES.map((t) => T.tierOf(t));
+  for (const x of tiers) assert.ok(['bronze', 'silver', 'gold'].includes(x), x);
+  for (const x of ['bronze', 'silver', 'gold']) assert.ok(tiers.includes(x), `${x} is used`);
+  assert.equal(T.tierOf(T.weeklyFor('2026-W48')), 'weekly');
+  assert.equal(T.tierOf(T.trophyInfo('weekly-2026-W40')), 'weekly');
+  assert.equal(T.tierOf(T.TROPHIES.find((t) => t.id === 'rounds-1')), 'bronze');
+  assert.equal(T.tierOf(T.TROPHIES.find((t) => t.id === 'level-20')), 'gold');
+  for (const x of T.TIERS) assert.ok(T.TIER_LABEL[x]);
+});

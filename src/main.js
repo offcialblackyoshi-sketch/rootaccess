@@ -22,7 +22,7 @@ import { confetti } from './fx/confetti.js';
 import { scrambleHeadings } from './fx/scramble.js';
 import { createSocial } from './social.js';
 import { trophyCount as countTrophies } from './trophies.js';
-import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag } from './trophies.js';
+import { TROPHIES, tierOf, TIER_LABEL, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag } from './trophies.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
@@ -929,9 +929,10 @@ function showNewTrophies(list) {
   box.innerHTML = '';
   box.hidden = !list.length;
   for (const [i, tr] of list.entries()) {
-    box.append(el('div', { class: 'trophy-pop' + (tr.week ? ' weekly' : ''), style: { '--i': i } },
+    const tier = tierOf(tr);
+    box.append(el('div', { class: `trophy-pop tier-${tier}` + (tr.week ? ' weekly' : ''), style: { '--i': i } },
       el('span', { class: 'trophy-icon' }, tr.icon),
-      el('div', {}, el('div', { class: 'small dim' }, tr.week ? 'WEEKLY TROPHY UNLOCKED' : 'TROPHY UNLOCKED'), el('strong', {}, tr.name))));
+      el('div', {}, el('div', { class: 'small trophy-tier' }, `${TIER_LABEL[tier]} · UNLOCKED`), el('strong', {}, tr.name))));
   }
   if (list.length) setTimeout(() => { sfx.ok(); rain.burst({ color: '#ffd23d' }); confetti({ from: 'center', amount: 60, colors: ['#ffd23d', '#ffb000', '#fff3b0'] }); }, 900);
 }
@@ -944,9 +945,11 @@ function fmtLeft(ms) {
   return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${Math.max(0, Math.floor((ms % 3600000) / 60000))}m`;
 }
 function trophyCard(tr, got, extra = null) {
-  return el('div', { class: 'trophy' + (got ? ' got' : ''), title: tr.desc },
+  const tier = tierOf(tr);
+  return el('div', { class: `trophy tier-${tier}` + (got ? ' got' : ''), title: tr.desc },
     el('span', { class: 'trophy-icon' }, got ? tr.icon : '🔒'),
-    el('div', {}, el('strong', {}, tr.name), el('div', { class: 'small dim' }, tr.desc), extra));
+    el('div', {}, el('strong', {}, tr.name), el('div', { class: 'small dim' }, tr.desc),
+      el('div', { class: 'small trophy-tier' }, TIER_LABEL[tier]), extra));
 }
 function renderTrophies() {
   const s = getTrophyState();
@@ -955,7 +958,8 @@ function renderTrophies() {
   const total = TROPHIES.length;
   const have = TROPHIES.filter((tr) => s.unlocked[tr.id]).length;
   const weeklies = Object.keys(s.unlocked).filter((id) => id.startsWith('weekly-')).sort().reverse();
-  $('trophyCount').textContent = `${have}/${total} trophies · ${weeklies.length} weekly`;
+  const byTier = (tier) => TROPHIES.filter((tr) => s.unlocked[tr.id] && tierOf(tr) === tier).length;
+  $('trophyCount').textContent = `${have}/${total} trophies · 🥇 ${byTier('gold')} · 🥈 ${byTier('silver')} · 🥉 ${byTier('bronze')} · 🗓️ ${weeklies.length} weekly`;
   // This week's trophy first.
   const wk = weeklyFor();
   const got = !!s.unlocked[wk.id];

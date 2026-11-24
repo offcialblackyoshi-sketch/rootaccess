@@ -233,3 +233,28 @@ Each player on the Mission Report now has a stats line under their name:
     - The boot intro plays once.
     - Reduce motion stops animations and the rain.
   - I reviewed screenshots of the menu, lobby, and a game in all 3 styles, plus results and phone width.
+
+
+### Owner perks, safer owner name, and Delete my account
+- **Who's the owner:** the account with `roles/<account id> = "owner"`, set by hand in the Firebase console. The game can never write it. The README explains how (copy your **Account ID** from the account card).
+- **Owner name protected by the database:** before, only the game page stopped others from using the name `brisky2swifty`, so someone with dev tools could fake the 👑 badge. Now the rules refuse any name containing it, in rooms, room chat, results, lobby chat, public room listings, the online list, and private messages, unless it comes from the owner. Each tab links its guest sign-in to its account from both sides (`sessions/` and `acctSessions/`), so the rules can tell it's really the owner. Only the owner can claim the handle.
+- **Moderator powers:**
+  - Owners get a 🗑 to delete any lobby chat message.
+  - **Ban 1 hour / 1 day / forever** (and **Unban**) from any player's profile in the 👥 list. Banned players can't use lobby chat, private messages, or create, list or join public rooms, and they're told why.
+  - Kick anyone from a room you're in, even if you're not the host.
+  - **Close** any public room from the multiplayer lobby, which sends everyone in it back to the menu.
+- **Announcements:** **Owner tools** on the menu posts a banner to the top of everyone's screen, which each player can dismiss. **Clear banner** removes it for everyone.
+- **Owner flair:**
+  - A shimmering gold 👑 owner badge, a glowing gold name, and gold-highlighted chat messages.
+  - A gold celebration (notice, confetti, gold rain) when the owner enters a room.
+  - An exclusive **👑 Owner gold** style in Settings that only the owner sees.
+- **Delete my account** on the account card: confirms with your password (or the Google window), frees your name, removes your leaderboard rows and saved profile, then deletes the login. The rules now allow deleting your own leaderboard rows.
+- **Known limit:** guests get a new identity when they open a new tab, so a guest can dodge a ban by reopening the game. Bans on signed-in players follow their account.
+- **Setup:** publish the updated `database.rules.json`, after the `brisky2swifty` account exists and `roles/<its id>` is set (see README).
+
+
+### Login: clearer failures, Caps Lock warning, no early-click failures
+- **"Correct name and password but it won't log in":** the login box says "Username or email", but a **username** only works for accounts made **without** an email. Accounts made with an email have to log in with that email. A failed username login now says so, instead of just "wrong password". The account card also shows how you log in ("log in with your email, not your username").
+- **Caps Lock warning** under both password boxes. Passwords are case-sensitive, and **Alt + Search** turns Caps Lock on by accident on a Chromebook.
+- **Clicking too early no longer fails:** Log in, Create account, and Continue with Google now wait (up to 12 s) for the online connection instead of saying "Online play is not available right now" during the first seconds after the page opens.
+- **Verified:** a new unit test checks the login messages (username versus email, Caps Lock, too many tries, no connection). 56/56 unit tests and 102/102 end-to-end checks pass.

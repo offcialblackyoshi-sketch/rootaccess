@@ -7,14 +7,15 @@ import { startSession } from './game.js';
 import { createChat } from './chat.js';
 import { sfx } from './sfx.js';
 import { el, load, save, playerList, COLORS, fmtTime } from './util.js';
-import { initSettingsDialog, getSettings } from './settings.js';
+import { initSettingsDialog, getSettings, applySettings } from './settings.js';
+import { createOwnerTools, toast, describeBan } from './owner.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
 import { MODES } from './modes/index.js';
-import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle, createAccount, logIn, resetPassword } from './account.js';
+import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle, createAccount, logIn, resetPassword, deleteAccount, accountId } from './account.js';
 import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
-import { specialTitle } from './progress.js';
+import { specialTitle, specialKind } from './progress.js';
 import { startBadges } from './badges.js';
 import { avatarEl } from './avatar.js';
 import { confetti } from './fx/confetti.js';
@@ -25,6 +26,31 @@ import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, week
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Owner: decided by the database (roles/<account id> = "owner"). On this
+// computer only, ?local=1&owner=1 previews the owner tools (used by the tests).
+// ---------------------------------------------------------------------------
+const LOCAL_OWNER_TEST = (() => { const q = new URLSearchParams(location.search); return q.has('local') && q.has('owner'); })();
+const ownerMode = () => !!accountState().owner || LOCAL_OWNER_TEST;
+const ownerTools = createOwnerTools({ isOwner: ownerMode, sfx });
+function renderOwner() {
+  const on = ownerMode();
+  document.documentElement.classList.toggle('is-owner', on);
+  $('ownerBtn').hidden = !on;
+  applySettings(); // "Owner gold" style only applies for the owner
+  updateRain?.();
+  ownerTools.attach(roomNet());
+}
+$('ownerBtn').addEventListener('click', () => ownerTools.open());
+// The ids a ban could be on: this tab, and the signed-in account.
+const myIds = () => [roomNet().uid, accountId()];
+// Turn "permission denied" into a clear message when you're banned.
+function friendlyError(e) {
+  const ban = ownerTools.banOf(myIds());
+  if (ban && /permission|banned/i.test(String(e?.message || e))) return `You're banned from public chat and public rooms ${describeBan(ban)}.`;
+  return e?.message || String(e);
+}
 
 // Matrix rain background. Off when "reduce motion" is on.
 const rain = createMatrixRain(document.getElementById('matrixBg'));
@@ -203,11 +229,14 @@ function renderAccount(a) {
       el('div', { class: 'acct-who' },
         avatarEl(a.handle, myColor, 40),
         el('div', {}, el('strong', { class: 'acct-name' }, a.handle),
-          el('div', { class: 'dim small' }, a.provider === 'google.com' ? 'Signed in with Google' : a.noEmail ? 'Username account' : 'Email account'))),
+          el('div', { class: 'dim small' }, a.provider === 'google.com' ? 'Signed in with Google' : a.noEmail ? 'Username account · log in with your username' : 'Email account · log in with your email, not your username'))),
       el('div', { class: 'acct-actions' },
         // Username-only accounts log in with their username, so it can't change.
         a.noEmail ? null : el('button', { class: 'mini-btn', type: 'button', onclick: () => openHandleDialog() }, 'Change name'),
-        el('button', { class: 'mini-btn', type: 'button', id: 'signOutBtn', onclick: () => { signOut(); acctMsg(''); } }, 'Sign out')));
+        el('button', { class: 'mini-btn', type: 'button', id: 'signOutBtn', onclick: () => { signOut(); acctMsg(''); } }, 'Sign out')),
+      el('div', { class: 'acct-id small dim' }, 'Account ID: ', el('code', {}, accountId() || '?'),
+        el('button', { class: 'mini-btn', type: 'button', title: 'Copy your account ID', onclick: () => navigator.clipboard?.writeText(accountId() || '').then(() => toast('Account ID copied.', 'ok')).catch(() => {}) }, 'Copy')),
+      el('button', { class: 'link-btn danger', type: 'button', id: 'deleteAcctBtn', onclick: () => openDeleteDialog(a) }, 'Delete my account'));
     if (!a.error) acctMsg('Your progress saves to your account.', 'ok');
     const got = markFlag('account', levelFor(getProgress().xp).level);
     if (got.length) acctMsg(`🏆 Trophy unlocked: ${got.map((tr) => tr.name).join(', ')}`, 'ok');
@@ -230,6 +259,7 @@ function renderAccount(a) {
       el('p', { class: 'dim small' }, 'Save your progress on any device and get on the leaderboards. Or just play as a guest.'));
   }
   if (a.error) acctMsg(a.error, 'err');
+  renderOwner();
   social?.touch(); // saved chats follow your account
   renderLevel();
   renderColors();
@@ -274,6 +304,18 @@ function showAuthTab(which) {
   $('tabLogin').setAttribute('aria-selected', String(login));
   $('tabSignup').setAttribute('aria-selected', String(!login));
 }
+// Warn when Caps Lock is on (passwords are case-sensitive; on a Chromebook,
+// Alt + Search turns Caps Lock on by accident).
+function capsWarning(input) {
+  const warn = el('p', { class: 'small warn caps-warn', hidden: true }, '⚠ Caps Lock is on');
+  input.after(warn);
+  const check = (e) => { if (e.getModifierState) warn.hidden = !e.getModifierState('CapsLock'); };
+  input.addEventListener('keydown', check);
+  input.addEventListener('keyup', check);
+  input.addEventListener('blur', () => { warn.hidden = true; });
+}
+capsWarning($('loginPw'));
+capsWarning($('signupPw'));
 $('tabLogin').addEventListener('click', () => showAuthTab('login'));
 $('tabSignup').addEventListener('click', () => showAuthTab('signup'));
 $('authClose').addEventListener('click', () => $('authDialog').close());
@@ -342,7 +384,7 @@ $('handleCancel').addEventListener('click', () => $('handleDialog').close());
 function myName() {
   let n = $('nameInput').value.trim().replace(/[^\w.\-]/g, '').slice(0, 14) || 'anon';
   // Names with a special title are only for whoever is signed in as them.
-  if (specialTitle(n) && accountState().handle?.toLowerCase() !== n.toLowerCase()) n = n.slice(0, 10) + '_fan';
+  if (specialTitle(n) && accountState().handle?.toLowerCase() !== n.toLowerCase() && !(LOCAL_OWNER_TEST && specialKind(n) === 'owner')) n = n.slice(0, 10) + '_fan';
   save('ra-name', n);
   return n;
 }
@@ -358,6 +400,52 @@ function makePlayer(net, room) {
   const color = usedColors.has(myColor) ? COLORS.find((c) => !usedColors.has(c)) || myColor : myColor;
   return { name, color, ready: false, joinedAt: net.now(), level: levelFor(getProgress().xp).level, title: myTitle(), special: !!(accountState().handle && specialTitle(accountState().handle)) };
 }
+
+// When the owner shows up in a room: a gold celebration for everyone.
+function ownerArrives(p) {
+  if (specialKind(p.name) !== 'owner') return;
+  toast(`👑 ${p.name}, the owner, has entered the room!`, 'owner', 4500);
+  rain.burst({ color: '#ffd23d' });
+  confetti({ from: 'center', amount: 70, colors: ['#ffd23d', '#ffb000', '#fff3b0'] });
+  sfx.win();
+}
+
+// ---------------------------------------------------------------------------
+// Delete my account
+// ---------------------------------------------------------------------------
+const delPw = el('input', { type: 'password', autocomplete: 'current-password', placeholder: 'Your password', 'aria-label': 'Your password' });
+const delConfirm = el('input', { type: 'text', autocomplete: 'off', placeholder: 'Type DELETE', 'aria-label': 'Type DELETE to confirm' });
+const delMsg = el('p', { class: 'small err' });
+const delGo = el('button', { type: 'button', class: 'danger-btn', id: 'deleteGo' }, 'Delete forever');
+const delDialog = el('dialog', { class: 'owner-dialog', id: 'deleteDialog', 'aria-label': 'Delete my account' },
+  el('h2', {}, '// DELETE ACCOUNT'),
+  el('p', {}, 'This permanently deletes your account: your name becomes free for anyone, and your saved XP, trophies and leaderboard rows are removed. Progress saved on this device stays.'),
+  delPw, delConfirm,
+  el('div', { class: 'actions' }, delGo, el('button', { type: 'button', onclick: () => delDialog.close() }, 'Cancel')),
+  delMsg);
+document.body.append(delDialog);
+function openDeleteDialog(a) {
+  // Google accounts confirm in the Google window instead of a password.
+  delPw.hidden = a.provider === 'google.com';
+  delPw.value = '';
+  delConfirm.value = '';
+  delMsg.textContent = '';
+  delDialog.showModal();
+}
+delGo.addEventListener('click', async () => {
+  if (delConfirm.value.trim().toUpperCase() !== 'DELETE') { delMsg.textContent = 'Type DELETE to confirm.'; return; }
+  delGo.disabled = true;
+  delMsg.textContent = '';
+  try {
+    await deleteAccount(delPw.value);
+    delDialog.close();
+    menuMessage('Your account was deleted. You can keep playing as a guest.', 'ok');
+  } catch (e) {
+    delMsg.textContent = e.message;
+  } finally {
+    delGo.disabled = false;
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Online status
@@ -406,7 +494,7 @@ async function withBusy(btn, fn) {
     await fn();
   } catch (e) {
     console.error(e);
-    menuMessage(e.message || String(e));
+    menuMessage(friendlyError(e));
   } finally {
     buttons.forEach((b) => (b.disabled = false));
   }
@@ -429,7 +517,9 @@ const LISTING_STALE_MS = 90000; // hide rooms whose host stopped refreshing
 const browse = { net: null, off: null, data: { rooms: {}, chat: {} } };
 const lobbyChat = createChat({
   sfx,
-  onSend: (text) => browse.net?.lobbySay({ name: myName(), color: myColor, text: text.slice(0, 200) }).catch((e) => menuMessage(e.message)),
+  onSend: (text) => browse.net?.lobbySay({ name: myName(), color: myColor, text: text.slice(0, 200) }).catch((e) => toast(friendlyError(e), 'err')),
+  canDelete: () => ownerMode(),
+  onDelete: (key) => ownerTools.deleteLobbyMsg(key).catch((e) => toast(`Couldn't delete: ${e.message}`, 'err')),
 });
 lobbyChat.root.querySelector('.chat-title').textContent = '// LOBBY CHAT';
 
@@ -468,7 +558,8 @@ function renderBrowse() {
       el('div', { class: 'browse-info' },
         el('strong', {}, r.name),
         el('div', { class: 'dim small' }, `${mode?.name || r.mode} · ${r.players}/${r.max || 8} players`)),
-      el('button', { class: 'primary mini-btn', 'data-join': code, onclick: (e) => withBusy(e.target, async () => { await joinCode(code); if (state.code) closeBrowse(); }) }, 'Join')));
+      el('button', { class: 'primary mini-btn', 'data-join': code, onclick: (e) => withBusy(e.target, async () => { await joinCode(code); if (state.code) closeBrowse(); }) }, 'Join'),
+      ownerMode() ? el('button', { class: 'mini-btn danger', 'data-close': code, title: 'Close this room for everyone', onclick: () => { if (confirm(`Close ${r.name} for everyone in it?`)) ownerTools.closeRoom(code).then(() => toast('Room closed.', 'ok')).catch((e) => toast(`Couldn't close it: ${e.message}`, 'err')); } }, 'Close') : null));
   }
 }
 $('browseBtn').addEventListener('click', () => { sfx.unlock(); menuMessage(''); openBrowse(); });
@@ -733,7 +824,7 @@ function onRoom(room) {
     stopSession();
     state.shownResultsFor = null;
     chat.mount($('lobbyChat'));
-    renderLobby({ room, net: state.net, code: state.code, onLeave: () => leaveRoom() });
+    renderLobby({ room, net: state.net, code: state.code, onLeave: () => leaveRoom(), canModerate: ownerMode(), onArrive: ownerArrives });
     show('lobby');
   } else if (room.status === 'playing') {
     if (!state.session || state.session.round !== room.round) {
@@ -983,7 +1074,8 @@ if (invited && isRoomCode(invited.toUpperCase())) {
   $('codeInput').value = invited.toUpperCase();
   menuMessage(`You've been invited to room ${invited.toUpperCase()}. Pick a name and press Join.`, 'ok');
 }
-connectOnline().then(() => (invited ? false : resumeSeat()));
+connectOnline().then(() => { renderOwner(); return invited ? false : resumeSeat(); });
+renderOwner();
 initAccount(renderAccount).catch((e) => console.warn('account:', e.message));
 
 if ('serviceWorker' in navigator) {
@@ -1000,6 +1092,12 @@ HTMLDialogElement.prototype.showModal = function () { showModal.call(this); scra
 // Online players panel: what others see about you, and what you're doing.
 social = createSocial({
   sfx,
+  owner: {
+    isOwner: ownerMode,
+    banOf: (ids) => ownerTools.banOf(ids),
+    ban: (ids, length, name) => ownerTools.ban(ids, length, name),
+    unban: (ids) => ownerTools.unban(ids),
+  },
   getNet: roomNet,
   profile: () => {
     const p = getProgress();

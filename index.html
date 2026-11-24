@@ -65,6 +65,7 @@
       </div>
       <div class="menu-actions">
         <button id="browseBtn" class="primary" data-icon="globe">Multiplayer lobby</button>
+        <button id="ownerBtn" class="owner-btn" data-icon="crown" hidden>Owner tools</button>
         <button id="createBtn" data-icon="play">Create private room</button>
         <div class="join-row">
           <input id="codeInput" maxlength="4" placeholder="CODE" aria-label="Room code" autocomplete="off" spellcheck="false">
@@ -285,6 +286,7 @@
         <label><span class="swatch-preview green"></span><input type="radio" name="style" value="green"> Hacker green</label>
         <label><span class="swatch-preview cyber"></span><input type="radio" name="style" value="cyber"> Neon cyberpunk</label>
         <label><span class="swatch-preview amber"></span><input type="radio" name="style" value="amber"> Retro amber</label>
+        <label class="owner-only"><span class="swatch-preview gold"></span><input type="radio" name="style" value="gold"> 👑 Owner gold</label>
       </fieldset>
       <fieldset>
         <legend>Text size</legend>

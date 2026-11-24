@@ -13,6 +13,8 @@ import { SNIPPETS, duelStatsText, BONUS_SNIPPETS, pickPowerup } from '../src/mod
 import { score, startNodes, breachTime, defendStatsText } from '../src/modes/defend.js';
 import { botParams, BOT_LEVELS } from '../src/bots.js';
 import { normalizeSettings, defaultSettings } from '../src/settings.js';
+import { banUntil, activeBan, describeBan, FOREVER } from '../src/owner.js';
+import { OWNERS } from '../src/progress.js';
 import { secondsCrossed } from '../src/sfx.js';
 import { columnCount, rainbowColor } from '../src/matrix.js';
 import { roundTime, fmtTime } from '../src/util.js';
@@ -362,7 +364,7 @@ test('every style keeps text readable (WCAG AA contrast)', () => {
     const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
     return (hi + 0.05) / (lo + 0.05);
   };
-  const styles = { green: block(':root'), cyber: block('html[data-style="cyber"]'), amber: block('html[data-style="amber"]') };
+  const styles = { green: block(':root'), cyber: block('html[data-style="cyber"]'), amber: block('html[data-style="amber"]'), gold: block('html[data-style="gold"]') };
   for (const [name, b] of Object.entries(styles)) {
     const bg = hex(b, 'bg');
     const panel = hex(b, 'panel-solid');
@@ -841,4 +843,79 @@ test('avatars: the same name always looks the same, mirrored, never blank', asyn
     assert.ok(c.some(Boolean), 'never blank');
     for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) assert.equal(c[y * 5 + x], c[y * 5 + (4 - x)], 'mirrored');
   }
+});
+
+// ---------------------------------------------------------------------------
+// Owner tools
+// ---------------------------------------------------------------------------
+test('owner: ban lengths and active bans', () => {
+  const now = 1_000_000;
+  assert.equal(banUntil('1h', now), now + 3600000);
+  assert.equal(banUntil('1d', now), now + 86400000);
+  assert.equal(banUntil('forever', now), FOREVER);
+  const bans = { tab1: { until: now + 60000, name: 'x' }, old: { until: now - 1 }, acct9: { until: FOREVER } };
+  assert.equal(activeBan(bans, ['nobody'], now), null);
+  assert.equal(activeBan(bans, ['old'], now), null, 'expired bans do not count');
+  assert.equal(activeBan(bans, [null, 'tab1'], now).id, 'tab1');
+  assert.equal(activeBan(bans, ['acct9'], now).id, 'acct9', 'an account ban covers every tab');
+  assert.equal(describeBan(bans.tab1, now), 'for 1 more minute');
+  assert.equal(describeBan({ until: now + 3 * 3600000 }, now), 'for 3 more hours');
+  assert.equal(describeBan(bans.acct9, now), 'permanently');
+});
+
+test('owner: gold style is a valid setting (only applied for the owner)', () => {
+  assert.equal(normalizeSettings({ style: 'gold' }).style, 'gold');
+});
+
+// The database rules are what really protect the owner's name and powers.
+test('owner: database rules protect the owner name and owner powers', () => {
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url), 'utf8')).rules;
+  const owner = OWNERS[0];
+  const reserved = `contains('${owner}')`;
+  // Every place a player name is stored refuses the owner's name for anyone else.
+  const namePaths = [
+    rules.rooms.$code.players.$uid.name['.validate'],
+    rules.rooms.$code.chat.$msg.name['.validate'],
+    rules.rooms.$code.results.$i.name['.validate'],
+    rules.lobby.chat.$msg['.validate'],
+    rules.lobby.rooms.$code['.validate'],
+    rules.presence.$uid['.validate'],
+    rules.dms.$conv.$msg['.validate'],
+    rules.inbox.$uid.$conv['.validate'],
+    rules.adms.$conv.$msg['.validate'],
+    rules.ainbox.$uid.$conv['.validate'],
+  ];
+  for (const r of namePaths) {
+    assert.ok(r.includes(reserved), 'missing owner-name check: ' + r.slice(0, 80));
+    assert.ok(r.includes("root.child('roles')"), 'owner check must come from roles/');
+  }
+  assert.ok(rules.handles.$name['.write'].includes(`$name !== '${owner}'`), 'only the owner may claim the owner handle');
+  // Nobody can make themselves owner from the game.
+  assert.equal(rules.roles['.write'], false);
+  // Only the owner account can ban or announce.
+  for (const w of [rules.bans.$id['.write'], rules.announce['.write']]) assert.equal(w, "auth != null && root.child('roles').child(auth.uid).val() === 'owner'");
+  // Banned players are refused in lobby chat, public rooms, joining rooms and private messages.
+  for (const w of [rules.lobby.chat.$msg['.write'], rules.lobby.rooms.$code['.write'], rules.rooms.$code.players.$uid['.write'], rules.dms.$conv.$msg['.write']]) {
+    assert.ok(w.includes("root.child('bans').child(auth.uid)"), 'missing ban check: ' + w.slice(0, 80));
+  }
+  // A tab only counts as the owner when it's linked from both sides.
+  assert.equal(rules.sessions.$tab['.write'], 'auth != null && auth.uid === $tab');
+  assert.equal(rules.acctSessions.$acct['.write'], 'auth != null && auth.uid === $acct');
+  // Players can delete their own leaderboard rows (Delete my account).
+  assert.ok(rules.stats.$uid['.write'].startsWith('(auth != null && auth.uid === $uid && !newData.exists())'));
+});
+
+// "Correct name and password but it won't log in": an account made with an
+// email can't log in with its username, so the message has to say that.
+test('login: failed logins explain username vs email and Caps Lock', async () => {
+  const { loginFailMessage } = await import('../src/account.js');
+  const wrong = { code: 'auth/invalid-credential' };
+  const byName = loginFailMessage(wrong, 'brisky2swifty');
+  assert.match(byName, /signed up with an email, log in with your email/);
+  assert.match(byName, /Caps Lock/);
+  const byEmail = loginFailMessage(wrong, 'me@school.org');
+  assert.ok(!/signed up with an email/.test(byEmail), 'no email hint when they used their email');
+  assert.match(byEmail, /case-sensitive/);
+  assert.match(loginFailMessage({ code: 'auth/too-many-requests' }, 'x'), /Too many tries/);
+  assert.match(loginFailMessage({ code: 'auth/network-request-failed' }, 'x'), /No connection/);
 });

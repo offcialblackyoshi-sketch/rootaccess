@@ -83,6 +83,18 @@ Online rooms use Firebase, which is free for this game's size and allows up to 1
 
 > Some school networks block Firebase (`*.firebaseio.com`). If the menu says it can't connect on a school network, that is the likely reason.
 
+### Make yourself the owner (one time)
+
+The owner gets moderator powers (delete lobby chat messages, ban players, kick anyone from a room, close public rooms), announcements, and gold owner flair. The owner is whichever account has `roles/<account id> = "owner"` in the database. Only you can set that, in the Firebase console, and the game can never set it.
+
+1. Sign in to the game with the account you want to be owner. The name `brisky2swifty` is reserved for the owner. Create that account **before** you publish the rules that reserve it, or keep the old rules until it exists.
+2. In the account card on the menu, click **Copy** next to **Account ID**.
+3. In Firebase, go to **Realtime Database → Data** and hover over the top of the tree. Click **+**, enter the key `roles`, and click **+** again inside it. For the key, paste your account ID. For the value, type `owner` with the quotes. Click **Add**.
+4. Publish the latest `database.rules.json` (Rules tab → paste → **Publish**).
+5. Reload the game. **Owner tools** appears on the menu.
+
+Deleting an account in Firebase **Authentication** only removes the login, not the game data. Use **Delete my account** in the game instead, which frees the name and removes the leaderboard rows. Or delete `handles/<name>`, `users/<id>` and `stats/<id>` by hand in **Realtime Database → Data**.
+
 ## Put it on the web (GitHub Pages)
 
 1. Create a new **public** repository on <https://github.com/new>, for example `my-game`. Don't add a README.

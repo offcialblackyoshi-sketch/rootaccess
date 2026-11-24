@@ -102,6 +102,12 @@ export function createLocalNet() {
     return () => kvWatchers.get(k)?.delete(wrapped);
   }
   const PRESENCE = 'ra-presence';
+  // Owner tools on this computer (used by the tests): announcement + bans.
+  const ANNOUNCE = 'ra-announce';
+  const BANS = 'ra-bans';
+  const banned = () => (kvGet(BANS)[uid]?.until || 0) > Date.now();
+  const refuseIfBanned = () => { if (banned()) throw new Error('PERMISSION_DENIED: banned'); };
+  const bannedError = () => Promise.reject(new Error('PERMISSION_DENIED: banned'));
   const freshPresence = (all) => Object.fromEntries(Object.entries(all).filter(([, p]) => Date.now() - (p.at || 0) < 15000));
   window.addEventListener('beforeunload', () => { try { const all = kvGet(PRESENCE); delete all[uid]; store.set(PRESENCE, JSON.stringify(all)); } catch { /* ignore */ } });
 
@@ -188,6 +194,7 @@ export function createLocalNet() {
       return () => lobbyListeners.delete(cb);
     },
     lobbySay(msg) {
+      if (banned()) return bannedError();
       return mutateLobby((l) => {
         l.chat[Date.now().toString(36) + Math.random().toString(36).slice(2, 6)] = { ...msg, uid, at: Date.now() };
         const keys = Object.keys(l.chat).sort();
@@ -195,10 +202,26 @@ export function createLocalNet() {
       });
     },
     lobbyList(code, info) {
+      if (info && banned()) return bannedError();
       return mutateLobby((l) => {
         if (info) l.rooms[code] = { ...info, host: uid, at: Date.now() };
         else delete l.rooms[code];
       });
+    },
+    mod: {
+      announceWatch: (cb) => kvWatch(ANNOUNCE, (v) => cb(v && v.text ? v : null)),
+      bansWatch: (cb) => kvWatch(BANS, cb),
+      announce: (text) => kvMutate(ANNOUNCE, (a) => {
+        for (const k of Object.keys(a)) delete a[k];
+        if (text) Object.assign(a, { text, at: Date.now() });
+      }),
+      ban: (ids, until, name) => kvMutate(BANS, (b) => { for (const id of ids) b[id] = { until, name: String(name || '').slice(0, 16), at: Date.now() }; }),
+      unban: (ids) => kvMutate(BANS, (b) => { for (const id of ids) delete b[id]; }),
+      deleteLobbyMsg: (key) => mutateLobby((l) => { delete l.chat[key]; }),
+      async closeRoom(code) {
+        await mutateLobby((l) => { delete l.rooms[code]; });
+        await mutate(code, () => null);
+      },
     },
     kind: 'local',
     uid,
@@ -217,6 +240,7 @@ export function createLocalNet() {
     },
 
     async joinRoom(code, player) {
+      refuseIfBanned();
       await mutate(code, (r) => {
         if (!r) return undefined;
         r.players = r.players || {};

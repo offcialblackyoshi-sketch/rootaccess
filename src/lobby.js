@@ -22,7 +22,9 @@ let seenRoom = null;
 const seenPlayers = new Set();
 const wasReady = new Map();
 
-export function renderLobby({ room, net, code, onLeave }) {
+// canModerate: the owner can kick anyone. onArrive(player): called once for
+// each player who shows up (used for the owner's entrance).
+export function renderLobby({ room, net, code, onLeave, canModerate = false, onArrive = null }) {
   const me = net.uid;
   const isHost = room.hostId === me;
   const players = playerList(room);
@@ -75,7 +77,8 @@ export function renderLobby({ room, net, code, onLeave }) {
     if (p.id === me) tags.push(el('span', { class: 'tag you' }, 'YOU'));
     if (!p.bot && p.level) tags.push(el('span', { class: 'tag rank' + (p.special ? ' special' : ''), title: p.title || '' }, `LV${p.level}${p.title && !p.special ? ' · ' + p.title : ''}`));
     // The host can remove bots, and kick other players (they can't rejoin this room).
-    const remove = isHost && p.id !== me
+    // The owner can kick anyone, in any room.
+    const remove = (isHost || (canModerate && !p.bot)) && p.id !== me
       ? el('button', {
         class: 'mini kick',
         title: p.bot ? 'Remove bot' : 'Kick player',
@@ -87,6 +90,7 @@ export function renderLobby({ room, net, code, onLeave }) {
       }, '✕')
       : null;
     const cls = [!seenPlayers.has(p.id) ? 'enter' : '', p.ready && wasReady.get(p.id) === false ? 'just-ready' : ''].join(' ').trim();
+    if (!seenPlayers.has(p.id) && onArrive) onArrive(p);
     seenPlayers.add(p.id);
     wasReady.set(p.id, !!p.ready);
     list.append(el('li', { class: cls || null, style: { '--pc': p.color }, 'data-team': team || null },

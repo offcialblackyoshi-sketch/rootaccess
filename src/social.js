@@ -6,10 +6,12 @@
 import { el, load, save } from './util.js';
 import { convId } from './net/shared.js';
 import { avatarEl } from './avatar.js';
+import { describeBan, toast } from './owner.js';
 
 const ONLINE_STALE_MS = 120000;
 
-export function createSocial({ getNet, profile, status, sfx }) {
+// owner: { isOwner(), banOf(ids), ban(ids, length, name), unban(ids) } for the owner's moderation buttons.
+export function createSocial({ getNet, profile, status, sfx, owner = null }) {
   let net = null;
   let offPresence = null;
   let offInbox = null;
@@ -182,8 +184,29 @@ export function createSocial({ getNet, profile, status, sfx }) {
         el('button', { type: 'button', class: 'primary', disabled: !canDm, title: canDm ? '' : !dmOn ? 'Your private messages are off' : blockedNow ? 'Unblock them first' : 'They have private messages off', onclick: () => { prof.close(); openDm(t); } }, '💬 Message'),
         el('button', { type: 'button', onclick: () => { toggleBlock(id, p); openProfile(id); } }, blockedNow ? 'Unblock' : '🚫 Block')),
       canDm ? el('p', { class: 'small dim' }, t.kind === 'acct' ? 'You\'re both signed in, so this chat is saved.' : 'Guest chat: it lasts while you\'re both online. Sign in (both of you) to save chats.') : null,
-      !canDm && p.dm === false ? el('p', { class: 'small dim' }, `${p.name} has private messages turned off.`) : null].filter(Boolean));
+      !canDm && p.dm === false ? el('p', { class: 'small dim' }, `${p.name} has private messages turned off.`) : null,
+      owner?.isOwner() ? modSection(id, p) : null].filter(Boolean));
     if (!prof.open) prof.showModal();
+  }
+  // Owner only: ban or unban this player (both their tab and their account).
+  function modSection(id, p) {
+    const ids = [id, p.acct].filter(Boolean);
+    const ban = owner.banOf(ids);
+    const act = (fn) => async () => {
+      try {
+        await fn();
+      } catch (e) {
+        toast(`Couldn't do that: ${e.message}`, 'err');
+      }
+      openProfile(id);
+    };
+    const lengths = [['1h', 'Ban 1 hour'], ['1d', 'Ban 1 day'], ['forever', 'Ban forever']];
+    return el('div', { class: 'owner-mod' },
+      el('h3', {}, '👑 Moderation'),
+      ban ? el('p', { class: 'small warn' }, `Banned ${describeBan(ban)}.`) : el('p', { class: 'small dim' }, 'Banning blocks lobby chat, private messages and public rooms.'),
+      el('div', { class: 'actions' }, ban
+        ? el('button', { type: 'button', 'data-unban': '1', onclick: act(() => owner.unban(ids)) }, 'Unban')
+        : lengths.map(([len, label]) => el('button', { type: 'button', class: 'mini-btn danger', 'data-ban': len, onclick: act(() => owner.ban(ids, len, p.name)) }, label))));
   }
   const stat = (label, value) => el('div', { class: 'profile-stat' }, el('strong', {}, String(value)), el('span', { class: 'small dim' }, label));
 

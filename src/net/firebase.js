@@ -219,6 +219,26 @@ export async function createFirebaseNet(config) {
       D.onDisconnect(ref).remove().catch(() => {});
     },
 
+    // ---- Owner tools ----
+    // Everyone watches announcements and bans with the room connection; only
+    // the owner account can write them (checked by the database rules).
+    mod: {
+      announceWatch: (cb) => D.onValue(D.ref(db, 'announce'), (s) => cb(s.val()), () => cb(null)),
+      bansWatch: (cb) => D.onValue(D.ref(db, 'bans'), (s) => cb(s.val() || {}), () => cb({})),
+      announce: (text) => {
+        const ref = D.ref(account().db, 'announce');
+        return text ? D.set(ref, { text, at: D.serverTimestamp() }) : D.remove(ref);
+      },
+      ban: (ids, until, name) => D.update(D.ref(account().db, 'bans'),
+        Object.fromEntries(ids.map((id) => [id, { until, name: String(name || '').slice(0, 16), at: D.serverTimestamp() }]))),
+      unban: (ids) => D.update(D.ref(account().db, 'bans'), Object.fromEntries(ids.map((id) => [id, null]))),
+      deleteLobbyMsg: (key) => D.remove(D.ref(account().db, `lobby/chat/${key}`)),
+      async closeRoom(code) {
+        await D.remove(D.ref(account().db, `lobby/rooms/${code}`)).catch(() => {});
+        await D.remove(D.ref(account().db, `rooms/${code}`));
+      },
+    },
+
     // ---- Accounts ----
     accountUid: () => signedIn()?.uid || null,
     account: {
@@ -278,6 +298,44 @@ export async function createFirebaseNet(config) {
       async saveProfile(p) {
         const u = mustSignIn();
         await D.update(D.ref(account().db, `users/${u.uid}`), p);
+      },
+      // "owner" or null. Roles are set by hand in the Firebase console.
+      async role() {
+        const u = signedIn();
+        if (!u) return null;
+        return (await D.get(D.ref(db, `roles/${u.uid}`))).val();
+      },
+      // Link this tab's guest sign-in to the account from both sides, so the
+      // rules know this tab speaks for the account (owner name, bans).
+      async linkTab() {
+        const u = mustSignIn();
+        const tabRef = D.ref(db, `sessions/${user.uid}`);
+        const acctRef = D.ref(account().db, `acctSessions/${u.uid}/${user.uid}`);
+        await D.set(acctRef, true);
+        await D.set(tabRef, u.uid);
+        D.onDisconnect(tabRef).remove().catch(() => {});
+        D.onDisconnect(acctRef).remove().catch(() => {});
+      },
+      async unlinkTab() {
+        const u = signedIn();
+        await D.remove(D.ref(db, `sessions/${user.uid}`)).catch(() => {});
+        if (u) await D.remove(D.ref(account().db, `acctSessions/${u.uid}/${user.uid}`)).catch(() => {});
+      },
+      // Firebase wants a fresh sign-in before deleting an account.
+      async reauth(password) {
+        const u = mustSignIn();
+        const isGoogle = u.providerData.some((p) => p.providerId === 'google.com');
+        if (isGoogle) await A.reauthenticateWithPopup(u, new A.GoogleAuthProvider());
+        else await A.reauthenticateWithCredential(u, A.EmailAuthProvider.credential(u.email, password));
+      },
+      // Removes your saved data and frees your name (before the login itself is deleted).
+      async deleteData(handle, today) {
+        const u = mustSignIn();
+        const adb = account().db;
+        const gone = [`stats/${u.uid}`, `daily/${today}/${u.uid}`, `acctSessions/${u.uid}`, `users/${u.uid}`];
+        if (handle) gone.push(`handles/${handle.toLowerCase()}`);
+        for (const path of gone) await D.remove(D.ref(adb, path)).catch((e) => console.warn('delete', path, e.message));
+        await D.remove(D.ref(db, `sessions/${user.uid}`)).catch(() => {});
       },
     },
 

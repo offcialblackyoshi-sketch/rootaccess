@@ -62,6 +62,30 @@ html[data-style="cyber"] {
 }
 
 /* Retro CRT amber */
+/* Owner gold (only offered to the owner) */
+html[data-style="gold"] {
+  --bg: #0d0a02;
+  --bg2: #241a03;
+  --panel: rgba(32, 24, 4, 0.8);
+  --panel-solid: #1d1603;
+  --term-bg: rgba(12, 9, 1, 0.9);
+  --line: rgba(255, 210, 61, 0.3);
+  --fg: #fff3d1;
+  --dim: #d6bb7c;
+  --accent: #ffd23d;
+  --accent-ink: #1a1300;
+  --accent2: #fff3b0;
+  --amber: #ff9f1c;
+  --red: #ff6a5a;
+  --glow: rgba(255, 210, 61, 0.55);
+  --accent-soft: rgba(255, 210, 61, 0.12);
+  --track: rgba(255, 210, 61, 0.14);
+  --rest: #a88c4a;
+  --rain: #ffd23d;
+  --title: linear-gradient(90deg, #ffb000 0%, #fff3b0 50%, #ffd23d 100%);
+  --font-head: "Orbitron", "JetBrains Mono", sans-serif;
+}
+
 html[data-style="amber"] {
   --bg: #0c0700;
   --bg2: #160c00;
@@ -682,6 +706,8 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 .swatch-preview { width: 100%; height: 34px; border-radius: 6px; }
 .swatch-preview.green { background: linear-gradient(135deg, #04080a 40%, #39ff6a 41% 60%, #4dd9ff 61%); }
 .swatch-preview.cyber { background: linear-gradient(135deg, #0b0820 40%, #ff3df0 41% 60%, #2de2ff 61%); }
+.swatch-preview.gold { background: linear-gradient(135deg, #0d0a02 40%, #ffd23d 41% 60%, #fff3b0 61%); }
+html:not(.is-owner) .style-pick .owner-only { display: none; }
 .swatch-preview.amber { background: linear-gradient(135deg, #0c0700 40%, #ffb000 41% 60%, #ffd56a 61%); }
 
 /* =========================================================================
@@ -978,7 +1004,26 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 
 /* Special-title badges next to names (owner, alpha tester) */
 .name-badge { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: 99px; font-size: 0.78em; font-weight: bold; line-height: 1.5; vertical-align: middle; white-space: nowrap; letter-spacing: 0; text-transform: none; text-shadow: none; }
-.badge-owner { color: #1a1300; background: linear-gradient(90deg, #ffd23d, #ffb000); box-shadow: 0 0 10px rgba(255, 210, 61, 0.6); }
+.badge-owner {
+  color: #1a1300;
+  background: linear-gradient(90deg, #ffb000, #fff3b0, #ffd23d, #ffb000);
+  background-size: 200% 100%;
+  box-shadow: 0 0 10px rgba(255, 210, 61, 0.6);
+  animation: owner-shine 3s linear infinite;
+}
+@keyframes owner-shine { to { background-position: -200% 0; } }
+.owner-name { color: #ffd23d !important; animation: owner-glow 1.8s ease-in-out infinite alternate; }
+@keyframes owner-glow {
+  from { text-shadow: 0 0 3px rgba(255, 210, 61, 0.45); }
+  to { text-shadow: 0 0 12px rgba(255, 210, 61, 1), 0 0 2px #fff3b0; }
+}
+.chat-msg.owner-msg, .dm-msg.owner-msg {
+  color: #ffe9a3;
+  background: linear-gradient(90deg, rgba(255, 210, 61, 0.16), transparent 85%);
+  border-left: 2px solid #ffd23d;
+  padding-left: 6px;
+  border-radius: 3px;
+}
 .badge-alpha { color: #021016; background: linear-gradient(90deg, #4dd9ff, #b388ff); box-shadow: 0 0 10px rgba(77, 217, 255, 0.5); }
 .side-row .pname { display: flex; align-items: center; gap: 4px; }
 .podium-name .name-badge { display: block; width: fit-content; margin: 2px auto 0; }
@@ -1037,3 +1082,75 @@ html.reduce-motion *, html.reduce-motion *::before, html.reduce-motion *::after 
 #lobbyPlayers li .avatar { margin-right: 2px; }
 .social-row { grid-template-columns: 24px 1fr auto; }
 .profile-top .avatar { filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.6)); }
+
+/* =========================================================================
+   OWNER TOOLS, ANNOUNCEMENTS, NOTICES
+   ========================================================================= */
+.owner-btn { border-color: #ffd23d; color: #ffd23d; }
+.owner-btn:hover:not(:disabled) { background: rgba(255, 210, 61, 0.12); box-shadow: 0 0 14px -2px rgba(255, 210, 61, 0.6); }
+.owner-dialog { width: min(520px, calc(100% - 32px)); }
+.owner-dialog textarea {
+  width: 100%;
+  background: var(--term-bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  font: inherit;
+  resize: vertical;
+}
+.owner-dialog input { width: 100%; margin-bottom: 8px; }
+.ban-list { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 6px; }
+.ban-list li { display: flex; align-items: center; gap: 8px; }
+.ban-list li button { margin-left: auto; }
+.owner-mod { margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255, 210, 61, 0.4); }
+.owner-mod h3 { color: #ffd23d; margin-top: 0; }
+.mini-btn.danger, .danger-btn { border-color: var(--red); color: var(--red); }
+.danger-btn { padding: 8px 14px; }
+.link-btn.danger { color: var(--red); font-size: 12px; }
+.acct-id { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.acct-id code { font-size: 11px; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-del { margin-left: 6px; padding: 0 4px; font-size: 11px; border: none; background: none; opacity: 0.55; }
+.chat-del:hover { opacity: 1; background: none; box-shadow: none; }
+
+/* Announcement banner (everyone) */
+.announce {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(640px, calc(100% - 260px));
+  padding: 8px 10px 8px 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #3a2a00, #1d1603);
+  border: 1px solid #ffd23d;
+  color: #fff3d1;
+  box-shadow: 0 0 24px -6px rgba(255, 210, 61, 0.7);
+  animation: screen-in 0.3s ease-out;
+}
+.announce .banner-text { flex: 1; font-weight: bold; }
+.announce .icon-x { color: #ffd23d; }
+@media (max-width: 700px) {
+  .announce { top: 60px; max-width: calc(100% - 24px); }
+}
+
+/* Pop-up notices */
+.toasts { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); z-index: 95; display: grid; gap: 8px; justify-items: center; pointer-events: none; }
+.toast {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  animation: screen-in 0.25s ease-out;
+  transition: opacity 0.4s, transform 0.4s;
+}
+.toast.ok { border-color: var(--green); }
+.toast.err { border-color: var(--red); color: var(--red); }
+.toast.owner { border-color: #ffd23d; color: #ffe9a3; font-weight: bold; box-shadow: 0 0 24px -4px rgba(255, 210, 61, 0.7); }
+.toast.out { opacity: 0; transform: translateY(8px); }

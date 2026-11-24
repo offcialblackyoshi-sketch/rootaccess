@@ -48,6 +48,14 @@ export function mergeProgress(local, remote) {
 }
 
 let net = null;
+// Resolves once the online connection is ready (or has failed), so a click on
+// "Log in" in the first seconds waits instead of failing.
+let markReady;
+const netReady = new Promise((r) => { markReady = r; });
+async function waitForNet(ms = 12000) {
+  if (!net) await Promise.race([netReady, new Promise((r) => setTimeout(r, ms))]);
+  if (!net) throw new Error('Online play is not available right now. Check your internet and try again.');
+}
 let current = { configured: onlineConfigured(), available: false, connecting: onlineConfigured(), user: null, handle: null };
 const listeners = new Set();
 const emit = () => listeners.forEach((cb) => cb(current));
@@ -57,13 +65,15 @@ export const accountState = () => current;
 export async function initAccount(onChange) {
   if (onChange) listeners.add(onChange);
   emit();
-  if (!onlineConfigured()) return;
+  if (!onlineConfigured()) return markReady();
   const res = await getOnlineNet();
   if (!res.net?.account) {
     current = { ...current, connecting: false };
+    markReady();
     return emit();
   }
   net = res.net;
+  markReady();
   current = { ...current, available: true, connecting: false };
   emit();
   net.account.onUser(async (user) => {
@@ -83,7 +93,8 @@ export async function initAccount(onChange) {
       saveTrophyState(trophies);
       net.account.saveProfile({ trophies }).catch(() => {});
       if (upload) await net.account.saveProfile({ xp: progress.xp, rounds: progress.rounds, wins: Math.min(progress.wins, progress.rounds), title: progress.title || '' });
-      current = { configured: true, available: true, user, handle: remote?.handle || null, provider: net.account.provider(), noEmail: String(user.email || '').endsWith('@' + LOGIN_DOMAIN) };
+      const owner = await linkAndRole();
+      current = { configured: true, available: true, user, handle: remote?.handle || null, provider: net.account.provider(), noEmail: String(user.email || '').endsWith('@' + LOGIN_DOMAIN), owner };
     } catch (e) {
       console.warn('account: could not load profile:', e.message);
       const denied = /permission/i.test(e.message);
@@ -95,7 +106,7 @@ export async function initAccount(onChange) {
 }
 
 export async function signIn() {
-  if (!net) throw new Error('Online play is not available right now.');
+  await waitForNet();
   await net.account.signIn();
 }
 
@@ -104,7 +115,7 @@ let signingUp = false;
 // Create a username/password account. Email is optional: with one you can
 // reset a forgotten password; without one, your username is your login.
 export async function createAccount({ username, password, email }) {
-  if (!net) throw new Error('Online play is not available right now.');
+  await waitForNet();
   username = String(username || '').trim();
   email = String(email || '').trim();
   if (!validHandle(username)) throw new Error('Usernames are 2-14 letters, digits, _ . or -');
@@ -127,7 +138,7 @@ export async function createAccount({ username, password, email }) {
     }
     const { progress } = mergeProgress(getProgress(), null);
     await net.account.saveProfile({ xp: progress.xp, rounds: progress.rounds, wins: Math.min(progress.wins, progress.rounds), title: progress.title || '' });
-    current = { configured: true, available: true, user: { email }, handle: username, provider: 'password', noEmail: !email };
+    current = { configured: true, available: true, user: { email }, handle: username, provider: 'password', noEmail: !email, owner: await linkAndRole() };
   } finally {
     signingUp = false;
   }
@@ -135,12 +146,24 @@ export async function createAccount({ username, password, email }) {
 }
 
 export async function logIn(id, password) {
-  if (!net) throw new Error('Online play is not available right now.');
+  await waitForNet();
   try {
     await net.account.logIn(loginAddress(id), password);
   } catch (e) {
-    throw new Error(authMessage(e));
+    throw new Error(loginFailMessage(e, id));
   }
+}
+
+// Usernames only log in accounts made without an email. Accounts made with an
+// email log in with that email, so say so instead of just "wrong password".
+export function loginFailMessage(e, id) {
+  const code = e?.code || '';
+  const wrong = code.includes('invalid-credential') || code.includes('wrong-password') || code.includes('user-not-found') || code.includes('invalid-login');
+  if (!wrong) return authMessage(e);
+  const usedUsername = !String(id || '').includes('@');
+  return usedUsername
+    ? 'That username and password don\'t match. If you signed up with an email, log in with your email address instead. Passwords are case-sensitive, so check Caps Lock (Alt + Search on a Chromebook).'
+    : 'That email and password don\'t match. Passwords are case-sensitive, so check Caps Lock (Alt + Search on a Chromebook).';
 }
 
 export async function resetPassword(email) {
@@ -154,7 +177,44 @@ export async function resetPassword(email) {
 }
 
 export async function signOut() {
+  await net?.account.unlinkTab?.();
   await net?.account.signOut();
+}
+
+// Link this tab to the account (so the rules trust it), then read the
+// account's role. Only an account marked "owner" in the Firebase console
+// (roles/<account id> = "owner") gets the owner tools.
+async function linkAndRole() {
+  try {
+    await net.account.linkTab();
+  } catch (e) {
+    console.warn('account: could not link this tab:', e.message);
+  }
+  try {
+    return (await net.account.role()) === 'owner';
+  } catch {
+    return false;
+  }
+}
+
+// The account's id, shown so the owner can copy it into the Firebase console.
+export const accountId = () => net?.accountUid?.() || null;
+
+// Delete my account: frees the name, removes my leaderboard rows and saved
+// profile, then deletes the login itself. Firebase asks you to confirm who
+// you are first (your password, or the Google window).
+export async function deleteAccount(password) {
+  if (!net || !current.user) throw new Error('You are not signed in.');
+  try {
+    await net.account.reauth(password);
+  } catch (e) {
+    throw new Error(authMessage(e));
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  await net.account.deleteData(current.handle, today);
+  await net.account.deleteMe();
+  current = { configured: true, available: true, user: null, handle: null };
+  emit();
 }
 
 export async function setHandle(handle) {

@@ -24,9 +24,15 @@ export function badgeFor(name) {
 
 function decorate(node) {
   if (node.dataset.badged || node.querySelector('.name-badge')) return;
-  const badge = badgeFor(node.textContent);
+  const name = bareName(node.textContent);
+  const badge = badgeFor(name);
   node.dataset.badged = '1';
   if (badge) node.append(' ', badge);
+  // Owner flair: a glowing gold name, and gold chat messages.
+  if (specialKind(name) === 'owner') {
+    node.classList.add('owner-name');
+    node.closest('.chat-msg, .dm-msg')?.classList.add('owner-msg');
+  }
 }
 
 export function startBadges(root = document.body) {

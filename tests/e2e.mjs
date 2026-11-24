@@ -104,7 +104,11 @@ async function openTab(name) {
   return tab;
 }
 
+// ONLY=owner,login runs just the steps whose names contain those words
+// (only for steps that don't depend on earlier ones).
+const ONLY = process.env.ONLY ? process.env.ONLY.split(',') : null;
 async function step(name, fn) {
+  if (ONLY && !ONLY.some((o) => name.includes(o))) return;
   try { await fn(); } catch (e) { check(name, false, e.message); }
 }
 
@@ -568,7 +572,7 @@ await step('pwa', async () => {
   const sw = await D.eval(`navigator.serviceWorker.ready.then(r => !!r.active)`);
   check('pwa: service worker active', sw === true);
   await sleep(500);
-  const cached = await D.eval(`caches.open('root-access-v16').then(c => c.keys()).then(k => k.length)`);
+  const cached = await D.eval(`caches.keys().then((ks) => caches.open(ks.find((k) => k.startsWith('root-access')))).then(c => c.keys()).then(k => k.length)`);
   check('pwa: all files cached', cached >= 26, `(${cached})`);
   const inst = await D.send('Page.getInstallabilityErrors');
   const errs = inst.result?.installabilityErrors ?? [];
@@ -841,6 +845,104 @@ await step('styles', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Owner tools, previewed on this computer with ?owner=1 (online, the owner
+// is decided by roles/ in the database and checked by the rules).
+await step('owner tools', async () => {
+  const O = await openTab('O');
+  const P = await openTab('P');
+  const Q = await openTab('Q');
+  await O.goto(URL_BASE + '&owner=1');
+  await P.goto(URL_BASE);
+  await Q.goto(URL_BASE);
+  await O.eval(`document.getElementById('nameInput').value = 'brisky2swifty'`);
+  await P.eval(`document.getElementById('nameInput').value = 'pat'`);
+  await Q.eval(`document.getElementById('nameInput').value = 'quinn'`);
+  const ownerOnlyShown = (t) => t.eval(`getComputedStyle(document.querySelector('.style-pick .owner-only')).display !== 'none'`);
+  check('owner: tools button and gold style only for the owner',
+    !(await O.eval(`document.getElementById('ownerBtn').hidden`)) && (await P.eval(`document.getElementById('ownerBtn').hidden`))
+    && (await ownerOnlyShown(O)) && !(await ownerOnlyShown(P)));
+
+  // Announcement banner.
+  await O.click('#ownerBtn');
+  await O.eval(`document.querySelector('.owner-dialog textarea').value = 'New mode out tonight!'`);
+  await O.shot('30-owner-tools.png');
+  await O.click('#announcePost');
+  await P.waitFor(`!document.querySelector('.announce').hidden && document.querySelector('.announce').innerText.includes('New mode out tonight!')`, 5000, 'banner shows');
+  await P.shot('31-announcement.png');
+  await P.click('.announce .icon-x');
+  await P.waitFor(`document.querySelector('.announce').hidden`);
+  check('owner: announcement reaches everyone and can be dismissed', true);
+  await O.click('#announceClear');
+  await O.eval(`document.querySelector('.owner-dialog').close()`);
+
+  // Lobby chat: only the owner can delete messages.
+  for (const t of [O, P]) { await t.click('#browseBtn'); await t.waitFor(`document.body.dataset.screen === 'browse'`); }
+  const sayInLobby = (t, text) => t.eval(`(() => { const f = document.querySelector('#browseChat .chat-form'); f.querySelector('input').value = ${JSON.stringify(text)}; f.requestSubmit(); })()`);
+  await sayInLobby(P, 'hello lobby');
+  await O.waitFor(`[...document.querySelectorAll('#browseChat .chat-msg')].some((m) => m.innerText.includes('hello lobby') && m.querySelector('.chat-del'))`, 5000, 'owner sees delete');
+  const pCanDelete = await P.eval(`!!document.querySelector('#browseChat .chat-del')`);
+  await O.eval(`[...document.querySelectorAll('#browseChat .chat-msg')].find((m) => m.innerText.includes('hello lobby')).querySelector('.chat-del').click()`);
+  await P.waitFor(`!document.querySelector('#browseChat .chat-log').innerText.includes('hello lobby')`, 5000, 'message gone');
+  check('owner: deletes lobby chat messages (others can\'t)', !pCanDelete);
+
+  // Ban from a profile in the online players list, then unban.
+  const pUid = await P.eval(`sessionStorage.getItem('ra-local-uid')`);
+  await O.waitFor(`!!document.querySelector('.social-row[data-uid="${pUid}"]')`, 10000, 'pat in online list');
+  await O.click(`.social-row[data-uid="${pUid}"]`);
+  await O.waitFor(`!!document.querySelector('.profile-dialog [data-ban="1h"]')`);
+  await O.shot('32-owner-profile.png');
+  await O.click('.profile-dialog [data-ban="1h"]');
+  await O.waitFor(`!!document.querySelector('.profile-dialog [data-unban]')`, 5000, 'ban applied');
+  await sayInLobby(P, 'can you hear me');
+  await P.waitFor(`[...document.querySelectorAll('.toast.err')].some((t) => t.innerText.includes('banned'))`, 5000, 'banned message');
+  const leaked = await O.eval(`document.querySelector('#browseChat .chat-log').innerText.includes('can you hear me')`);
+  check('owner: a banned player can\'t use lobby chat, and is told why', !leaked);
+  await O.click('.profile-dialog [data-unban]');
+  await O.waitFor(`!!document.querySelector('.profile-dialog [data-ban="1h"]')`);
+  await O.eval(`document.querySelector('.profile-dialog').close()`);
+  await sayInLobby(P, 'back again');
+  await O.waitFor(`document.querySelector('#browseChat .chat-log').innerText.includes('back again')`, 5000, 'unbanned chat');
+  check('owner: unban restores chat', true);
+
+  // Owner's entrance, flair and kick in someone else's room.
+  await P.click('#browseCreate');
+  await P.waitFor(`document.body.dataset.screen === 'lobby'`);
+  const code = await P.eval('window.__ra.state.code');
+  await Q.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await Q.click('#joinBtn');
+  await Q.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await O.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await O.click('#browseBack');
+  await O.click('#joinBtn');
+  await O.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await P.waitFor(`[...document.querySelectorAll('.toast.owner')].some((t) => t.innerText.includes('owner'))`, 5000, 'entrance toast');
+  const flair = await P.eval(`(() => { const n = [...document.querySelectorAll('#lobbyPlayers .pname')].find((x) => x.textContent.includes('brisky2swifty')); return !!n && n.classList.contains('owner-name') && !!n.querySelector('.badge-owner'); })()`);
+  await P.shot('33-owner-entrance.png');
+  check('owner: entrance celebration, gold glowing name and crown badge', flair);
+  await O.eval('window.confirm = () => true');
+  await O.eval(`[...document.querySelectorAll('#lobbyPlayers li')].find((li) => li.innerText.includes('quinn')).querySelector('.kick').click()`);
+  await Q.waitFor(`document.body.dataset.screen === 'menu'`, 5000, 'quinn kicked');
+  check('owner: kicks a player from a room they don\'t host', true);
+
+  // Close the room for everyone from the multiplayer lobby.
+  await O.click('#leaveBtn');
+  await O.waitFor(`document.body.dataset.screen === 'menu'`);
+  await O.click('#browseBtn');
+  await O.waitFor(`!!document.querySelector('[data-close="${code}"]')`, 10000, 'room listed');
+  await O.click(`[data-close="${code}"]`);
+  await P.waitFor(`document.body.dataset.screen === 'menu' && document.getElementById('menuMsg').innerText.includes('closed')`, 5000, 'room closed');
+  check('owner: closes a public room for everyone in it', true);
+
+  // Owner gold style applies only for the owner.
+  await O.eval(`localStorage.setItem('ra-settings', JSON.stringify({ style: 'gold' }))`);
+  await O.goto(URL_BASE + '&owner=1');
+  await P.goto(URL_BASE);
+  check('owner: gold style applies for the owner, not for others', (await O.eval('document.documentElement.dataset.style')) === 'gold' && (await P.eval('document.documentElement.dataset.style')) === 'green');
+  await O.shot('34-owner-gold.png');
+  await O.eval(`localStorage.removeItem('ra-settings')`);
+  for (const t of [O, P, Q]) await t.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

@@ -5,7 +5,7 @@ import { load, save } from './util.js';
 
 const KEY = 'ra-settings';
 export const TEXT_SIZES = ['normal', 'large', 'xlarge'];
-export const STYLES = ['green', 'cyber', 'amber'];
+export const STYLES = ['green', 'cyber', 'amber', 'gold']; // gold is for the owner only
 
 export function defaultSettings(prefersReducedMotion = false) {
   return { scanlines: !prefersReducedMotion, textSize: 'normal', reduceMotion: prefersReducedMotion, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: !prefersReducedMotion, rainbowRain: false, style: 'green' };
@@ -57,7 +57,8 @@ export function applySettings() {
   root.toggle('reduce-motion', s.reduceMotion);
   root.toggle('high-contrast', s.highContrast);
   for (const size of TEXT_SIZES) root.toggle('text-' + size, s.textSize === size);
-  document.documentElement.dataset.style = s.style;
+  // "Owner gold" only shows for the owner; anyone else gets the default.
+  document.documentElement.dataset.style = s.style === 'gold' && !root.contains('is-owner') ? 'green' : s.style;
 }
 
 // Wire up the settings dialog in index.html.

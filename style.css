@@ -1200,3 +1200,19 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 #ownerBtn { position: relative; }
 .owner-count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--red); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
 .owner-count[hidden] { display: none; }
+
+/* ---- Chat emotes and quick-chat ---- */
+.chat-form { display: flex; gap: 6px; align-items: center; }
+.chat-form input { flex: 1; min-width: 0; }
+.emoji-toggle { flex: none; padding: 4px 8px; font-size: 16px; line-height: 1; text-transform: none; }
+.emoji-picker { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-solid); }
+.emoji-picker[hidden] { display: none; }
+.emoji-btn { padding: 4px 0; font-size: 18px; line-height: 1.2; border: none; background: none; cursor: pointer; border-radius: 6px; }
+.emoji-btn:hover, .emoji-btn:focus-visible { background: var(--accent-soft); }
+.quick-chat { display: flex; flex-wrap: wrap; gap: 4px; }
+.quick-chat[hidden] { display: none; }
+.quick-chip { padding: 2px 8px; font-size: 12px; border-radius: 12px; text-transform: none; letter-spacing: 0; border-color: var(--line); }
+.quick-chip:hover { border-color: var(--accent); }
+.chat-action { font-style: italic; opacity: 0.9; }
+.chat-action .chat-name { font-style: italic; }
+.chat-local { color: var(--dim); font-size: 12px; border-left: 2px solid var(--dim); padding-left: 6px; }

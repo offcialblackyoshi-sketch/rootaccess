@@ -1187,3 +1187,30 @@ test('database rules: reports go to the owner only, one every 30 seconds', async
   assert.equal(db.set('A', 'reports/r1', null), false, 'players cannot delete reports');
   assert.equal(db.set('OWNER', 'reports/r1', null), true, 'the owner dismisses one');
 });
+
+test('chat commands, smileys and quick-chat', async () => {
+  const { parseCommand, messageView, emojify, quickChats, EMOJI, COMMANDS } = await import('../src/emotes.js');
+  assert.deepEqual(parseCommand('hello'), { text: 'hello' });
+  assert.deepEqual(parseCommand('/me waves'), { text: '/me waves' });
+  assert.ok(parseCommand('/me').local, '/me needs an action');
+  assert.equal(parseCommand('/shrug').text, '¯\\_(ツ)_/¯');
+  assert.equal(parseCommand('/shrug oh well').text, 'oh well ¯\\_(ツ)_/¯');
+  assert.match(parseCommand('/GG').text, /GG/);
+  assert.equal(parseCommand('/roll', () => 0).text, '🎲 rolled 1 (1-100)');
+  assert.equal(parseCommand('/roll', () => 0.999).text, '🎲 rolled 100 (1-100)');
+  assert.equal(parseCommand('/flip', () => 0.1).text, '🪙 flipped heads');
+  assert.equal(parseCommand('/flip', () => 0.9).text, '🪙 flipped tails');
+  assert.ok(COMMANDS.every(([c]) => parseCommand('/help').local.includes(c.split(' ')[0])), '/help lists every command');
+  assert.match(parseCommand('/nope').local, /Unknown command \/nope/);
+  assert.deepEqual(messageView('/me dances'), { action: true, text: 'dances' });
+  assert.deepEqual(messageView('/meow'), { action: false, text: '/meow' }, 'only "/me " is an action');
+  assert.equal(emojify('hi :) <3'), 'hi 🙂 ❤️');
+  assert.equal(emojify(':D'), '😄');
+  for (const keep of ['http://site.com', 'a:)b', 'f(x):)', 'room QXFT']) assert.equal(emojify(keep), keep, `left alone: ${keep}`);
+  assert.ok(EMOJI.length >= 16 && new Set(EMOJI).size === EMOJI.length);
+  const heist = quickChats('heist');
+  assert.ok(heist.includes('Code is …') && heist.includes('What do you see?'));
+  assert.ok(quickChats('letterlock', 'quick').includes('Which stage?'), 'quick hacks share a list');
+  assert.deepEqual(quickChats('mystery'), ['gl hf!', 'gg', 'nice! 👏', 'brb', 'ready! 👍']);
+  for (const m of ['race', 'duel', 'defend', 'heist', 'gauntlet']) assert.ok(quickChats(m, m === 'gauntlet' ? 'quick' : '').length <= 6);
+});

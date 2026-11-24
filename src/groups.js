@@ -6,6 +6,8 @@
 import { el, load, save } from './util.js';
 import { toast } from './owner.js';
 import { cleanText, hasBadWords } from './filter.js';
+import { chatBody } from './chat.js';
+import { parseCommand, messageView } from './emotes.js';
 
 export const GROUP_MAX = 12;
 export const GROUP_NAME_MAX = 24;
@@ -242,13 +244,16 @@ export function createGroups({ profile, online, isBlocked, onChange, onOpen, fla
     for (const [, m] of entries) {
       if (isBlocked(m.from)) continue;
       const mine = m.from === me();
-      log.append(el('div', { class: 'dm-msg' + (mine ? ' mine' : '') }, mine ? null : el('span', { class: 'chat-name', style: { color: m.color || '' } }, cleanText(m.name) + ':'), ' ', cleanText(m.text)));
+      const action = messageView(m.text).action;
+      log.append(el('div', { class: 'dm-msg' + (mine && !action ? ' mine' : '') }, ...(mine && !action ? [messageView(cleanText(m.text)).text] : chatBody(m))));
     }
     log.scrollTop = log.scrollHeight;
   }
 
   async function send() {
-    const text = input.value.trim();
+    const typed = parseCommand(input.value.trim());
+    if (typed.local) { note.textContent = typed.local; input.value = ''; return; }
+    const text = typed.text;
     if (!text || !current) return;
     input.value = '';
     const p = profile();

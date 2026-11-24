@@ -10,6 +10,8 @@ import { describeBan, toast, REPORT_REASONS } from './owner.js';
 import { createGroups } from './groups.js';
 import { createFriends } from './friends.js';
 import { cleanText } from './filter.js';
+import { chatBody } from './chat.js';
+import { parseCommand, messageView } from './emotes.js';
 
 const ONLINE_STALE_MS = 120000;
 
@@ -313,7 +315,8 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
       if (!entries.length) dmLog.append(el('p', { class: 'small dim' }, 'Say hi!'));
       recentFrom[t.id] = entries.filter(([, m]) => !mine(m)).slice(-5).map(([, m]) => `${m.name}: ${m.text}`);
       for (const [, m] of entries) {
-        dmLog.append(el('div', { class: 'dm-msg' + (mine(m) ? ' mine' : '') }, mine(m) ? null : el('span', { class: 'chat-name', style: { color: m.color || '' } }, cleanText(m.name) + ':'), ' ', cleanText(m.text)));
+        const action = messageView(m.text).action;
+        dmLog.append(el('div', { class: 'dm-msg' + (mine(m) && !action ? ' mine' : '') }, ...(mine(m) && !action ? [messageView(cleanText(m.text)).text] : chatBody(m))));
       }
       dmLog.scrollTop = dmLog.scrollHeight;
       markRead(t);
@@ -335,7 +338,9 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
     render();
   }
   async function sendDm() {
-    const text = dmInput.value.trim();
+    const typed = parseCommand(dmInput.value.trim());
+    if (typed.local) { dmNote.textContent = typed.local; dmInput.value = ''; return; }
+    const text = typed.text;
     if (!text || !chat) return;
     const online = Object.values(players).find((p) => (chat.kind === 'acct' ? p.acct === chat.id : false)) || players[chat.id];
     if (online && online.dm === false) { dmNote.textContent = `${chat.name} turned private messages off.`; return; }

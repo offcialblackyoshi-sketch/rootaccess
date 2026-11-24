@@ -2,6 +2,7 @@
 import { getLocalNet, getOnlineNet, onlineConfigured } from './net/index.js';
 import { isRoomCode } from './net/shared.js';
 import { hasBadWords } from './filter.js';
+import { quickChats } from './emotes.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
@@ -12,7 +13,7 @@ import { initSettingsDialog, getSettings, applySettings } from './settings.js';
 import { createOwnerTools, toast, describeBan } from './owner.js';
 import { createMatrixRain } from './matrix.js';
 import { iconEl } from './icons.js';
-import { MODES } from './modes/index.js';
+import { MODES, PUZZLES } from './modes/index.js';
 import { initAccount, accountState, signIn, signOut, setHandle, syncProgress, suggestHandle, createAccount, logIn, resetPassword, deleteAccount, accountId } from './account.js';
 import { globalBoard, pushMyStats } from './stats.js';
 import { todayKey, dailySeed, submitDaily, dailyBoard, myBest, PENALTY_MS } from './daily.js';
@@ -738,6 +739,7 @@ function sendChat(text) {
 const chat = createChat({
   sfx,
   onSend: sendChat,
+  quick: () => (state.room ? quickChats(state.room.mode, (PUZZLES[state.room.mode] || state.room.mode === 'gauntlet') ? 'quick' : '') : []),
   onEscape: () => (document.querySelector('#term .term-in input:not(:disabled)') || document.querySelector('.quick-box'))?.focus(),
 });
 

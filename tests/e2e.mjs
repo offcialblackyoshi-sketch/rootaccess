@@ -985,7 +985,7 @@ await step('group chats', async () => {
   const K = await openTab('K');
   for (const [t, n] of [[G, 'gina'], [H, 'hank'], [K, 'kim']]) {
     await t.goto(URL_BASE);
-    await t.eval(`document.getElementById('boot')?.click()`); // skip the first-visit intro
+    await t.eval(`window.dispatchEvent(new Event('pointerdown'))`); // skip the first-visit intro
     await t.eval(`document.getElementById('nameInput').value = '${n}'; document.getElementById('nameInput').dispatchEvent(new Event('input'))`);
   }
   const uid = (t) => t.eval(`sessionStorage.getItem('ra-local-uid')`);
@@ -1064,7 +1064,7 @@ await step('friends', async () => {
   const F3 = await openTab('F3');
   for (const [t, n] of [[F1, 'fay'], [F2, 'finn'], [F3, 'fox']]) {
     await t.goto(URL_BASE);
-    await t.eval(`document.getElementById('boot')?.click()`);
+    await t.eval(`window.dispatchEvent(new Event('pointerdown'))`); // skip the first-visit intro
     await t.eval(`document.getElementById('nameInput').value = '${n}'`);
     await t.eval(`document.getElementById('social').classList.add('open')`);
   }
@@ -1135,7 +1135,7 @@ await step('kid safety', async () => {
   await S2.goto(URL_BASE);
   await S3.goto(URL_BASE);
   for (const [t, n] of [[S1, 'brisky2swifty'], [S2, 'sam'], [S3, 'tess']]) {
-    await t.eval(`document.getElementById('boot')?.click()`);
+    await t.eval(`window.dispatchEvent(new Event('pointerdown'))`); // skip the first-visit intro
     await t.eval(`document.getElementById('nameInput').value = '${n}'`);
   }
   const uid = (t) => t.eval(`sessionStorage.getItem('ra-local-uid')`);
@@ -1197,6 +1197,61 @@ await step('kid safety', async () => {
   const errs = [...S1.errors, ...S2.errors, ...S3.errors];
   check('safety: no errors', errs.length === 0, errs.join(' | '));
   for (const t of [S1, S2, S3]) await t.close();
+});
+
+await step('chat fun', async () => {
+  const E1 = await openTab('E1');
+  const E2 = await openTab('E2');
+  for (const [t, n] of [[E1, 'emma'], [E2, 'eli']]) {
+    await t.goto(URL_BASE);
+    await t.eval(`window.dispatchEvent(new Event('pointerdown'))`); // skip the first-visit intro
+    await t.eval(`document.getElementById('nameInput').value = '${n}'`);
+  }
+  await E1.click('#createBtn');
+  await E1.waitFor(`document.body.dataset.screen === 'lobby'`);
+  const code = await E1.eval('window.__ra.state.code');
+  await E2.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await E2.click('#joinBtn');
+  await E2.waitFor(`document.body.dataset.screen === 'lobby'`);
+  const say = (t, text) => t.eval(`(() => { const f = document.querySelector('#lobbyChat .chat-form'); f.querySelector('input').value = ${JSON.stringify(text)}; f.requestSubmit(); })()`);
+  const log = (t) => t.eval(`document.querySelector('#lobbyChat .chat-log').innerText`);
+
+  // Slash commands.
+  await say(E1, '/me waves hello');
+  await E2.waitFor(`[...document.querySelectorAll('#lobbyChat .chat-action')].some((a) => a.innerText.includes('emma waves hello'))`, 5000, '/me action');
+  await say(E1, '/roll');
+  await E2.waitFor(`document.querySelector('#lobbyChat .chat-log').innerText.includes('rolled')`, 5000, '/roll');
+  await say(E1, '/help');
+  await E1.waitFor(`!!document.querySelector('#lobbyChat .chat-local')`, 3000, '/help shows locally');
+  const help = await E1.eval(`document.querySelector('#lobbyChat .chat-local').innerText`);
+  check('chat: /me, /roll and /help work, and /help is only shown to you', /\/me/.test(help) && !(await log(E2)).includes('Chat commands'));
+
+  // Emoji picker and smileys.
+  await E1.click('#lobbyChat .emoji-toggle');
+  await E1.waitFor(`!document.querySelector('#lobbyChat .emoji-picker').hidden`);
+  await E1.shot('68-emoji-picker.png');
+  await E1.click('#lobbyChat [data-emoji="🔥"]');
+  const typed = await E1.eval(`document.querySelector('#lobbyChat .chat-form input').value`);
+  await E1.eval(`(() => { const f = document.querySelector('#lobbyChat .chat-form'); f.querySelector('input').value += ' so cool :)'; f.requestSubmit(); })()`);
+  await E2.waitFor(`document.querySelector('#lobbyChat .chat-log').innerText.includes('🔥 so cool 🙂')`, 5000, 'emoji and smiley');
+  check('chat: emoji picker inserts emoji, and :) becomes 🙂', typed === '🔥' && (await E1.eval(`document.querySelector('#lobbyChat .emoji-picker').hidden`)));
+
+  // Quick-chat follows the mode: Race has its own, Heist has "Code is …" to finish yourself.
+  const chips = (t) => t.eval(`[...document.querySelectorAll('#lobbyChat .quick-chip')].map((b) => b.dataset.quick)`);
+  const raceChips = await chips(E2);
+  await E1.click('.mode-card[data-mode=heist]');
+  await E2.waitFor(`[...document.querySelectorAll('#lobbyChat .quick-chip')].some((b) => b.dataset.quick === 'Code is …')`, 5000, 'heist chips');
+  await E2.click('#lobbyChat [data-quick="Code is …"]');
+  const filled = await E2.eval(`document.querySelector('#lobbyChat .chat-form input').value`);
+  await E2.eval(`document.querySelector('#lobbyChat .chat-form input').value = ''`);
+  await E2.click('#lobbyChat [data-quick="gl hf!"]');
+  await E1.waitFor(`document.querySelector('#lobbyChat .chat-log').innerText.includes('eli: gl hf!')`, 5000, 'quick chat sent');
+  check('chat: quick-chat buttons change with the mode and send in one click', raceChips.includes('Which layer are you on?') && filled === 'Code is ', `${raceChips.join(',')} / "${filled}"`);
+  await E1.shot('69-chat-fun.png');
+  const errs = [...E1.errors, ...E2.errors];
+  check('chat: no errors', errs.length === 0, errs.join(' | '));
+  await E2.eval('window.confirm = () => true');
+  for (const t of [E1, E2]) await t.close();
 });
 
 await step('small screen', async () => {

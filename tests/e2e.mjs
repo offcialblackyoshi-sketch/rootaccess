@@ -945,6 +945,31 @@ await step('owner tools', async () => {
   for (const t of [O, P, Q]) await t.close();
 });
 
+await step('trophy case', async () => {
+  const T = await openTab('T');
+  await T.goto(URL_BASE);
+  // Start fresh: earlier steps share this browser's trophies and settings.
+  await T.eval(`localStorage.removeItem('ra-trophies'); localStorage.removeItem('ra-settings')`);
+  await T.goto(URL_BASE);
+  await T.click('#trophyBtn');
+  await T.waitFor(`document.getElementById('trophyDialog').open`);
+  const info = await T.eval(`({ count: document.getElementById('trophyCount').innerText, secrets: [...document.querySelectorAll('.trophy.secret strong')].filter((x) => x.textContent === '???').length })`);
+  await T.shot('40-trophy-case.png');
+  const total = Number((info.count.match(/\/(\d+) trophies/) || [])[1] || 0);
+  check('trophies: the case lists 125+ trophies with hidden secret ones', total >= 125 && info.secrets >= 8, JSON.stringify(info));
+  await T.eval(`document.getElementById('trophyDialog').close()`);
+  // Try all three styles: the secret "Fashion Hacker" trophy pops up.
+  for (const style of ['cyber', 'amber', 'green']) {
+    await T.click('#settingsBtn');
+    await T.click(`#settingsDialog input[value=${style}]`);
+    await T.click('#settingsClose');
+  }
+  await T.waitFor(`[...document.querySelectorAll('.toast')].some((t) => t.innerText.includes('Fashion Hacker'))`, 5000, 'secret trophy notice');
+  check('trophies: a secret trophy unlocks with a notice', true);
+  await T.eval(`localStorage.removeItem('ra-settings'); localStorage.removeItem('ra-trophies')`);
+  await T.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

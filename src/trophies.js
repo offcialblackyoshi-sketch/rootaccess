@@ -16,7 +16,9 @@ const MODE_NAMES = {
 // The permanent trophies. `test(c, ev, level)`: c = lifetime counters,
 // ev = the round just played, level = your level after it.
 // ---------------------------------------------------------------------------
-const t = (id, cat, icon, name, desc, test) => ({ id, cat, icon, name, desc, test });
+const t = (id, cat, icon, name, desc, test, secret = false) => ({ id, cat, icon, name, desc, test, secret });
+// Secret trophies show as "???" until you earn them.
+const secret = (id, icon, name, desc, test) => t(id, 'Secret', icon, name, desc, test, true);
 const count = (n, field, cat, icon, name, desc) => t(`${field.toLowerCase()}-${n}`, cat, icon, name, desc, (c) => (c[field] || 0) >= n);
 
 export const TROPHIES = [
@@ -67,6 +69,64 @@ export const TROPHIES = [
   t('night-owl', 'Habits', '🦉', 'Night Owl', 'Play a round after 10 pm.', (c) => !!c.nightOwl),
   t('early-bird', 'Habits', '🐦', 'Early Bird', 'Play a round before 7 am.', (c) => !!c.earlyBird),
   t('weekend', 'Habits', '🛋️', 'Weekend Warrior', 'Play a round on a weekend.', (c) => !!c.weekend),
+
+  // ---- More milestones ----
+  count(500, 'rounds', 'Getting started', '🧬', 'Kernel Panic', 'Play 500 rounds.'),
+  count(1000, 'rounds', 'Getting started', '♾️', 'Infinite Loop', 'Play 1,000 rounds.'),
+  count(50, 'wins', 'Winning', '🎖️', 'Decorated', 'Win 50 rounds.'),
+  count(250, 'wins', 'Winning', '🗿', 'Untouchable', 'Win 250 rounds.'),
+  count(10, 'bestStreak', 'Winning', '🌋', 'Meltdown', 'Win 10 rounds in a row.'),
+  count(5, 'seconds', 'Winning', '🥈', 'So Close', 'Finish 2nd five times.'),
+  t('underdog', 'Winning', '🐺', 'Underdog', 'Win against 3 or more hard bots at once.', (c) => (c.underdog || 0) > 0),
+  ...[25, 30, 40, 50].map((l, i) => t(`level-${l}`, 'Levels', ['🔱', '💠', '🌌', '🧿'][i], `Level ${l}`, `Reach level ${l}.`, (c, ev, level) => level >= l)),
+
+  // ---- Explorer: every mode ----
+  t('all-modes', 'Explorer', '🧭', 'Tourist', 'Play every mode at least once.', (c) => Object.keys(MODE_NAMES).every((m) => (c.modePlays?.[m] || 0) > 0)),
+  t('all-wins', 'Explorer', '🗺️', 'Jack of All Hacks', 'Win every mode at least once.', (c) => Object.keys(MODE_NAMES).every((m) => (c.modeWins?.[m] || 0) > 0)),
+  ...Object.entries(MODE_NAMES).map(([id, name]) => t(`play10-${id}`, 'Explorer', '🔁', `${name} Regular`, `Play 10 rounds of ${name}.`, (c) => (c.modePlays?.[id] || 0) >= 10)),
+  ...Object.entries(MODE_NAMES).map(([id, name]) => t(`win10-${id}`, 'Explorer', '🏵️', `${name} Expert`, `Win 10 rounds of ${name}.`, (c) => (c.modeWins?.[id] || 0) >= 10)),
+
+  // ---- Skill: one group per classic mode ----
+  t('race-nohint', 'Skill', '🧠', 'No Hints Needed', 'Win a Terminal Race without using a hint.', (c) => (c.raceNoHint || 0) > 0),
+  t('race-3min', 'Skill', '🏎️', 'Speed Demon', 'Get root in a Terminal Race in under 3 minutes.', (c) => (c.race3 || 0) > 0),
+  t('race-2min', 'Skill', '🚀', 'Zero-Day', 'Get root in a Terminal Race in under 2 minutes.', (c) => (c.race2 || 0) > 0),
+  t('duel-60', 'Skill', '⌨️', 'Keyboard Warrior', 'Type at 60+ WPM in a Typing Duel.', (c) => (c.bestWpm || 0) >= 60),
+  t('duel-90', 'Skill', '🎹', 'Machine Gun Keys', 'Type at 90+ WPM in a Typing Duel.', (c) => (c.bestWpm || 0) >= 90),
+  t('duel-perfect', 'Skill', '🎯', 'Surgical', 'Land 10+ hits with no typos in one Typing Duel.', (c) => (c.duelPerfect || 0) > 0),
+  t('duel-untouched', 'Skill', '🛡️', 'Untouched', 'Win a Typing Duel with your firewall at 100.', (c) => (c.duelUntouched || 0) > 0),
+  t('defend-thief', 'Skill', '💰', 'Data Thief', 'Steal 300+ data in one round of Hack & Defend.', (c) => (c.bestLoot || 0) >= 300),
+  t('defend-wall', 'Skill', '🧱', 'The Wall', 'Stop 5 attacks in one round of Hack & Defend.', (c) => (c.bestKills || 0) >= 5),
+  t('defend-fortress', 'Skill', '🏰', 'Fortress', 'Win Hack & Defend without any firewall falling to 0.', (c) => (c.fortress || 0) > 0),
+  t('heist-clean', 'Skill', '🕶️', 'Clean Job', 'Crack the vault with no mistakes from anyone.', (c) => (c.heistClean || 0) > 0),
+  t('heist-quiet', 'Skill', '🤫', 'Silent Running', 'Crack the vault with the alarm under 30%.', (c) => (c.heistQuiet || 0) > 0),
+  t('heist-lookout', 'Skill', '📹', 'Eagle Eye', 'Loop 5 cameras in one heist.', (c) => (c.bestLoops || 0) >= 5),
+  count(100, 'quickClears', 'Quick hacks', '🦾', 'Fully Automated', 'Clear 100 quick hacks.'),
+  count(10, 'flawless', 'Quick hacks', '💍', 'Spotless', 'Clear 10 quick hacks with no mistakes.'),
+  t('speedrun-30', 'Quick hacks', '⚡', 'Lightning', 'Clear a quick hack in under 30 seconds.', (c) => (c.blitzClears || 0) > 0),
+  count(30, 'dailyRuns', 'Daily Challenge', '📆', 'Month of Hacks', 'Finish 30 Daily Challenges.'),
+  count(3, 'dailyStreak', 'Daily Challenge', '🔗', 'Daily Chain', 'Finish the Daily Challenge 3 days in a row.'),
+
+  // ---- More social and habits ----
+  count(25, 'onlineRounds', 'Social', '🌍', 'Netizen', 'Play 25 rounds in online rooms.'),
+  count(100, 'onlineRounds', 'Social', '🛰️', 'Always Connected', 'Play 100 rounds in online rooms.'),
+  count(1, 'fullHouse', 'Social', '🏟️', 'Full House', 'Play a round with 6 or more people (not bots).'),
+  count(10, 'hostRounds', 'Social', '🎛️', 'Root Admin', 'Host 10 rounds in online rooms.'),
+  t('chat', 'Social', '💬', 'Hello, World', 'Send a chat message.', (c) => !!c.chatSent),
+  count(3, 'bestDayStreak', 'Habits', '🔥', 'Three in a Row', 'Play on 3 days in a row.'),
+  count(7, 'bestDayStreak', 'Habits', '📅', 'Full Week', 'Play on 7 days in a row.'),
+  count(100, 'daysCount', 'Habits', '🗓️', 'Centurion', 'Play on 100 different days.'),
+
+  // ---- Secret trophies ----
+  secret('royal', '👑', 'Royal Encounter', 'Play a round in the same room as the owner.', (c) => !!c.withOwner),
+  secret('comeback', '🔄', 'Comeback Kid', 'Win right after losing 3 or more in a row.', (c) => (c.comebacks || 0) > 0),
+  secret('persistence', '🪨', 'Never Give Up', 'Play 25 rounds without winning... then keep going.', (c) => (c.losses || 0) >= 25),
+  secret('nocturnal', '🌙', 'Up Way Too Late', 'Play a round between midnight and 4 am.', (c) => !!c.nocturnal),
+  secret('halloween', '🎃', 'Spooky Hacker', 'Play a round on October 31.', (c) => !!c.halloween),
+  secret('new-year', '🎆', 'Happy New Hack', 'Play a round on January 1.', (c) => !!c.newYear),
+  secret('friday13', '🐈‍⬛', 'Unlucky Number', 'Play a round on a Friday the 13th.', (c) => !!c.friday13),
+  secret('style-hopper', '🎨', 'Fashion Hacker', 'Try all three styles in Settings.', (c) => !!(c.styleGreen && c.styleCyber && c.styleAmber)),
+  secret('rainbow', '🌈', 'Taste the Rainbow', 'Turn on rainbow rain.', (c) => !!c.rainbowRain),
+  secret('trophy-hunter', '🔍', 'Trophy Hunter', 'Open the trophy case 10 times.', (c) => (c.caseOpens || 0) >= 10),
 ];
 
 // ---------------------------------------------------------------------------
@@ -128,8 +188,12 @@ export function getTrophyState() {
 export const saveTrophyState = (s) => save(KEY, s);
 
 // Describe the round just played as an "event" for the trophy rules.
-export function roundEvent({ room, mine, won, now = new Date() }) {
+export function roundEvent({ room, mine, won, now = new Date(), withOwner = false }) {
   const raw = mine?.raw || {};
+  const st = room.players?.[mine?.id]?.s || {}; // your state in the mode (stats, hints...)
+  const minutes = (end) => Math.max(1000, (end || room.endedAt || now.getTime()) - (room.startedAt || 0)) / 60000;
+  const duelStats = room.mode === 'duel' ? st.stats || {} : {};
+  const crew = Object.values(room.players || {}).filter((p) => !p.bot);
   const humans = Object.values(room.players || {}).filter((p) => !p.bot).length;
   const clear = (raw.stage || 0) >= 5;
   return {
@@ -149,6 +213,27 @@ export function roundEvent({ room, mine, won, now = new Date() }) {
     day: now.getDay(),
     date: now.toISOString().slice(0, 10),
     week: weekKey(now),
+    month: now.getMonth() + 1,
+    dom: now.getDate(),
+    place: mine?.place || 0,
+    hardBots: Object.values(room.players || {}).filter((p) => p.bot).length >= 3 && room.botLevel === 'hard',
+    withOwner: !!withOwner,
+    // Terminal Race
+    raceHints: room.mode === 'race' ? st.hints || 0 : null,
+    raceMs: room.mode === 'race' && (st.layer || 0) >= 5 ? st.at - room.startedAt : null,
+    // Typing Duel
+    wpm: room.mode === 'duel' && duelStats.chars ? Math.round(duelStats.chars / 5 / minutes(st.out ? st.outAt : null)) : 0,
+    duelHits: duelStats.hits || 0,
+    duelMisses: duelStats.misses || 0,
+    duelHp: room.mode === 'duel' ? st.hp ?? null : null,
+    // Hack & Defend
+    loot: room.mode === 'defend' ? st.loot || 0 : 0,
+    kills: room.mode === 'defend' ? st.stats?.kills || 0 : 0,
+    fortress: room.mode === 'defend' && !!st.nodes && Object.values(st.nodes).every((n) => (n.fw || 0) > 0),
+    // Co-op Heist
+    heistMistakes: room.mode === 'heist' ? crew.reduce((sum, p) => sum + (p.s?.stats?.mistakes || 0), 0) : null,
+    alarm: room.mode === 'heist' ? room.game?.alarm ?? null : null,
+    loops: room.mode === 'heist' ? st.stats?.loops || 0 : 0,
   };
 }
 
@@ -168,16 +253,49 @@ export function applyRound(state, ev, level, at = Date.now()) {
     if (ev.teamSize > 0) add('teamWins');
     if (ev.teamSize === 1) add('oneVsOne');
     if (ev.teamSize === 4) add('fourVsFour');
-  } else c.streak = 0;
+    if ((c.lossRun || 0) >= 3) add('comebacks');
+    c.lossRun = 0;
+    if (ev.hardBots) add('underdog');
+    if (ev.mode === 'race' && ev.raceHints === 0) add('raceNoHint');
+    if (ev.mode === 'duel' && ev.duelHp === 100) add('duelUntouched');
+    if (ev.mode === 'defend' && ev.fortress) add('fortress');
+    if (ev.mode === 'heist' && ev.heistMistakes === 0) add('heistClean');
+    if (ev.mode === 'heist' && ev.alarm !== null && ev.alarm < 30) add('heistQuiet');
+  } else {
+    c.streak = 0;
+    add('losses');
+    c.lossRun = (c.lossRun || 0) + 1;
+  }
   c.bestStreak = Math.max(c.bestStreak || 0, c.streak || 0);
+  if (ev.place === 2) add('seconds');
+  if (ev.raceMs !== null && ev.raceMs !== undefined) {
+    if (ev.raceMs < 180000) add('race3');
+    if (ev.raceMs < 120000) add('race2');
+  }
+  if (ev.wpm) c.bestWpm = Math.max(c.bestWpm || 0, ev.wpm);
+  if (ev.duelHits >= 10 && ev.duelMisses === 0) add('duelPerfect');
+  if (ev.loot) c.bestLoot = Math.max(c.bestLoot || 0, ev.loot);
+  if (ev.kills) c.bestKills = Math.max(c.bestKills || 0, ev.kills);
+  if (ev.loops) c.bestLoops = Math.max(c.bestLoops || 0, ev.loops);
+  if (ev.humans >= 6) add('fullHouse');
+  if (ev.withOwner) c.withOwner = true;
+  if (ev.hour < 4) c.nocturnal = true;
+  if (ev.month === 10 && ev.dom === 31) c.halloween = true;
+  if (ev.month === 1 && ev.dom === 1) c.newYear = true;
+  if (ev.day === 5 && ev.dom === 13) c.friday13 = true;
   if (ev.clear) {
     add('quickClears');
     if (ev.mistakes === 0) add('flawless');
     if (ev.ms !== null && ev.ms < 60000) add('fastClears');
+    if (ev.ms !== null && ev.ms < 30000) add('blitzClears');
     if (ev.daily) {
       add('dailyRuns');
       if (ev.ms + ev.mistakes * 5000 < 60000) add('dailyFast');
       if (ev.mistakes === 0) add('dailyFlawless');
+      const dd = new Set(c.dailyDays || []);
+      dd.add(ev.date);
+      c.dailyDays = [...dd].sort().slice(-60);
+      c.dailyStreak = Math.max(c.dailyStreak || 0, runEnding(c.dailyDays, ev.date));
     }
   }
   if (ev.online) add('onlineRounds');
@@ -190,6 +308,7 @@ export function applyRound(state, ev, level, at = Date.now()) {
   days.add(ev.date);
   c.days = [...days].slice(-400);
   c.daysCount = days.size;
+  c.bestDayStreak = Math.max(c.bestDayStreak || 0, runEnding(c.days, ev.date));
 
   const unlocked = [];
   for (const tr of TROPHIES) {
@@ -209,6 +328,28 @@ export function applyRound(state, ev, level, at = Date.now()) {
     }
   }
   return { state: s, unlocked };
+}
+
+// How many days in a row (ending on `date`) appear in a list of YYYY-MM-DD dates.
+export function runEnding(dates, date) {
+  const set = new Set(dates);
+  let n = 0;
+  const d = new Date(date + 'T00:00:00Z');
+  while (set.has(d.toISOString().slice(0, 10))) {
+    n++;
+    d.setUTCDate(d.getUTCDate() - 1);
+  }
+  return n;
+}
+
+// Add 1 to a counter that isn't tied to a round (like opening the trophy case).
+export function bumpCounter(name, level = 1) {
+  const s = getTrophyState();
+  s.c = { ...s.c, [name]: (s.c[name] || 0) + 1 };
+  const unlocked = TROPHIES.filter((tr) => !s.unlocked[tr.id] && tr.test(s.c, {}, level));
+  for (const tr of unlocked) s.unlocked[tr.id] = Date.now();
+  saveTrophyState(s);
+  return unlocked;
 }
 
 // Unlock a trophy that isn't tied to a round (like signing in).

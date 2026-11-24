@@ -22,7 +22,7 @@ import { confetti } from './fx/confetti.js';
 import { scrambleHeadings } from './fx/scramble.js';
 import { createSocial } from './social.js';
 import { trophyCount as countTrophies } from './trophies.js';
-import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag } from './trophies.js';
+import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, weeklyFor, weekEndsAt, trophyInfo, trophyCount, markFlag, bumpCounter } from './trophies.js';
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
@@ -67,7 +67,7 @@ window.addEventListener('ra-fx', (e) => {
 });
 updateRain();
 
-initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); updateRain(); } });
+initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); updateRain(); settingsTrophies(); } });
 
 // Icons on the menu buttons.
 for (const b of document.querySelectorAll('button[data-icon]')) b.prepend(iconEl(b.dataset.icon));
@@ -517,7 +517,7 @@ const LISTING_STALE_MS = 90000; // hide rooms whose host stopped refreshing
 const browse = { net: null, off: null, data: { rooms: {}, chat: {} } };
 const lobbyChat = createChat({
   sfx,
-  onSend: (text) => browse.net?.lobbySay({ name: myName(), color: myColor, text: text.slice(0, 200) }).catch((e) => toast(friendlyError(e), 'err')),
+  onSend: (text) => browse.net?.lobbySay({ name: myName(), color: myColor, text: text.slice(0, 200) }).then(() => flagTrophy('chatSent')).catch((e) => toast(friendlyError(e), 'err')),
   canDelete: () => ownerMode(),
   onDelete: (key) => ownerTools.deleteLobbyMsg(key).catch((e) => toast(`Couldn't delete: ${e.message}`, 'err')),
 });
@@ -718,6 +718,7 @@ function sendChat(text) {
   if (!state.net || !state.room) return;
   const p = state.room.players?.[state.net.uid];
   state.net.push(state.code, 'chat', { uid: state.net.uid, name: p?.name || '?', color: p?.color || '#33ff66', text: text.slice(0, 200), at: state.net.now() });
+  flagTrophy('chatSent');
   // Keep the chat history short.
   const keys = Object.keys(state.room.chat || {}).sort();
   if (keys.length > 80) {
@@ -899,7 +900,8 @@ function finishResults(room, results, me) {
       const humansAndBots = results.length;
       const award = awardRound({ place: mineR.place, players: humansAndBots, won: mineR.won ?? mineR.place === 1, modeId: room.mode });
       // Trophies earned this round.
-      const tr = applyRound(getTrophyState(), roundEvent({ room, mine: mineR, won }), award.after.level);
+      const withOwner = Object.entries(room.players || {}).some(([id, p]) => id !== me && specialKind(p.name) === 'owner');
+      const tr = applyRound(getTrophyState(), roundEvent({ room, mine: mineR, won, withOwner }), award.after.level);
       saveTrophyState(tr.state);
       showNewTrophies(tr.unlocked);
       $('xpGain').innerHTML = '';
@@ -944,9 +946,26 @@ function fmtLeft(ms) {
   return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}h` : `${h}h ${Math.max(0, Math.floor((ms % 3600000) / 60000))}m`;
 }
 function trophyCard(tr, got, extra = null) {
-  return el('div', { class: 'trophy' + (got ? ' got' : ''), title: tr.desc },
-    el('span', { class: 'trophy-icon' }, got ? tr.icon : '🔒'),
-    el('div', {}, el('strong', {}, tr.name), el('div', { class: 'small dim' }, tr.desc), extra));
+  // Secret trophies stay a mystery until you earn them.
+  const hidden = tr.secret && !got;
+  const desc = hidden ? 'Secret trophy. Keep playing to find it!' : tr.desc;
+  return el('div', { class: 'trophy' + (got ? ' got' : '') + (tr.secret ? ' secret' : ''), title: desc },
+    el('span', { class: 'trophy-icon' }, got ? tr.icon : hidden ? '❓' : '🔒'),
+    el('div', {}, el('strong', {}, hidden ? '???' : tr.name), el('div', { class: 'small dim' }, desc), extra));
+}
+
+// Trophies earned outside a round pop up as a notice.
+function trophyNotice(list) {
+  for (const tr of list) toast(`🏆 Trophy unlocked: ${tr.icon} ${tr.name}`, 'owner', 4000);
+  if (list.length) sfx.ok();
+}
+const lvl = () => levelFor(getProgress().xp).level;
+function flagTrophy(flag) { trophyNotice(markFlag(flag, lvl())); }
+// Styles you've tried and rainbow rain count toward secret trophies.
+function settingsTrophies() {
+  const s = getSettings();
+  flagTrophy({ green: 'styleGreen', cyber: 'styleCyber', amber: 'styleAmber' }[s.style] || 'styleGreen');
+  if (s.rainbowRain) flagTrophy('rainbowRain');
 }
 function renderTrophies() {
   const s = getTrophyState();
@@ -974,6 +993,7 @@ function renderTrophies() {
   }
 }
 $('trophyBtn').addEventListener('click', () => {
+  trophyNotice(bumpCounter('caseOpens', lvl()));
   renderTrophies();
   $('trophyDialog').showModal();
 });
@@ -1085,6 +1105,7 @@ if ('serviceWorker' in navigator) {
 // Exposed for automated tests.
 window.__ra = { state, sfx, rain, renderAccount };
 startBadges(); // special titles next to names everywhere
+settingsTrophies(); // the style you start with counts toward Fashion Hacker
 // Dialogs "decrypt" their headings as they open.
 const showModal = HTMLDialogElement.prototype.showModal;
 HTMLDialogElement.prototype.showModal = function () { showModal.call(this); scrambleHeadings(this); };

@@ -919,3 +919,54 @@ test('login: failed logins explain username vs email and Caps Lock', async () =>
   assert.match(loginFailMessage({ code: 'auth/too-many-requests' }, 'x'), /Too many tries/);
   assert.match(loginFailMessage({ code: 'auth/network-request-failed' }, 'x'), /No connection/);
 });
+
+// ---------------------------------------------------------------------------
+// More trophies (overnight #1)
+// ---------------------------------------------------------------------------
+test('trophies: 125+ in total, unique, with secret ones', async () => {
+  const { TROPHIES } = await import('../src/trophies.js');
+  assert.ok(TROPHIES.length >= 125, `only ${TROPHIES.length}`);
+  const ids = TROPHIES.map((x) => x.id);
+  assert.equal(new Set(ids).size, ids.length, 'duplicate trophy id');
+  for (const tr of TROPHIES) assert.ok(tr.icon && tr.name && tr.desc && tr.cat && typeof tr.test === 'function', tr.id);
+  assert.ok(TROPHIES.filter((x) => x.secret).length >= 8, 'secret trophies');
+});
+
+test('trophies: skill trophies unlock from real round stats', async () => {
+  const { applyRound, roundEvent, emptyState } = await import('../src/trophies.js');
+  const play = (state, room, mine, won, now = new Date('2026-03-10T12:00:00Z'), withOwner = false) =>
+    applyRound(state, roundEvent({ room, mine, won, now, withOwner }), 1).state;
+  const ids = (s) => Object.keys(s.unlocked);
+  let s = emptyState();
+  // Race: root in 100 s with no hints.
+  s = play(s, { mode: 'race', startedAt: 0, endedAt: 100000, players: { me: { s: { layer: 5, at: 100000, hints: 0 } } }, results: [{ id: 'me', place: 1 }] }, { id: 'me', place: 1 }, true);
+  for (const id of ['race-nohint', 'race-3min', 'race-2min']) assert.ok(ids(s).includes(id), id);
+  // Duel: 500 correct chars in 1 minute = 100 WPM, 12 hits, no typos, full HP.
+  s = play(s, { mode: 'duel', startedAt: 0, endedAt: 60000, players: { me: { s: { hp: 100, stats: { hits: 12, misses: 0, chars: 500 } } } }, results: [{ id: 'me', place: 1 }] }, { id: 'me', place: 1 }, true);
+  for (const id of ['duel-60', 'duel-90', 'duel-perfect', 'duel-untouched']) assert.ok(ids(s).includes(id), id);
+  // Defend: 320 stolen, 5 attacks stopped, every firewall standing.
+  const nodes = { web: { fw: 1, data: 100 }, db: { fw: 2, data: 200 }, mail: { fw: 1, data: 60 } };
+  s = play(s, { mode: 'defend', startedAt: 0, endedAt: 1, players: { me: { s: { loot: 320, nodes, stats: { kills: 5 } } } } }, { id: 'me', place: 1 }, true);
+  for (const id of ['defend-thief', 'defend-wall', 'defend-fortress']) assert.ok(ids(s).includes(id), id);
+  // Heist: nobody slipped up, alarm low, 5 cameras looped.
+  s = play(s, { mode: 'heist', game: { alarm: 20 }, players: { me: { s: { stats: { mistakes: 0, loops: 5 } } }, b: { s: { stats: { mistakes: 0 } } } } }, { id: 'me', place: 0 }, true);
+  for (const id of ['heist-clean', 'heist-quiet', 'heist-lookout']) assert.ok(ids(s).includes(id), id);
+  // A sloppy heist doesn't count as clean.
+  let s2 = play(emptyState(), { mode: 'heist', game: { alarm: 90 }, players: { me: { s: { stats: { mistakes: 2 } } } } }, { id: 'me' }, true);
+  assert.ok(!ids(s2).includes('heist-clean') && !ids(s2).includes('heist-quiet'));
+});
+
+test('trophies: secret trophies (owner, comeback, dates) and day streaks', async () => {
+  const { applyRound, roundEvent, emptyState, runEnding } = await import('../src/trophies.js');
+  const room = { mode: 'race', players: { me: { s: {} } } };
+  const play = (s, won, date, withOwner = false) => applyRound(s, roundEvent({ room, mine: { id: 'me' }, won, now: new Date(date), withOwner }), 1).state;
+  let s = emptyState();
+  s = play(s, false, '2026-10-29T12:00:00Z');
+  s = play(s, false, '2026-10-30T12:00:00Z');
+  s = play(s, false, '2026-10-31T12:00:00Z', true);
+  s = play(s, true, '2026-10-31T13:00:00Z');
+  const got = Object.keys(s.unlocked);
+  for (const id of ['comeback', 'royal', 'halloween', 'three-in-a-row'.replace('three-in-a-row', 'bestdaystreak-3')]) assert.ok(got.includes(id), id);
+  assert.equal(runEnding(['2026-01-01', '2026-01-02', '2026-01-04'], '2026-01-02'), 2);
+  assert.equal(runEnding(['2026-01-01'], '2026-01-03'), 0);
+});

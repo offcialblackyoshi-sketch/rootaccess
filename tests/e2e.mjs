@@ -970,6 +970,85 @@ await step('trophy case', async () => {
   await T.close();
 });
 
+await step('group chats', async () => {
+  const G = await openTab('G');
+  const H = await openTab('H');
+  const K = await openTab('K');
+  for (const [t, n] of [[G, 'gina'], [H, 'hank'], [K, 'kim']]) {
+    await t.goto(URL_BASE);
+    await t.eval(`document.getElementById('boot')?.click()`); // skip the first-visit intro
+    await t.eval(`document.getElementById('nameInput').value = '${n}'; document.getElementById('nameInput').dispatchEvent(new Event('input'))`);
+  }
+  const uid = (t) => t.eval(`sessionStorage.getItem('ra-local-uid')`);
+  const [hUid, kUid] = [await uid(H), await uid(K)];
+  const groupBox = '.group-box';
+  const sayInGroup = (t, text) => t.eval(`(() => { const f = document.querySelector('.group-box .chat-form'); f.querySelector('input').value = ${JSON.stringify(text)}; f.requestSubmit(); })()`);
+  const logText = (t) => t.eval(`document.querySelector('.group-box .dm-log').innerText`);
+
+  // Gina makes a group; the members list opens with people to invite.
+  await G.eval(`document.getElementById('social').classList.add('open')`);
+  await G.click('[data-group-new]');
+  await G.eval(`(() => { const f = document.querySelector('.group-new'); f.querySelector('input').value = '  Byte   Squad '; f.requestSubmit(); })()`);
+  await G.waitFor(`!document.querySelector('${groupBox}').hidden`, 5000, 'group window opens');
+  await G.waitFor(`!!document.querySelector('[data-invite-id="${hUid}"]') && !!document.querySelector('[data-invite-id="${kUid}"]')`, 15000, 'hank and kim can be invited');
+  check('groups: making a group opens it, with online players to invite', (await G.eval(`document.querySelector('.group-box .pname').textContent`)) === 'Byte Squad');
+  await G.click(`[data-invite-id="${hUid}"]`);
+  await G.click(`[data-invite-id="${kUid}"]`);
+  await G.waitFor(`document.querySelector('[data-invite-id="${kUid}"]').disabled`);
+  await G.waitFor(`!document.getElementById('boot') || document.getElementById('boot').hidden || getComputedStyle(document.getElementById('boot')).display === 'none'`, 5000, 'intro gone');
+  await G.shot('60-group-invite.png');
+
+  // Hank says yes, Kim says no thanks.
+  await H.eval(`document.getElementById('social').classList.add('open')`);
+  await H.waitFor(`!!document.querySelector('.group-invite [data-accept]')`, 5000, 'hank gets the invite');
+  const inviteText = await H.eval(`document.querySelector('.group-invite').innerText`);
+  await H.shot('61-group-invited.png');
+  await K.waitFor(`!!document.querySelector('.group-invite [data-decline]')`, 5000, 'kim gets the invite');
+  await K.click('.group-invite [data-decline]');
+  await K.waitFor(`!document.querySelector('.group-invite') && !document.querySelector('.group-row')`, 5000, 'kim declined');
+  check('groups: invites name who sent them and can be turned down', /gina/.test(inviteText) && /Byte Squad/.test(inviteText));
+  await H.click('.group-invite [data-accept]');
+  await H.waitFor(`!document.querySelector('${groupBox}').hidden && document.querySelector('.group-box .small.dim').textContent.includes('2 members')`, 5000, 'hank joined');
+  check('groups: accepting joins the group', true);
+
+  // Chat both ways.
+  await sayInGroup(G, 'hello squad');
+  await H.waitFor(`document.querySelector('.group-box .dm-log').innerText.includes('hello squad')`, 5000, 'hank sees message');
+  await sayInGroup(H, 'hi gina');
+  await G.waitFor(`document.querySelector('.group-box .dm-log').innerText.includes('hi gina')`, 5000, 'gina sees reply');
+  const kimSees = await K.eval(`document.body.innerText.includes('hello squad')`);
+  check('groups: members chat together, and people who said no see nothing', !kimSees && (await logText(H)).includes('gina:'));
+  await H.shot('62-group-chat.png');
+
+  // Unread: Gina closes the window, Hank writes, Gina gets a dot and the badge.
+  await G.click('.group-box .icon-x');
+  await sayInGroup(H, 'ping');
+  await G.waitFor(`!!document.querySelector('.group-row.unread') && !document.querySelector('.social-tab .social-unread').hidden`, 5000, 'unread shows');
+  await G.click('.group-row');
+  await G.waitFor(`!document.querySelector('.group-row.unread') && document.querySelector('.group-box .dm-log').innerText.includes('ping')`, 5000, 'opening clears unread');
+  check('groups: new messages show as unread until you open the group', true);
+
+  // Trophies for making, joining and chatting in a group.
+  const tr = await G.eval(`JSON.parse(localStorage.getItem('ra-trophies') || '{}').unlocked || {}`);
+  check('groups: group trophies unlock', !!(tr['group-made'] && tr['group-joined'] && tr['group-chat']), Object.keys(tr).filter((k) => k.startsWith('group')).join(','));
+
+  // Gina (who made it) removes Hank; then deletes the group.
+  if (await G.eval(`document.querySelector('.group-members').hidden`)) await G.click('[data-members]');
+  await G.waitFor(`!!document.querySelector('[data-kick="${hUid}"]')`, 5000, 'remove button');
+  const hankCanKick = await H.eval(`!!document.querySelector('[data-kick]')`);
+  await G.click(`[data-kick="${hUid}"]`);
+  await H.waitFor(`document.querySelector('${groupBox}').hidden && !document.querySelector('.group-row')`, 5000, 'hank removed');
+  check('groups: only the group maker can remove people, and removed players lose the group', !hankCanKick);
+  await G.click('[data-leave]');
+  await G.click('[data-leave]');
+  await G.waitFor(`document.querySelector('${groupBox}').hidden && !document.querySelector('.group-row')`, 5000, 'group deleted');
+  const left = await G.eval(`Object.keys(JSON.parse(localStorage.getItem('ra-groups') || '{}')).length`);
+  check('groups: deleting the group asks twice and removes it', left === 0, `groups left: ${left}`);
+  const errs = [...G.errors, ...H.errors, ...K.errors];
+  check('groups: no errors', errs.length === 0, errs.join(' | '));
+  for (const t of [G, H, K]) await t.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

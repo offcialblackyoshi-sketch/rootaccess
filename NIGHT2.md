@@ -5,7 +5,7 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
 ## Backlog (in order)
 
 1. [x] **Lots more trophies**: 60+ new ones, including secret ones.
-2. [ ] **Group chats**: create a group, invite online players, group chat window.
+2. [x] **Group chats**: create a group, invite online players, group chat window.
 3. [ ] **Friends list**: add by handle, see online friends, invite to a room.
 4. [ ] **Kid safety**: chat word filter, plus a Report button with a reports inbox for the owner.
 5. [ ] **Chat emotes and quick-chat**.
@@ -32,3 +32,23 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
 - The results screen now passes each mode's own stats to the trophies, such as hints, typing speed, data stolen, firewalls, and heist alarm and mistakes.
 - **Verified:** unit tests check there are 130 trophies with unique ids. They also feed real round data through the trophy rules for every new skill trophy, the secret ones (owner, comeback, Halloween) and day streaks. A browser test opens the trophy case (0/130, with 10 hidden secrets) and tries the 3 styles, which unlocks "Fashion Hacker" with a notice.
 - **Rules:** no change needed.
+
+### 2. Group chats
+- **New "Groups" section** at the top of the 👥 online players panel, with **+ new** to make a group (name up to 24 characters).
+- **Inviting:** a new group opens with its member list, which shows everyone online you can invite. People who turned private messages off, or whom you blocked, aren't listed.
+- **Invites need a yes.** The other player sees "📨 gina invited you to Byte Squad" with **Join** and **No thanks**. Nobody is ever put into a group without agreeing. Invites from players you've blocked are hidden.
+- **Group chat window** (bottom right): messages, member count, and a **members** button.
+  - The person who made the group can **remove** members and **delete** the group. Everyone else can **leave**. Both ask twice.
+  - Removed players' window closes, with a notice.
+- **Unread:** groups with new messages get a red dot, and count toward the 👥 badge and its sound.
+- **Accounts and guests:**
+  - Signed-in players join as their account, so their groups and history stay on every device.
+  - Guests join as their tab, so their groups end when they close it. The panel says so.
+  - Up to 12 people per group; the last 100 messages are shown.
+- **Safety:** messages from blocked players are hidden. Banned players can't make groups, invite, or post (checked by the rules). The owner name stays reserved in group and member names.
+- **3 new trophies:** Squad Up (make a group), Plus One (join someone's group), Group Text (send a group message). Now 133 in total.
+- **New test tool, `tests/rules-sim.mjs`:** a small stand-in for the Firebase rules engine. It runs the real `database.rules.json` against a pretend database, so the rules are tested for real without the emulator.
+- **Verified:**
+  - **Unit tests (62 passing):** about 40 permission checks against the real rules. Only you can make a group; joining needs a member's invite plus your own yes; no self-invites or fake re-invites; only members read or post, as themselves; banned players can't post; only the maker removes people or deletes the group; 12 is the limit; a deleted group can't be brought back by an old invite. Also inbox sorting and unread counting, and who can be invited.
+  - **Browser test** with 3 tabs: Gina makes "Byte Squad" and invites Hank and Kim. Kim says no thanks and sees nothing; Hank joins. They chat both ways, and unread shows and clears. The 3 trophies unlock. Gina removes Hank (Hank can't remove anyone), then deletes the group. No errors.
+- **Rules:** new `groups`, `groupMsgs` and `ginbox` sections (included in the combined update at the bottom).

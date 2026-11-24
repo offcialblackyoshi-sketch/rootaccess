@@ -923,9 +923,9 @@ test('login: failed logins explain username vs email and Caps Lock', async () =>
 // ---------------------------------------------------------------------------
 // More trophies (overnight #1)
 // ---------------------------------------------------------------------------
-test('trophies: 125+ in total, unique, with secret ones', async () => {
+test('trophies: 130+ in total, unique, with secret ones', async () => {
   const { TROPHIES } = await import('../src/trophies.js');
-  assert.ok(TROPHIES.length >= 125, `only ${TROPHIES.length}`);
+  assert.ok(TROPHIES.length >= 130, `only ${TROPHIES.length}`);
   const ids = TROPHIES.map((x) => x.id);
   assert.equal(new Set(ids).size, ids.length, 'duplicate trophy id');
   for (const tr of TROPHIES) assert.ok(tr.icon && tr.name && tr.desc && tr.cat && typeof tr.test === 'function', tr.id);
@@ -969,4 +969,106 @@ test('trophies: secret trophies (owner, comeback, dates) and day streaks', async
   for (const id of ['comeback', 'royal', 'halloween', 'three-in-a-row'.replace('three-in-a-row', 'bestdaystreak-3')]) assert.ok(got.includes(id), id);
   assert.equal(runEnding(['2026-01-01', '2026-01-02', '2026-01-04'], '2026-01-02'), 2);
   assert.equal(runEnding(['2026-01-01'], '2026-01-03'), 0);
+});
+
+test('group chats: names are tidied, inboxes sort into invites and groups, unread counts', async () => {
+  const { cleanGroupName, sortGroupInbox, invitable, GROUP_NAME_MAX } = await import('../src/groups.js');
+  assert.equal(cleanGroupName('  Byte   Squad  '), 'Byte Squad');
+  assert.equal(cleanGroupName('x'.repeat(40)).length, GROUP_NAME_MAX);
+  assert.equal(cleanGroupName('   '), '');
+  const box = {
+    g1: { name: 'Squad', text: 'hi', by: 'Neo', from: 'B', at: 50 },
+    g2: { name: 'Mine', text: 'yo', by: 'Me', from: 'A', at: 60 },
+    g3: { name: 'Invite', by: 'Trin', from: 'C', invite: true, at: 70 },
+    g4: { name: 'Blocked invite', by: 'Pest', from: 'X', invite: true, at: 80 },
+    g5: { name: 'Read', text: 'old', by: 'Neo', from: 'B', at: 10 },
+  };
+  const s = sortGroupInbox(box, 'A', { g5: 20 }, (id) => id === 'X');
+  assert.deepEqual(s.invites.map((g) => g.gid), ['g3'], 'invites from blocked players are hidden');
+  assert.deepEqual(s.groups.map((g) => g.gid), ['g2', 'g1', 'g5'], 'newest first');
+  assert.deepEqual(s.groups.filter((g) => g.unread).map((g) => g.gid), ['g1'], 'your own and already-read messages are not unread');
+  assert.equal(s.unread, 2);
+  const online = [['tabB', { name: 'Neo', acct: 'accB' }], ['tabC', { name: 'Trin' }], ['tabD', { name: 'Quiet', dm: false }], ['tabE', { name: 'Pest' }], ['tabB2', { name: 'Neo', acct: 'accB' }]];
+  const who = invitable(online, { members: { tabC: { name: 'Trin' } } }, (id) => id === 'tabE');
+  assert.deepEqual(who.map((p) => p.id), ['accB'], 'signed-in players are invited as their account, once; members, DMs-off and blocked are left out');
+});
+
+test('database rules: group chats only let members in, and invites need a yes', async () => {
+  const { createRulesSim } = await import('./rules-sim.mjs');
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const db = createRulesSim(rules);
+  const t = db.now - 5;
+  const group = (owner, members) => ({ name: 'Squad', owner, at: t, members: Object.fromEntries(members.map((m) => [m, { name: m, at: t }])) });
+  const msg = (from, text = 'hi') => ({ from, name: from, color: '#33ff66', text, at: t });
+  const invite = (from) => ({ name: 'Squad', by: from, from, invite: true, text: '', at: t });
+
+  // Making a group: only with yourself as the owner and only member.
+  assert.equal(db.set('A', 'groups/gAAAAAA1', group('A', ['A', 'B'])), false, 'cannot put others in a new group');
+  assert.equal(db.set('A', 'groups/gAAAAAA1', group('B', ['B'])), false, 'cannot make a group for someone else');
+  assert.equal(db.set('A', 'groups/x', group('A', ['A'])), false, 'odd group ids are refused');
+  assert.equal(db.set('A', 'groups/gAAAAAA1', { ...group('A', ['A']), name: 'Brisky2Swifty fans' }), false, 'the owner name is reserved');
+  assert.equal(db.set('A', 'groups/gAAAAAA1', group('A', ['A'])), true);
+  assert.equal(db.set(null, 'groups/gAAAAAA2', group('A', ['A'])), false, 'must be signed in');
+
+  // Reading: members only.
+  assert.equal(db.canRead('A', 'groups/gAAAAAA1'), true);
+  assert.equal(db.canRead('B', 'groups/gAAAAAA1'), false);
+  assert.equal(db.canRead('B', 'groupMsgs/gAAAAAA1'), false);
+  assert.equal(db.canRead('B', 'ginbox/A'), false, 'your group list is private');
+
+  // Joining needs an invite from a member, and the invitee's own yes.
+  assert.equal(db.set('B', 'groups/gAAAAAA1/members/B', { name: 'B', at: t }), false, 'cannot join without an invite');
+  assert.equal(db.set('B', 'ginbox/B/gAAAAAA1', invite('B')), false, 'cannot invite yourself');
+  assert.equal(db.set('C', 'ginbox/B/gAAAAAA1', invite('C')), false, 'non-members cannot invite');
+  assert.equal(db.set('A', 'groups/gAAAAAA1/members/B', { name: 'B', at: t }), false, 'members cannot add people directly');
+  assert.equal(db.set('A', 'ginbox/B/gAAAAAA1', invite('A')), true, 'a member invites B');
+  assert.equal(db.set('B', 'groups/gAAAAAA1/members/B', { name: 'B', at: t, extra: 1 }), false, 'no extra fields');
+  assert.equal(db.set('B', 'groups/gAAAAAA1/members/B', { name: 'B', at: t }), true, 'B says yes');
+  assert.equal(db.set('B', 'ginbox/B/gAAAAAA1', { name: 'Squad', text: '', by: '', from: 'B', at: t }), true);
+  assert.equal(db.set('A', 'ginbox/B/gAAAAAA1', invite('A')), false, 'members cannot be re-invited (no fake invites)');
+
+  // Messages: members only, as themselves, not banned, sensible lengths.
+  assert.equal(db.set('B', 'groupMsgs/gAAAAAA1/m1', msg('B')), true);
+  assert.equal(db.set('B', 'groupMsgs/gAAAAAA1/m1', msg('B', 'edit')), false, 'messages cannot be changed');
+  assert.equal(db.set('B', 'groupMsgs/gAAAAAA1/m2', msg('A')), false, 'cannot post as someone else');
+  assert.equal(db.set('C', 'groupMsgs/gAAAAAA1/m3', msg('C')), false, 'non-members cannot post');
+  assert.equal(db.set('B', 'groupMsgs/gAAAAAA1/m4', msg('B', 'x'.repeat(301))), false, 'too long');
+  assert.equal(db.set('B', 'ginbox/A/gAAAAAA1', { name: 'Squad', text: 'hi', by: 'B', from: 'B', at: t }), true, 'members tell each other about new messages');
+  assert.equal(db.set('C', 'ginbox/A/gAAAAAA1', { name: 'Squad', text: 'spam', by: 'C', from: 'C', at: t }), false, 'others cannot');
+  db.seed('bans/B', { until: db.now + 1000, name: 'B', at: t });
+  assert.equal(db.set('B', 'groupMsgs/gAAAAAA1/m5', msg('B')), false, 'banned players cannot post');
+  db.seed('bans/B', null);
+
+  // Only the group's owner can remove people or delete it; anyone can leave.
+  assert.equal(db.set('B', 'groups/gAAAAAA1/members/A', null), false, 'B cannot remove the owner');
+  assert.equal(db.set('B', 'groups/gAAAAAA1', null), false, 'B cannot delete the group');
+  assert.equal(db.set('B', 'groups/gAAAAAA1/owner', 'B'), false, 'B cannot take it over');
+  assert.equal(db.set('A', 'ginbox/B/gAAAAAA1', null), true);
+  assert.equal(db.set('A', 'groups/gAAAAAA1/members/B', null), true, 'the owner removes B');
+  assert.equal(db.canRead('B', 'groupMsgs/gAAAAAA1'), false, 'removed players cannot read any more');
+
+  // Full groups refuse new members.
+  const many = Array.from({ length: 12 }, (_, i) => `M${i}`);
+  db.seed('groups/gFULL0001', group('M0', many));
+  db.seed('ginbox/Z/gFULL0001', invite('M0'));
+  assert.equal(db.set('Z', 'groups/gFULL0001/members/Z', { name: 'Z', at: t }), false, '12 is the limit');
+
+  // Deleting: the owner clears messages, then the group.
+  assert.equal(db.set('B', 'groupMsgs/gAAAAAA1', null), false);
+  assert.equal(db.set('A', 'groupMsgs/gAAAAAA1', null), true);
+  assert.equal(db.set('A', 'groups/gAAAAAA1', null), true);
+  // A leftover invite to a deleted group cannot bring it back.
+  db.seed('ginbox/Q/gAAAAAA1', invite('A'));
+  assert.equal(db.set('Q', 'groups/gAAAAAA1/members/Q', { name: 'Q', at: t }), false);
+});
+
+test('rules simulator agrees with the existing private-chat rules', async () => {
+  const { createRulesSim } = await import('./rules-sim.mjs');
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const db = createRulesSim(rules);
+  const m = { from: 'A', name: 'Neo', text: 'hi', at: db.now - 1 };
+  assert.equal(db.set('A', 'dms/A_B/m1', m), true);
+  assert.equal(db.set('C', 'dms/A_B/m2', { ...m, from: 'C' }), false, 'outsiders cannot write into a chat');
+  assert.equal(db.canRead('B', 'dms/A_B'), true);
+  assert.equal(db.canRead('C', 'dms/A_B'), false);
 });

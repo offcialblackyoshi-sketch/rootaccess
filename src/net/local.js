@@ -105,6 +105,7 @@ export function createLocalNet() {
   // Owner tools on this computer (used by the tests): announcement + bans.
   const ANNOUNCE = 'ra-announce';
   const BANS = 'ra-bans';
+  const GROUPS = 'ra-groups';
   const banned = () => (kvGet(BANS)[uid]?.until || 0) > Date.now();
   const refuseIfBanned = () => { if (banned()) throw new Error('PERMISSION_DENIED: banned'); };
   const bannedError = () => Promise.reject(new Error('PERMISSION_DENIED: banned'));
@@ -207,6 +208,65 @@ export function createLocalNet() {
         if (info) l.rooms[code] = { ...info, host: uid, at: Date.now() };
         else delete l.rooms[code];
       });
+    },
+    // Group chats between tabs on this computer (same shape as online).
+    groups: {
+      me: () => uid,
+      async create(name, myName) {
+        if (banned()) throw new Error('PERMISSION_DENIED: banned');
+        const gid = 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const at = Date.now();
+        await kvMutate(GROUPS, (all) => { all[gid] = { name, owner: uid, at, members: { [uid]: { name: myName, at } } }; });
+        await kvMutate('ra-ginbox-' + uid, (box) => { box[gid] = { name, text: '', by: '', from: uid, at }; });
+        return gid;
+      },
+      // null once you're not a member (left, removed, or the group was deleted).
+      watch: (gid, cb) => kvWatch(GROUPS, cb, (all) => (all[gid]?.members?.[uid] ? all[gid] : null)),
+      msgs(gid, cb) {
+        if (!kvGet(GROUPS)[gid]?.members?.[uid]) { cb({}); return () => {}; }
+        return kvWatch('ra-gmsg-' + gid, cb);
+      },
+      inbox: (cb) => kvWatch('ra-ginbox-' + uid, cb),
+      async send(gid, group, msg) {
+        if (banned()) throw new Error('PERMISSION_DENIED: banned');
+        if (!kvGet(GROUPS)[gid]?.members?.[uid]) throw new Error('PERMISSION_DENIED: not in this group');
+        const at = Date.now();
+        await kvMutate('ra-gmsg-' + gid, (m) => {
+          m[at.toString(36) + Math.random().toString(36).slice(2, 5)] = { from: uid, name: msg.name, color: msg.color || '', text: msg.text, at };
+          for (const k of Object.keys(m).sort().slice(0, -100)) delete m[k];
+        });
+        for (const id of Object.keys(group.members || {})) await kvMutate('ra-ginbox-' + id, (box) => { box[gid] = { name: group.name, text: msg.text, by: msg.name, from: uid, at }; });
+      },
+      async invite(gid, groupName, id, byName) {
+        if (banned()) throw new Error('PERMISSION_DENIED: banned');
+        const g = kvGet(GROUPS)[gid];
+        if (!g?.members?.[uid] || g.members[id]) throw new Error('PERMISSION_DENIED');
+        await kvMutate('ra-ginbox-' + id, (box) => { box[gid] = { name: groupName, text: '', by: byName, from: uid, invite: true, at: Date.now() }; });
+      },
+      async accept(gid, invite, myName) {
+        const g = kvGet(GROUPS)[gid];
+        if (!g || !kvGet('ra-ginbox-' + uid)[gid]?.invite || Object.keys(g.members || {}).length >= 12) throw new Error('PERMISSION_DENIED');
+        const at = Date.now();
+        await kvMutate(GROUPS, (all) => { if (all[gid]) all[gid].members[uid] = { name: myName, at }; });
+        await kvMutate('ra-ginbox-' + uid, (box) => { box[gid] = { name: invite.name, text: '', by: '', from: uid, at }; });
+      },
+      dismiss: (gid) => kvMutate('ra-ginbox-' + uid, (box) => { delete box[gid]; }),
+      async leave(gid) {
+        await kvMutate(GROUPS, (all) => { delete all[gid]?.members?.[uid]; });
+        await kvMutate('ra-ginbox-' + uid, (box) => { delete box[gid]; });
+      },
+      async kick(gid, id) {
+        if (kvGet(GROUPS)[gid]?.owner !== uid) throw new Error('PERMISSION_DENIED');
+        await kvMutate('ra-ginbox-' + id, (box) => { delete box[gid]; });
+        await kvMutate(GROUPS, (all) => { delete all[gid]?.members?.[id]; });
+      },
+      async remove(gid, group) {
+        if (kvGet(GROUPS)[gid]?.owner !== uid) throw new Error('PERMISSION_DENIED');
+        store.del('ra-gmsg-' + gid);
+        kvNotify('ra-gmsg-' + gid);
+        for (const id of Object.keys(group.members || {})) await kvMutate('ra-ginbox-' + id, (box) => { delete box[gid]; });
+        await kvMutate(GROUPS, (all) => { delete all[gid]; });
+      },
     },
     mod: {
       announceWatch: (cb) => kvWatch(ANNOUNCE, (v) => cb(v && v.text ? v : null)),

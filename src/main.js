@@ -1113,6 +1113,7 @@ HTMLDialogElement.prototype.showModal = function () { showModal.call(this); scra
 // Online players panel: what others see about you, and what you're doing.
 social = createSocial({
   sfx,
+  flag: (name) => flagTrophy(name),
   owner: {
     isOwner: ownerMode,
     banOf: (ids) => ownerTools.banOf(ids),

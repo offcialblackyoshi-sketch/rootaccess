@@ -63,6 +63,50 @@ export async function createFirebaseNet(config) {
     disconnects.set(code, od);
   }
 
+  function groupApi() {
+    const gdb = () => (signedIn() ? account().db : db);
+    const me = () => signedIn()?.uid || user.uid;
+    const ref = (path) => D.ref(gdb(), path);
+    const stamp = () => D.serverTimestamp();
+    return {
+      me,
+      async create(name, myName) {
+        const gid = D.push(ref('groups')).key;
+        await D.set(ref(`groups/${gid}`), { name, owner: me(), at: stamp(), members: { [me()]: { name: myName, at: stamp() } } });
+        await D.set(ref(`ginbox/${me()}/${gid}`), { name, text: '', by: '', from: me(), at: stamp() });
+        return gid;
+      },
+      watch: (gid, cb) => D.onValue(ref(`groups/${gid}`), (s) => cb(s.val()), () => cb(null)),
+      msgs: (gid, cb) => D.onValue(D.query(ref(`groupMsgs/${gid}`), D.limitToLast(100)), (s) => cb(s.val() || {}), () => cb({})),
+      inbox: (cb) => D.onValue(ref(`ginbox/${me()}`), (s) => cb(s.val() || {}), () => cb({})),
+      async send(gid, group, msg) {
+        const m = { from: me(), name: msg.name, color: msg.color || '', text: msg.text, at: stamp() };
+        await D.push(ref(`groupMsgs/${gid}`), m);
+        const note = { name: group.name, text: msg.text, by: msg.name, from: me(), at: stamp() };
+        await Promise.all(Object.keys(group.members || {}).map((id) => D.set(ref(`ginbox/${id}/${gid}`), note).catch(() => {})));
+      },
+      invite: (gid, groupName, id, byName) => D.set(ref(`ginbox/${id}/${gid}`), { name: groupName, text: '', by: byName, from: me(), invite: true, at: stamp() }),
+      async accept(gid, invite, myName) {
+        await D.set(ref(`groups/${gid}/members/${me()}`), { name: myName, at: stamp() });
+        await D.set(ref(`ginbox/${me()}/${gid}`), { name: invite.name, text: '', by: '', from: me(), at: stamp() });
+      },
+      dismiss: (gid) => D.remove(ref(`ginbox/${me()}/${gid}`)),
+      async leave(gid) {
+        await D.remove(ref(`groups/${gid}/members/${me()}`)).catch(() => {});
+        await D.remove(ref(`ginbox/${me()}/${gid}`));
+      },
+      async kick(gid, id) {
+        await D.remove(ref(`ginbox/${id}/${gid}`)).catch(() => {});
+        await D.remove(ref(`groups/${gid}/members/${id}`));
+      },
+      async remove(gid, group) {
+        await D.remove(ref(`groupMsgs/${gid}`));
+        for (const id of Object.keys(group.members || {})) await D.remove(ref(`ginbox/${id}/${gid}`)).catch(() => {});
+        await D.remove(ref(`groups/${gid}`));
+      },
+    };
+  }
+
   const net = {
     kind: 'online',
     uid: user.uid,
@@ -198,6 +242,12 @@ export async function createFirebaseNet(config) {
         return D.update(D.ref(account().db, `ainbox/${u.uid}/${convId(u.uid, otherAcct)}`), { readAt: D.serverTimestamp() }).catch(() => {});
       },
     },
+
+    // ---- Group chats ----
+    // groups/<gid> = { name, owner, at, members: { <id>: { name, at } } },
+    // groupMsgs/<gid>/<msg>, and ginbox/<id>/<gid> = newest message or an invite.
+    // Signed-in players take part as their account, guests as this tab.
+    groups: groupApi(),
 
     // ---- Public lobby: open rooms + lobby chat ----
     lobbyWatch(cb) {

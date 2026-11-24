@@ -7,11 +7,13 @@ import { el, load, save } from './util.js';
 import { convId } from './net/shared.js';
 import { avatarEl } from './avatar.js';
 import { describeBan, toast } from './owner.js';
+import { createGroups } from './groups.js';
 
 const ONLINE_STALE_MS = 120000;
 
 // owner: { isOwner(), banOf(ids), ban(ids, length, name), unban(ids) } for the owner's moderation buttons.
-export function createSocial({ getNet, profile, status, sfx, owner = null }) {
+// flag(name): marks a trophy flag (group chat trophies).
+export function createSocial({ getNet, profile, status, sfx, owner = null, flag = () => {} }) {
   let net = null;
   let offPresence = null;
   let offInbox = null;
@@ -38,11 +40,13 @@ export function createSocial({ getNet, profile, status, sfx, owner = null }) {
   const dmToggle = el('button', { type: 'button', class: 'mini-btn', onclick: () => toggleDms() });
   const headCount = el('span', { class: 'dim' });
   const chatsEl = el('div', { class: 'social-chats' });
+  const groupsSlot = el('div', { class: 'social-groups-slot' });
   const list = el('ul', { class: 'social-list' });
   const panel = el('div', { class: 'social-panel panel' },
     el('div', { class: 'acct-head' }, el('h2', {}, '// ONLINE ', headCount), el('button', { type: 'button', class: 'icon-x', 'aria-label': 'Hide online players', onclick: () => setOpen(false) }, '«')),
     search,
     el('div', { class: 'social-toggle small' }, el('span', { class: 'dim' }, 'Private messages:'), dmToggle),
+    groupsSlot,
     chatsEl,
     list);
   const root = el('aside', { id: 'social', class: 'social', 'aria-label': 'Online players' }, tab, panel);
@@ -64,6 +68,16 @@ export function createSocial({ getNet, profile, status, sfx, owner = null }) {
     dmLog, dmNote,
     el('form', { class: 'chat-form', onsubmit: (e) => { e.preventDefault(); sendDm(); } }, dmInput));
   document.body.append(dmBox);
+
+  // Group chats live in their own module; they share this panel and the block list.
+  const groups = createGroups({
+    profile, sfx, flag,
+    online: () => others(),
+    isBlocked: (id) => blocked.has(id),
+    onChange: () => render(),
+    onOpen: () => closeDm(),
+  });
+  groupsSlot.append(groups.section);
 
   // ---- Helpers ----
   const me = () => net?.uid;
@@ -114,7 +128,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null }) {
     const n = others().length;
     countEl.textContent = String(n);
     headCount.textContent = `(${n})`;
-    const u = unreadChats().length;
+    const u = unreadChats().length + groups.unread();
     unreadEl.hidden = !u;
     unreadEl.textContent = String(u);
     if (u > lastUnread) { sfx?.chat(); tab.classList.remove('ping'); void tab.offsetWidth; tab.classList.add('ping'); }
@@ -122,6 +136,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null }) {
     renderToggle();
     renderChats();
     renderList();
+    groups.refresh();
   }
 
   function renderList() {
@@ -225,6 +240,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null }) {
   function openDm(t) {
     if (!net || blocked.has(t.id)) return;
     closeDm();
+    groups.close();
     chat = t;
     dmTitle.textContent = t.name || 'player';
     dmKind.textContent = t.kind === 'acct' ? 'saved chat' : 'guest chat (not saved)';
@@ -304,6 +320,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null }) {
       dmOn = load('ra-dm-on', true) !== false; // signing in may bring your saved setting
       if (acctId && net.acctChat) offAcctInbox = net.acctChat.inbox((box) => { acctInbox = box || {}; render(); });
     }
+    groups.attach(net);
   }
 
   render();

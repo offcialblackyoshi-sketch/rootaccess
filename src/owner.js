@@ -47,8 +47,30 @@ export function toast(text, kind = 'info', ms = 3500) {
 
 // ---- Banner + owner window ----
 // ownerName(): the name shown on announcements ("brisky2swifty: ...").
+// Why a player was reported (the keys are checked by the database rules).
+export const REPORT_REASONS = {
+  mean: 'Mean or bullying',
+  words: 'Bad words',
+  personal: 'Asking for personal info',
+  cheating: 'Cheating',
+  name: 'Rude name',
+  other: 'Something else',
+};
+
+// "3 min ago" style ages for the reports list.
+export function ago(at, now = Date.now()) {
+  const s = Math.max(0, Math.round((now - (at || 0)) / 1000));
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
+  return `${Math.floor(s / 86400)} d ago`;
+}
+
 export function createOwnerTools({ isOwner, sfx, ownerName = () => '' }) {
   let net = null;
+  let offReports = null;
+  let reports = {};
+  let reportsSeen = -1;
   let offAnnounce = null;
   let offBans = null;
   let announcement = null;
@@ -84,6 +106,8 @@ export function createOwnerTools({ isOwner, sfx, ownerName = () => '' }) {
   const annInput = el('textarea', { maxlength: 200, rows: 3, placeholder: 'Message for everyone, e.g. "New mode out!"', 'aria-label': 'Announcement' });
   const annMsg = el('p', { class: 'small dim' });
   const banList = el('ul', { class: 'ban-list' });
+  const reportList = el('ul', { class: 'report-list' });
+  const reportCount = el('span', { class: 'small dim' });
   const dialog = el('dialog', { class: 'owner-dialog', 'aria-label': 'Owner tools' },
     el('div', { class: 'acct-head' }, el('h2', {}, '// 👑 OWNER TOOLS'), el('button', { type: 'button', class: 'icon-x', 'aria-label': 'Close', onclick: () => dialog.close() }, '✕')),
     el('h3', {}, 'Announcement'),
@@ -96,6 +120,9 @@ export function createOwnerTools({ isOwner, sfx, ownerName = () => '' }) {
     el('h3', {}, 'Bans'),
     el('p', { class: 'small dim' }, 'Banned players can\'t use lobby chat, private messages, or join and list public rooms. Ban someone from their profile in the 👥 online players list.'),
     banList,
+    el('h3', {}, 'Reports ', reportCount),
+    el('p', { class: 'small dim' }, 'Players can report someone from their profile. Only you see reports.'),
+    reportList,
     el('p', { class: 'small dim' }, 'Tip: as owner you can delete lobby chat messages (🗑), close public rooms, and kick anyone from a room you\'re in.'));
   dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
   document.body.append(dialog);
@@ -127,15 +154,57 @@ export function createOwnerTools({ isOwner, sfx, ownerName = () => '' }) {
     }
   }
 
+  // Reports, newest first, with ban and dismiss buttons.
+  function renderReports() {
+    const rows = Object.entries(reports).sort(([, a], [, b]) => (b.at || 0) - (a.at || 0));
+    reportCount.textContent = rows.length ? `(${rows.length})` : '';
+    const btn = document.getElementById('ownerBtn');
+    if (btn) {
+      let badge = btn.querySelector('.owner-count');
+      if (!badge) { badge = el('span', { class: 'owner-count' }); btn.append(badge); }
+      badge.hidden = !rows.length;
+      badge.textContent = String(rows.length);
+    }
+    // A new report while you're online: let the owner know.
+    if (reportsSeen >= 0 && rows.length > reportsSeen) { toast(`🚩 New report about ${rows[0][1].targetName || 'a player'}.`); sfx?.chat?.(); }
+    reportsSeen = rows.length;
+    reportList.innerHTML = '';
+    if (!rows.length) reportList.append(el('li', { class: 'dim small' }, 'No reports. 🎉'));
+    for (const [id, r] of rows) {
+      const ids = [r.target, r.targetAcct].filter(Boolean);
+      const banned = activeBan(bans, ids);
+      reportList.append(el('li', { class: 'report', 'data-report': id },
+        el('div', {}, '🚩 ', el('span', { class: 'pname' }, r.targetName || '?'), el('span', { class: 'small' }, ` · ${REPORT_REASONS[r.reason] || r.reason}`)),
+        el('div', { class: 'small dim' }, `reported by ${r.byName || '?'} · ${ago(r.at)}${banned ? ` · banned ${describeBan(banned)}` : ''}`),
+        r.note ? el('div', { class: 'small report-note' }, `"${r.note}"`) : null,
+        r.context ? el('pre', { class: 'small report-context' }, r.context) : null,
+        el('div', { class: 'actions' },
+          banned ? null : el('button', { type: 'button', class: 'mini-btn danger', 'data-report-ban': id, onclick: () => tools.ban(ids, '1d', r.targetName || 'player').catch((e) => toast(e.message, 'err')) }, 'Ban 1 day'),
+          el('button', { type: 'button', class: 'mini-btn', 'data-report-dismiss': id, onclick: () => net.reports.remove(id).catch((e) => toast(e.message, 'err')) }, banned ? 'Done' : 'Dismiss'))));
+    }
+  }
+
+  // Only the owner watches reports (the rules refuse everyone else).
+  function syncReports() {
+    const want = isOwner() && !!net?.reports;
+    if (want && !offReports) offReports = net.reports.watch((r) => { reports = r || {}; renderReports(); });
+    if (!want && offReports) { offReports(); offReports = null; reports = {}; reportsSeen = -1; renderReports(); }
+  }
+
   const tools = {
     // Watch the current connection (local or online).
     attach(n) {
-      if (!n?.mod || n === net) return;
-      offAnnounce?.();
-      offBans?.();
-      net = n;
-      offAnnounce = n.mod.announceWatch((a) => { announcement = a; renderBanner(); });
-      offBans = n.mod.bansWatch((b) => { bans = b || {}; renderBans(); for (const cb of listeners) cb(bans); });
+      if (n?.mod && n !== net) {
+        offAnnounce?.();
+        offBans?.();
+        offReports?.();
+        offReports = null;
+        reportsSeen = -1;
+        net = n;
+        offAnnounce = n.mod.announceWatch((a) => { announcement = a; renderBanner(); });
+        offBans = n.mod.bansWatch((b) => { bans = b || {}; renderBans(); if (offReports) renderReports(); for (const cb of listeners) cb(bans); });
+      }
+      syncReports();
     },
     onBans(cb) { listeners.add(cb); },
     bans: () => bans,
@@ -144,6 +213,8 @@ export function createOwnerTools({ isOwner, sfx, ownerName = () => '' }) {
       if (!isOwner()) return;
       annMsg.textContent = '';
       renderBans();
+      syncReports();
+      renderReports();
       dialog.showModal();
     },
     async ban(ids, length, name) {

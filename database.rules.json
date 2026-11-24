@@ -294,6 +294,49 @@
           }
         }
       }
+    },
+    "reports": {
+      ".read": "auth != null && (root.child('roles').child(auth.uid).val() === 'owner' || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('roles').child(root.child('sessions').child(auth.uid).val()).val() === 'owner'))",
+      "$id": {
+        ".write": "auth != null && ((!data.exists() && newData.child('by').val() === auth.uid && !(root.child('bans').child(auth.uid).child('until').val() > now || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('bans').child(root.child('sessions').child(auth.uid).val()).child('until').val() > now))) || (!newData.exists() && (root.child('roles').child(auth.uid).val() === 'owner' || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('roles').child(root.child('sessions').child(auth.uid).val()).val() === 'owner'))))",
+        ".validate": "newData.hasChildren(['by', 'byName', 'target', 'targetName', 'reason', 'at']) && newData.child('at').val() === now && newData.parent().parent().child('reportsBy').child(auth.uid).val() === now && newData.child('byName').isString() && newData.child('byName').val().length >= 1 && newData.child('byName').val().length <= 16 && newData.child('target').isString() && newData.child('target').val().length >= 1 && newData.child('target').val().length <= 64 && newData.child('targetName').isString() && newData.child('targetName').val().length >= 1 && newData.child('targetName').val().length <= 16 && newData.child('reason').isString() && newData.child('reason').val().matches(/^(mean|words|personal|cheating|name|other)$/) && (!newData.child('targetAcct').exists() || (newData.child('targetAcct').isString() && newData.child('targetAcct').val().length >= 0 && newData.child('targetAcct').val().length <= 64)) && (!newData.child('note').exists() || (newData.child('note').isString() && newData.child('note').val().length >= 0 && newData.child('note').val().length <= 200)) && (!newData.child('context').exists() || (newData.child('context').isString() && newData.child('context').val().length >= 0 && newData.child('context').val().length <= 600))",
+        "by": {
+          ".validate": true
+        },
+        "byName": {
+          ".validate": true
+        },
+        "target": {
+          ".validate": true
+        },
+        "targetAcct": {
+          ".validate": true
+        },
+        "targetName": {
+          ".validate": true
+        },
+        "reason": {
+          ".validate": true
+        },
+        "note": {
+          ".validate": true
+        },
+        "context": {
+          ".validate": true
+        },
+        "at": {
+          ".validate": true
+        },
+        "$extra": {
+          ".validate": false
+        }
+      }
+    },
+    "reportsBy": {
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.val() === now && !(data.val() > now - 30000)"
+      }
     }
   }
 }

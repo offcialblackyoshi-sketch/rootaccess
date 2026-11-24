@@ -1,5 +1,6 @@
 // Room chat panel. One instance, moved between the lobby and game screens.
 import { el } from './util.js';
+import { cleanText } from './filter.js';
 
 const MAX_SHOWN = 60;
 
@@ -52,7 +53,7 @@ export function createChat({ onSend, sfx, onEscape = null, canDelete = () => fal
       const mod = canDelete() && onDelete;
       for (const [key, m] of entries) {
         log.append(el('div', { class: 'chat-msg', 'data-key': key },
-          el('span', { class: 'chat-name', style: { color: m.color || '#33ff66' } }, m.name + ':'), ' ', m.text,
+          el('span', { class: 'chat-name', style: { color: m.color || '#33ff66' } }, cleanText(m.name) + ':'), ' ', cleanText(m.text),
           mod ? el('button', { type: 'button', class: 'chat-del', title: 'Delete message', 'aria-label': `Delete message from ${m.name}`, onclick: () => onDelete(key) }, '🗑') : null));
       }
       if (stick || isNew) log.scrollTop = log.scrollHeight;

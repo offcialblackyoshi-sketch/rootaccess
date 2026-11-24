@@ -307,6 +307,21 @@ export async function createFirebaseNet(config) {
       D.onDisconnect(ref).remove().catch(() => {});
     },
 
+    // ---- Reports ----
+    // reports/<id>: anyone can report a player (one every 30 s, checked by the
+    // rules through reportsBy/<uid>); only the owner can read or clear them.
+    reports: {
+      async send(r) {
+        const key = D.push(D.ref(db, 'reports')).key;
+        await D.update(D.ref(db), {
+          [`reports/${key}`]: { ...r, by: user.uid, at: D.serverTimestamp() },
+          [`reportsBy/${user.uid}`]: D.serverTimestamp(),
+        });
+      },
+      watch: (cb) => D.onValue(D.query(D.ref(account().db, 'reports'), D.limitToLast(100)), (s) => cb(s.val() || {}), () => cb({})),
+      remove: (id) => D.remove(D.ref(account().db, `reports/${id}`)),
+    },
+
     // ---- Owner tools ----
     // Everyone watches announcements and bans with the room connection; only
     // the owner account can write them (checked by the database rules).

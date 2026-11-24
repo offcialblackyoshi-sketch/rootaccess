@@ -6,9 +6,10 @@
 import { el, load, save } from './util.js';
 import { convId } from './net/shared.js';
 import { avatarEl } from './avatar.js';
-import { describeBan, toast } from './owner.js';
+import { describeBan, toast, REPORT_REASONS } from './owner.js';
 import { createGroups } from './groups.js';
 import { createFriends } from './friends.js';
+import { cleanText } from './filter.js';
 
 const ONLINE_STALE_MS = 120000;
 
@@ -185,7 +186,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
     for (const c of shown) {
       chatsEl.append(el('button', { type: 'button', class: 'social-msg' + (c.unread ? ' unread' : ''), onclick: () => openDm(c.target) },
         el('span', { class: 'pname' }, c.name),
-        el('span', { class: 'small dim' }, ` ${c.from === acctId ? 'you: ' : ''}${String(c.text).slice(0, 34)}`)));
+        el('span', { class: 'small dim' }, ` ${c.from === acctId ? 'you: ' : ''}${cleanText(c.text).slice(0, 34)}`)));
     }
   }
 
@@ -210,7 +211,8 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
         stat('Wins', p.wins || 0), stat('Win %', `${winRate}%`), stat('Trophies', `🏆 ${p.trophies || 0}`)),
       el('div', { class: 'actions' },
         el('button', { type: 'button', class: 'primary', disabled: !canDm, title: canDm ? '' : !dmOn ? 'Your private messages are off' : blockedNow ? 'Unblock them first' : 'They have private messages off', onclick: () => { prof.close(); openDm(t); } }, '💬 Message'),
-        el('button', { type: 'button', onclick: () => { toggleBlock(id, p); openProfile(id); } }, blockedNow ? 'Unblock' : '🚫 Block')),
+        el('button', { type: 'button', onclick: () => { toggleBlock(id, p); openProfile(id); } }, blockedNow ? 'Unblock' : '🚫 Block'),
+        net?.reports ? el('button', { type: 'button', class: 'danger-btn', 'data-report-open': id, onclick: () => openReport(id, p) }, '🚩 Report') : null),
       canDm ? el('p', { class: 'small dim' }, t.kind === 'acct' ? 'You\'re both signed in, so this chat is saved.' : 'Guest chat: it lasts while you\'re both online. Sign in (both of you) to save chats.') : null,
       !canDm && p.dm === false ? el('p', { class: 'small dim' }, `${p.name} has private messages turned off.`) : null,
       owner?.isOwner() ? modSection(id, p) : null].filter(Boolean));
@@ -236,6 +238,50 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
         ? el('button', { type: 'button', 'data-unban': '1', onclick: act(() => owner.unban(ids)) }, 'Unban')
         : lengths.map(([len, label]) => el('button', { type: 'button', class: 'mini-btn danger', 'data-ban': len, onclick: act(() => owner.ban(ids, len, p.name)) }, label))));
   }
+  // ---- Reporting a player to the owner ----
+  const recentFrom = {}; // chat id -> their last few private messages (sent with a report)
+  function openReport(id, p, done = false) {
+    prof.innerHTML = '';
+    const head = el('div', { class: 'acct-head' }, el('h2', {}, '// REPORT ', el('span', { class: 'pname' }, p.name)), el('button', { type: 'button', class: 'icon-x', 'aria-label': 'Close', onclick: () => prof.close() }, '✕'));
+    if (done) {
+      prof.append(head,
+        el('p', {}, '✅ Thanks for telling us. The owner will take a look.'),
+        el('p', { class: 'small dim' }, 'If they keep bothering you, block them: you won\'t see their messages or invites.'),
+        el('div', { class: 'actions' },
+          isBlocked(p, id) ? null : el('button', { type: 'button', 'data-report-block': id, onclick: () => { toggleBlock(id, p); prof.close(); } }, '🚫 Block them too'),
+          el('button', { type: 'button', class: 'primary', onclick: () => prof.close() }, 'Close')));
+      return;
+    }
+    const msg = el('p', { class: 'small' });
+    const note = el('textarea', { maxlength: 200, rows: 3, placeholder: 'What happened? (optional)', 'aria-label': 'What happened' });
+    const reasons = el('div', { class: 'report-reasons' }, Object.entries(REPORT_REASONS).map(([k, label], i) =>
+      el('label', {}, el('input', { type: 'radio', name: 'report-reason', value: k, checked: i === 0 }), ' ', label)));
+    const send = el('button', { type: 'submit', class: 'primary', 'data-report-send': id }, 'Send report');
+    const form = el('form', { class: 'report-form', onsubmit: async (e) => {
+      e.preventDefault();
+      const reason = form.querySelector('input[name="report-reason"]:checked')?.value || 'other';
+      const context = (recentFrom[id] || recentFrom[p.acct] || []).slice(-5).join('\n').slice(0, 600);
+      send.disabled = true;
+      try {
+        await net.reports.send({
+          target: id, ...(p.acct ? { targetAcct: p.acct } : {}), targetName: String(p.name || 'player').slice(0, 16),
+          byName: String(profile().name || 'player').slice(0, 16), reason,
+          ...(note.value.trim() ? { note: note.value.trim().slice(0, 200) } : {}), ...(context ? { context } : {}),
+        });
+        openReport(id, p, true);
+      } catch (err) {
+        send.disabled = false;
+        msg.className = 'small err';
+        msg.textContent = /too soon|permission/i.test(err.message) && !/banned/i.test(err.message) ? 'You just sent a report. Please wait a little before sending another.' : `Couldn't send: ${err.message}`;
+      }
+    } },
+      el('p', { class: 'small dim' }, 'Only the owner sees reports. The other player isn\'t told who reported them.'),
+      reasons, note, msg,
+      el('div', { class: 'actions' }, send, el('button', { type: 'button', onclick: () => openProfile(id) }, 'Cancel')));
+    prof.append(head, form);
+    if (!prof.open) prof.showModal();
+  }
+
   const stat = (label, value) => el('div', { class: 'profile-stat' }, el('strong', {}, String(value)), el('span', { class: 'small dim' }, label));
 
   function toggleBlock(id, p) {
@@ -265,8 +311,9 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
       dmLog.innerHTML = '';
       const entries = Object.entries(msgs || {}).sort(([a], [b]) => (a < b ? -1 : 1));
       if (!entries.length) dmLog.append(el('p', { class: 'small dim' }, 'Say hi!'));
+      recentFrom[t.id] = entries.filter(([, m]) => !mine(m)).slice(-5).map(([, m]) => `${m.name}: ${m.text}`);
       for (const [, m] of entries) {
-        dmLog.append(el('div', { class: 'dm-msg' + (mine(m) ? ' mine' : '') }, mine(m) ? null : el('span', { class: 'chat-name', style: { color: m.color || '' } }, m.name + ':'), ' ', m.text));
+        dmLog.append(el('div', { class: 'dm-msg' + (mine(m) ? ' mine' : '') }, mine(m) ? null : el('span', { class: 'chat-name', style: { color: m.color || '' } }, cleanText(m.name) + ':'), ' ', cleanText(m.text)));
       }
       dmLog.scrollTop = dmLog.scrollHeight;
       markRead(t);

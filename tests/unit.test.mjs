@@ -1133,3 +1133,57 @@ test('database rules: friend requests need a yes, and only friends can send room
   assert.equal(db.set('B', 'friends/A/B', null), true);
   assert.equal(db.set('A', 'finvites/B/A', inv()), false, 'no invites after unfriending');
 });
+
+test('chat filter: hides rude words and personal info, leaves normal words alone', async () => {
+  const { cleanText, hasBadWords } = await import('../src/filter.js');
+  const rude = Buffer.from('c2hpdA==', 'base64').toString(); // a rude word (encoded here too)
+  const stars = (n) => '*'.repeat(n);
+  assert.equal(cleanText(`oh ${rude}`), `oh ${stars(4)}`);
+  assert.equal(cleanText(`oh ${rude.toUpperCase()}`), `oh ${stars(4)}`, 'any capitals');
+  assert.equal(cleanText(`oh ${rude.replace('i', '1')}`), `oh ${stars(4)}`, 'look-alike numbers');
+  assert.equal(cleanText(`oh ${rude.replace('h', 'hhhh')}`), `oh ${stars(7)}`, 'stretched letters');
+  assert.equal(cleanText(`oh ${rude.split('').join(' ')}`), `oh ${'* * * *'}`, 'spaced out');
+  assert.equal(cleanText(`${rude}ty game`), `${stars(5)}y game`, "inside longer words (stretched letters included)");
+  for (const ok of ['class', 'cocktail', 'assembly', 'Dickens', 'the night is dark', 'pass the exam', 'grape', 'hello world', 'gg ez 🎉', 'room QXFT, score 1234']) {
+    assert.equal(cleanText(ok), ok, `left alone: ${ok}`);
+  }
+  assert.equal(cleanText('call me 555-123-4567 ok'), 'call me [number hidden] ok');
+  assert.equal(cleanText('text +1 (555) 123 4567'), 'text [number hidden]');
+  assert.equal(cleanText('mail kid.name+x@example.co.uk now'), 'mail [email hidden] now');
+  assert.equal(cleanText('kill yourself'), '**** ********', 'mean phrases');
+  assert.equal(cleanText(null), '');
+  assert.equal(hasBadWords('neo'), false);
+  assert.equal(hasBadWords(`x${rude}x`), true);
+  // The source keeps the lists encoded, so no rude words show in the code.
+  const src = fs.readFileSync(new URL('../src/filter.js', import.meta.url), 'utf8');
+  assert.ok(!src.toLowerCase().includes(rude), 'word list is encoded');
+});
+
+test('database rules: reports go to the owner only, one every 30 seconds', async () => {
+  const { createRulesSim } = await import('./rules-sim.mjs');
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const db = createRulesSim(rules);
+  db.seed('roles/OWNER', 'owner');
+  const report = (by, extra = {}) => ({ by, byName: by, target: 'T', targetAcct: 'TA', targetName: 'pest', reason: 'mean', note: 'was mean in chat', at: db.now, ...extra });
+  const file = (by, id, extra) => db.update(by, { [`reports/${id}`]: report(by, extra), [`reportsBy/${by}`]: db.now });
+
+  assert.equal(db.set('A', 'reports/r1', report('A')), false, 'a report must come with your report time (rate limit)');
+  assert.equal(file('A', 'r1'), true, 'A reports someone');
+  assert.equal(file('A', 'r2'), false, 'not again within 30 seconds');
+  db.tick(31000);
+  assert.equal(file('A', 'r2'), true, 'fine after 30 seconds');
+  assert.equal(db.update('A', { 'reports/r3': report('B'), 'reportsBy/A': db.now }), false, 'cannot report as someone else');
+  db.tick(31000);
+  assert.equal(file('A', 'r4', { reason: 'whatever' }), false, 'reason must be one of the choices');
+  assert.equal(file('A', 'r4', { note: 'x'.repeat(201) }), false, 'note max 200');
+  assert.equal(file('A', 'r4', { extra: 1 }), false, 'no extra fields');
+  assert.equal(file('A', 'r1', {}), false, 'cannot overwrite a report');
+  db.seed('bans/A', { until: db.now + 1000, name: 'A', at: 1 });
+  assert.equal(file('A', 'r5'), false, 'banned players cannot report');
+  db.seed('bans/A', null);
+
+  assert.equal(db.canRead('A', 'reports'), false, 'players cannot read reports');
+  assert.equal(db.canRead('OWNER', 'reports'), true, 'the owner can');
+  assert.equal(db.set('A', 'reports/r1', null), false, 'players cannot delete reports');
+  assert.equal(db.set('OWNER', 'reports/r1', null), true, 'the owner dismisses one');
+});

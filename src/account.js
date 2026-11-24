@@ -4,6 +4,7 @@
 import { getOnlineNet, onlineConfigured } from './net/index.js';
 import { getProgress, saveProgress } from './progress.js';
 import { save } from './util.js';
+import { hasBadWords } from './filter.js';
 import { getTrophyState, saveTrophyState, mergeTrophies } from './trophies.js';
 
 export const HANDLE_RE = /^[A-Za-z0-9_.-]{2,14}$/;
@@ -119,6 +120,7 @@ export async function createAccount({ username, password, email }) {
   username = String(username || '').trim();
   email = String(email || '').trim();
   if (!validHandle(username)) throw new Error('Usernames are 2-14 letters, digits, _ . or -');
+  if (hasBadWords(username)) throw new Error('Please pick a kinder username.');
   if (String(password || '').length < MIN_PASSWORD) throw new Error(`Passwords need at least ${MIN_PASSWORD} characters.`);
   if (email && !isEmail(email)) throw new Error('That email address doesn\'t look right.');
   if (await net.account.handleTaken(username)) throw new Error(`"${username}" is taken. Try another.`);
@@ -219,6 +221,7 @@ export async function deleteAccount(password) {
 
 export async function setHandle(handle) {
   if (!validHandle(handle)) throw new Error('Handles are 2-14 letters, digits, _ . or -');
+  if (hasBadWords(handle)) throw new Error('Please pick a kinder name.');
   await net.account.claimHandle(handle, current.handle);
   current = { ...current, handle };
   emit();

@@ -1187,3 +1187,16 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 .friend-pop { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100vw - 32px); top: 112px; z-index: 40; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-color: var(--accent); background: var(--panel-solid); animation: screen-in 0.25s ease-out; }
 .friend-pop[hidden] { display: none; }
 .friend-pop .actions { display: flex; gap: 6px; }
+
+/* ---- Reports ---- */
+.report-form { display: grid; gap: 8px; }
+.report-reasons { display: grid; gap: 4px; }
+.report-reasons label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; }
+.report-form textarea { width: 100%; background: var(--term-bg); color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 13px; resize: vertical; }
+.report-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 260px; overflow-y: auto; }
+.report-list .report { display: grid; gap: 3px; padding: 8px; border: 1px solid var(--red); border-radius: 8px; background: rgba(255, 60, 60, 0.05); }
+.report-note { font-style: italic; }
+.report-context { margin: 0; white-space: pre-wrap; word-break: break-word; font: inherit; font-size: 12px; color: var(--dim); background: var(--term-bg); padding: 4px 6px; border-radius: 4px; }
+#ownerBtn { position: relative; }
+.owner-count { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 9px; background: var(--red); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+.owner-count[hidden] { display: none; }

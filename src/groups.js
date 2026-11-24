@@ -5,6 +5,7 @@
 
 import { el, load, save } from './util.js';
 import { toast } from './owner.js';
+import { cleanText, hasBadWords } from './filter.js';
 
 export const GROUP_MAX = 12;
 export const GROUP_NAME_MAX = 24;
@@ -81,15 +82,15 @@ export function createGroups({ profile, online, isBlocked, onChange, onOpen, fla
     }
     for (const inv of invites) {
       section.append(el('div', { class: 'group-invite', 'data-invite': inv.gid },
-        el('span', { class: 'small' }, '📨 ', el('span', { class: 'pname' }, inv.by || 'Someone'), ' invited you to ', el('strong', {}, inv.name)),
+        el('span', { class: 'small' }, '📨 ', el('span', { class: 'pname' }, inv.by || 'Someone'), ' invited you to ', el('strong', {}, cleanText(inv.name))),
         el('span', { class: 'actions' },
           el('button', { type: 'button', class: 'mini-btn selected', 'data-accept': inv.gid, onclick: () => accept(inv) }, 'Join'),
           el('button', { type: 'button', class: 'mini-btn', 'data-decline': inv.gid, onclick: () => api().dismiss(inv.gid).catch(() => {}) }, 'No thanks'))));
     }
     for (const g of groups.slice(0, 10)) {
       section.append(el('button', { type: 'button', class: 'social-msg group-row' + (g.unread ? ' unread' : ''), 'data-group': g.gid, onclick: () => openGroup(g.gid, g.name) },
-        el('span', { class: 'pname' }, '👥 ', g.name),
-        el('span', { class: 'small dim' }, g.text ? ` ${g.from === me() ? 'you' : g.by}: ${String(g.text).slice(0, 30)}` : ' new group')));
+        el('span', { class: 'pname' }, '👥 ', cleanText(g.name)),
+        el('span', { class: 'small dim' }, g.text ? ` ${g.from === me() ? 'you' : cleanText(g.by)}: ${cleanText(g.text).slice(0, 30)}` : ' new group')));
     }
     if (!groups.length && !invites.length && !creating) section.append(el('div', { class: 'small dim' }, net?.accountUid?.() ? 'Make a group to chat with a few friends at once.' : 'Make a group to chat with a few friends at once. Guest groups end when you close this tab.'));
   }
@@ -97,6 +98,7 @@ export function createGroups({ profile, online, isBlocked, onChange, onOpen, fla
   async function create(text) {
     const name = cleanGroupName(text);
     if (!name) return;
+    if (hasBadWords(name)) { toast('Please pick a kinder group name.', 'err'); return; }
     try {
       const gid = await api().create(name, profile().name);
       creating = false;
@@ -179,7 +181,7 @@ export function createGroups({ profile, online, isBlocked, onChange, onOpen, fla
     if (!current) return;
     const g = current.group;
     const ids = Object.keys(g.members || {});
-    title.textContent = g.name || 'group';
+    title.textContent = cleanText(g.name || 'group');
     sub.textContent = `${ids.length} member${ids.length === 1 ? '' : 's'}`;
     membersBtn.classList.toggle('selected', showMembers);
     membersEl.hidden = !showMembers;
@@ -240,7 +242,7 @@ export function createGroups({ profile, online, isBlocked, onChange, onOpen, fla
     for (const [, m] of entries) {
       if (isBlocked(m.from)) continue;
       const mine = m.from === me();
-      log.append(el('div', { class: 'dm-msg' + (mine ? ' mine' : '') }, mine ? null : el('span', { class: 'chat-name', style: { color: m.color || '' } }, m.name + ':'), ' ', m.text));
+      log.append(el('div', { class: 'dm-msg' + (mine ? ' mine' : '') }, mine ? null : el('span', { class: 'chat-name', style: { color: m.color || '' } }, cleanText(m.name) + ':'), ' ', cleanText(m.text)));
     }
     log.scrollTop = log.scrollHeight;
   }

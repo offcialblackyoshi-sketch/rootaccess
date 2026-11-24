@@ -1,6 +1,7 @@
 // App entry: menu → lobby → game → results.
 import { getLocalNet, getOnlineNet, onlineConfigured } from './net/index.js';
 import { isRoomCode } from './net/shared.js';
+import { hasBadWords } from './filter.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
@@ -383,6 +384,11 @@ $('handleCancel').addEventListener('click', () => $('handleDialog').close());
 
 function myName() {
   let n = $('nameInput').value.trim().replace(/[^\w.\-]/g, '').slice(0, 14) || 'anon';
+  // Kid-safe: a rude name is swapped for a plain one before anyone sees it.
+  if (hasBadWords(n)) {
+    n = 'player';
+    menuMessage('Please pick a kinder name. Others see you as "player" for now.', 'warn');
+  }
   // Names with a special title are only for whoever is signed in as them.
   if (specialTitle(n) && accountState().handle?.toLowerCase() !== n.toLowerCase() && !(LOCAL_OWNER_TEST && specialKind(n) === 'owner')) n = n.slice(0, 10) + '_fan';
   save('ra-name', n);

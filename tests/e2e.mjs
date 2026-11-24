@@ -696,11 +696,18 @@ await step('quick hacks', async () => {
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'print matched').catch(() => false);
     } else {
       // Letter Lock: press Space when the right letter reaches the middle row.
-      const end = Date.now() + 15000;
+      // The page watches every frame for the letter (polling from here can
+      // miss it on a busy machine), and each lock is confirmed before moving on.
+      const end = Date.now() + 30000;
       let locked = 0;
       while (locked < data.password.length && Date.now() < end) {
-        const ok = await D.eval(`(() => { const c = document.querySelector('.ll-col.active span.mid'); return c && c.textContent === ${JSON.stringify(data.password)}[${locked}]; })()`);
-        if (ok) { await key(' '); locked++; } else await sleep(40);
+        const seen = await D.eval(`new Promise((r) => { const t = performance.now(); const f = () => { const c = document.querySelector('.ll-col.active span.mid'); if (c && c.textContent === ${JSON.stringify(data.password)}[${locked}]) r(true); else if (performance.now() - t > 4000) r(false); else requestAnimationFrame(f); }; f(); })`);
+        if (!seen) continue;
+        await key(' ');
+        await sleep(100);
+        locked = await D.eval(`document.querySelectorAll('.ll-col.locked').length + (window.__ra.quick.stage() > 0 ? 99 : 0)`);
+        if (!(await D.eval('window.__ra.quick.locked()'))) continue;
+        await D.waitFor('!window.__ra.quick.locked()', 5000, 'lockout ends'); // a miss: wait out the lockout and retry
       }
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'password locked').catch(() => false);
     }
@@ -1117,6 +1124,79 @@ await step('friends', async () => {
   const errs = [...F1.errors, ...F2.errors, ...F3.errors];
   check('friends: no errors', errs.length === 0, errs.join(' | '));
   for (const t of [F1, F2, F3]) await t.close();
+});
+
+await step('kid safety', async () => {
+  const S1 = await openTab('S1');
+  const S2 = await openTab('S2');
+  const S3 = await openTab('S3');
+  const rude = Buffer.from('c2hpdA==', 'base64').toString(); // a rude word, encoded so the test file stays clean
+  await S1.goto(URL_BASE + '&owner=1');
+  await S2.goto(URL_BASE);
+  await S3.goto(URL_BASE);
+  for (const [t, n] of [[S1, 'brisky2swifty'], [S2, 'sam'], [S3, 'tess']]) {
+    await t.eval(`document.getElementById('boot')?.click()`);
+    await t.eval(`document.getElementById('nameInput').value = '${n}'`);
+  }
+  const uid = (t) => t.eval(`sessionStorage.getItem('ra-local-uid')`);
+  const s3 = await uid(S3);
+
+  // Lobby chat: rude words and phone numbers are hidden for everyone.
+  for (const t of [S2, S3]) { await t.click('#browseBtn'); await t.waitFor(`document.body.dataset.screen === 'browse'`); }
+  await S3.eval(`(() => { const f = document.querySelector('#browseChat .chat-form'); f.querySelector('input').value = 'oh ${rude} call me 555-123-4567'; f.requestSubmit(); })()`);
+  await S2.waitFor(`document.querySelector('#browseChat .chat-log').innerText.includes('[number hidden]')`, 5000, 'filtered message arrives');
+  const seen = await S2.eval(`document.querySelector('#browseChat .chat-log').innerText`);
+  check('safety: chat hides rude words and phone numbers', !seen.toLowerCase().includes(rude) && seen.includes('oh ****') && !seen.includes('4567'), seen.split('\n').pop());
+  for (const t of [S2, S3]) { await t.click('#browseBack'); await t.waitFor(`document.body.dataset.screen === 'menu'`).catch(() => {}); }
+
+  // A rude name is never shown: others see "player".
+  await S3.eval(`document.getElementById('nameInput').value = 'x${rude}x'`);
+  await S2.eval(`document.getElementById('social').classList.add('open')`);
+  await S2.waitFor(`document.querySelector('.social-row[data-uid="${s3}"] .pname')?.textContent === 'player'`, 15000, 'rude name replaced');
+  const warn = await S3.eval(`document.getElementById('menuMsg').textContent`);
+  check('safety: a rude name is swapped for "player" and the player is told why', /kinder name/.test(warn), warn);
+  await S3.eval(`document.getElementById('nameInput').value = 'tess'`);
+  await S2.waitFor(`document.querySelector('.social-row[data-uid="${s3}"] .pname')?.textContent === 'tess'`, 15000, 'name back');
+
+  // Reporting from a profile.
+  await S2.click(`.social-row[data-uid="${s3}"]`);
+  await S2.waitFor(`!!document.querySelector('[data-report-open]')`);
+  await S2.click('[data-report-open]');
+  await S2.eval(`document.querySelector('input[name="report-reason"][value="words"]').checked = true; document.querySelector('.report-form textarea').value = 'said bad words in lobby chat'`);
+  await S2.shot('66-report-form.png');
+  await S2.click('[data-report-send]');
+  await S2.waitFor(`document.querySelector('.profile-dialog').innerText.includes('Thanks for telling us')`, 5000, 'report sent');
+  check('safety: players can report someone from their profile', true);
+  // A second report straight away is refused (one every 30 seconds).
+  await S2.eval(`document.querySelector('.profile-dialog').close()`);
+  await S2.click(`.social-row[data-uid="${s3}"]`);
+  await S2.waitFor(`!!document.querySelector('[data-report-open]')`);
+  await S2.click('[data-report-open]');
+  await S2.click('[data-report-send]');
+  await S2.waitFor(`/wait a little/.test(document.querySelector('.report-form .err')?.textContent || '')`, 5000, 'too soon');
+  check('safety: reports are limited to one every 30 seconds', true);
+  await S2.eval(`document.querySelector('.profile-dialog').close()`);
+
+  // The owner gets a badge and sees the report; others don't have the inbox.
+  await S1.waitFor(`document.querySelector('#ownerBtn .owner-count')?.textContent === '1' && !document.querySelector('#ownerBtn .owner-count').hidden`, 5000, 'owner badge');
+  await S1.click('#ownerBtn');
+  await S1.waitFor(`!!document.querySelector('.report-list [data-report]')`);
+  const rep = await S1.eval(`document.querySelector('.report-list [data-report]').innerText`);
+  check('safety: the owner sees the report with who, why and the note', /tess/.test(rep) && /Bad words/.test(rep) && /said bad words/.test(rep) && /sam/.test(rep), rep.replace(/\n/g, ' | '));
+  await S1.shot('67-owner-reports.png');
+  check('safety: only the owner has the reports inbox', !(await S2.eval(`!!document.querySelector('#ownerBtn .owner-count:not([hidden])')`)));
+  // Ban from the report, then mark it done.
+  await S1.click('[data-report-ban]');
+  await S1.waitFor(`/banned/.test(document.querySelector('.report-list [data-report]')?.innerText || '')`, 5000, 'banned from report');
+  await S1.click('[data-report-dismiss]');
+  await S1.waitFor(`!document.querySelector('.report-list [data-report]') && document.querySelector('#ownerBtn .owner-count').hidden`, 5000, 'report cleared');
+  const s3Banned = await S3.eval(`(JSON.parse(localStorage.getItem('ra-bans') || '{}')['${s3}']?.until || 0) > Date.now()`);
+  check('safety: the owner can ban straight from a report, then clear it', s3Banned);
+  await S1.eval(`document.querySelector('.owner-dialog').close()`);
+  await S1.eval(`localStorage.removeItem('ra-bans'); localStorage.removeItem('ra-reports'); localStorage.removeItem('ra-reports-by')`);
+  const errs = [...S1.errors, ...S2.errors, ...S3.errors];
+  check('safety: no errors', errs.length === 0, errs.join(' | '));
+  for (const t of [S1, S2, S3]) await t.close();
 });
 
 await step('small screen', async () => {

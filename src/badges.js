@@ -4,6 +4,7 @@
 // account that owns them (see myName in main.js), so the name is enough.
 
 import { specialTitle, specialKind } from './progress.js';
+import { cleanText, hasBadWords } from './filter.js';
 
 // Elements that hold a player's name.
 const SELECTOR = '.pname, .chat-name, .acct-name, .podium-name';
@@ -22,7 +23,13 @@ export function badgeFor(name) {
   return b;
 }
 
+// Rude names are starred out wherever they show (kid-safe).
+function cleanName(node) {
+  for (const t of node.childNodes) if (t.nodeType === 3 && hasBadWords(t.data)) t.data = cleanText(t.data);
+}
+
 function decorate(node) {
+  cleanName(node);
   if (node.dataset.badged || node.querySelector('.name-badge')) return;
   const name = bareName(node.textContent);
   const badge = badgeFor(name);

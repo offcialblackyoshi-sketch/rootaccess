@@ -106,6 +106,8 @@ export function createLocalNet() {
   const ANNOUNCE = 'ra-announce';
   const BANS = 'ra-bans';
   const GROUPS = 'ra-groups';
+  const REPORTS = 'ra-reports';
+  const REPORTS_BY = 'ra-reports-by';
   const banned = () => (kvGet(BANS)[uid]?.until || 0) > Date.now();
   const refuseIfBanned = () => { if (banned()) throw new Error('PERMISSION_DENIED: banned'); };
   const bannedError = () => Promise.reject(new Error('PERMISSION_DENIED: banned'));
@@ -303,6 +305,17 @@ export function createLocalNet() {
       },
       invites: (cb) => kvWatch('ra-finv-' + uid, cb),
       clearInvite: (from) => kvMutate('ra-finv-' + uid, (v) => { delete v[from]; }),
+    },
+    // Reports on this computer (same 30 second limit as online).
+    reports: {
+      async send(r) {
+        if (banned()) throw new Error('PERMISSION_DENIED: banned');
+        if (Date.now() - (kvGet(REPORTS_BY)[uid] || 0) < 30000) throw new Error('PERMISSION_DENIED: too soon');
+        await kvMutate(REPORTS_BY, (b) => { b[uid] = Date.now(); });
+        await kvMutate(REPORTS, (all) => { all['r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)] = { ...r, by: uid, at: Date.now() }; });
+      },
+      watch: (cb) => kvWatch(REPORTS, cb),
+      remove: (id) => kvMutate(REPORTS, (all) => { delete all[id]; }),
     },
     mod: {
       announceWatch: (cb) => kvWatch(ANNOUNCE, (v) => cb(v && v.text ? v : null)),

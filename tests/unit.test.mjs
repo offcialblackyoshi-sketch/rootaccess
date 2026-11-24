@@ -1072,3 +1072,64 @@ test('rules simulator agrees with the existing private-chat rules', async () => 
   assert.equal(db.canRead('B', 'dms/A_B'), true);
   assert.equal(db.canRead('C', 'dms/A_B'), false);
 });
+
+test('friends: names are tidied, online friends come first, room invites expire', async () => {
+  const { cleanHandle, friendRows, liveInvites, INVITE_MS } = await import('../src/friends.js');
+  assert.equal(cleanHandle('  @neo_1 '), 'neo_1');
+  assert.equal(cleanHandle('x'.repeat(30)).length, 16);
+  const friends = { accA: { name: 'Zed' }, accB: { name: 'Amy' }, tabC: { name: 'Cal' }, accX: { name: 'Pest' } };
+  const online = [['tab1', { name: 'Zed2', acct: 'accA', status: 'in a lobby' }], ['tabC', { name: 'Cal', status: 'on the menu' }], ['tab9', { name: 'Stranger' }]];
+  const rows = friendRows(friends, online, (id) => id === 'accX');
+  assert.deepEqual(rows.map((r) => [r.id, r.online, r.tabId]), [['tabC', true, 'tabC'], ['accA', true, 'tab1'], ['accB', false, null]], 'online first, matched by account or tab; blocked hidden');
+  assert.equal(rows[1].name, 'Zed2', 'shows their current name when online');
+  assert.equal(rows[2].status, 'offline');
+  const now = 1_000_000;
+  const box = { accA: { name: 'Zed', code: 'QXFT', at: now - 1000 }, accB: { name: 'Amy', code: 'ABCD', at: now - INVITE_MS - 1 }, stranger: { name: 'S', code: 'ZZZZ', at: now } };
+  assert.deepEqual(liveInvites(box, now, friends).map((i) => i.from), ['accA'], 'old invites and invites from non-friends are ignored');
+});
+
+test('database rules: friend requests need a yes, and only friends can send room invites', async () => {
+  const { createRulesSim } = await import('./rules-sim.mjs');
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const db = createRulesSim(rules);
+  const t = db.now - 5;
+  for (const id of ['A', 'B', 'C']) db.seed(`users/${id}`, { handle: id.toLowerCase() });
+  const req = (name) => ({ name, at: t });
+
+  // Requests: only as yourself, only real accounts, not to yourself.
+  assert.equal(db.set('A', 'friendReqs/B/C', req('C')), false, 'cannot send a request as someone else');
+  assert.equal(db.set('A', 'friendReqs/A/A', req('A')), false, 'cannot friend yourself');
+  assert.equal(db.set('guestTab', 'friendReqs/B/guestTab', req('guest')), false, 'guests (no account) cannot send requests');
+  assert.equal(db.set('A', 'friendReqs/B/A', { ...req('A'), extra: 1 }), false, 'no extra fields');
+  assert.equal(db.set('A', 'friendReqs/B/A', req('brisky2swifty')), false, 'the owner name is reserved');
+  assert.equal(db.set('A', 'friendReqs/B/A', req('A')), true, 'A asks B');
+  assert.equal(db.canRead('B', 'friendReqs/B'), true);
+  assert.equal(db.canRead('C', 'friendReqs/B'), false, 'requests are private');
+
+  // Friends lists: nobody can add themselves to someone's list without a request.
+  assert.equal(db.set('C', 'friends/B/C', req('C')), false, 'C has no request, so cannot add themselves to B');
+  assert.equal(db.set('C', 'friends/C/B', req('B')), false, 'C cannot just add B either');
+  assert.equal(db.set('A', 'friends/A/B', req('B')), false, 'A cannot accept on B\'s behalf');
+  assert.equal(db.set('B', 'friends/A/B', req('B')), true, 'B says yes: B goes on A\'s list');
+  assert.equal(db.set('B', 'friends/B/A', req('A')), true, 'and A on B\'s list');
+  assert.equal(db.set('B', 'friendReqs/B/A', null), true, 'B clears the request');
+  assert.equal(db.set('A', 'friendReqs/B/A', req('A')), false, 'no new requests to someone who is already a friend');
+  assert.equal(db.canRead('C', 'friends/A'), false, 'friends lists are private');
+
+  // Room invites: friends only, real room codes.
+  const inv = (code = 'QXFT') => ({ name: 'A', code, mode: 'Race', at: t });
+  assert.equal(db.set('A', 'finvites/B/A', inv()), true, 'A invites friend B');
+  assert.equal(db.set('C', 'finvites/B/C', inv()), false, 'C is not B\'s friend');
+  assert.equal(db.set('A', 'finvites/C/A', inv()), false, 'A is not C\'s friend');
+  assert.equal(db.set('A', 'finvites/B/A', inv('nope')), false, 'room codes are 4 capital letters');
+  assert.equal(db.set('B', 'finvites/B/A', null), true, 'B dismisses it');
+  db.seed('bans/A', { until: db.now + 1000, name: 'A', at: t });
+  assert.equal(db.set('A', 'finvites/B/A', inv()), false, 'banned players cannot invite');
+  db.seed('bans/A', null);
+
+  // Unfriending works from either side, on both lists; then invites stop.
+  assert.equal(db.set('C', 'friends/A/B', null), false, 'outsiders cannot unfriend people');
+  assert.equal(db.set('B', 'friends/B/A', null), true);
+  assert.equal(db.set('B', 'friends/A/B', null), true);
+  assert.equal(db.set('A', 'finvites/B/A', inv()), false, 'no invites after unfriending');
+});

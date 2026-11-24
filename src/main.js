@@ -1114,6 +1114,14 @@ HTMLDialogElement.prototype.showModal = function () { showModal.call(this); scra
 social = createSocial({
   sfx,
   flag: (name) => flagTrophy(name),
+  // Friends can be invited while you wait in a room's lobby.
+  roomInfo: () => (state.code && state.room?.status === 'lobby' && !state.room.practice ? { code: state.code, mode: MODES[state.room.mode]?.name || '' } : null),
+  onJoin: async (code) => {
+    if (state.code === code) return;
+    if (state.code) await leaveRoom();
+    show('menu');
+    await joinCode(code);
+  },
   owner: {
     isOwner: ownerMode,
     banOf: (ids) => ownerTools.banOf(ids),

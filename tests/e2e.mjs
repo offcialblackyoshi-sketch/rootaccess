@@ -647,6 +647,8 @@ await step('quick hacks', async () => {
     await sleep(300);
     // Background tabs animate at a few frames a second; timing games need the front.
     await D.send('Page.bringToFront');
+    // Frames per second right now (helps explain a failed timing check).
+    const fps = await D.eval('new Promise((r) => { let n = 0; const t = performance.now(); const f = () => { n++; if (performance.now() - t < 500) requestAnimationFrame(f); else r(n * 2); }; requestAnimationFrame(f); })');
     const focused = await D.eval(`document.activeElement?.classList.contains('quick-box')`);
     const data = await D.eval('window.__ra.quick.data()');
     let played = false;
@@ -702,7 +704,7 @@ await step('quick hacks', async () => {
       }
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'password locked').catch(() => false);
     }
-    check(`quick hacks: ${id} has keyboard focus and stage 1 is playable with real keys`, focused && played === true, `focused=${focused} played=${played} stage=${await D.eval('window.__ra.quick.stage()')} mistakes=${(await D.room()).players[await D.eval('window.__ra.state.net.uid')].s.mistakes}`);
+    check(`quick hacks: ${id} has keyboard focus and stage 1 is playable with real keys`, focused && played === true, `focused=${focused} played=${played} fps=${fps} active=${await D.eval("document.activeElement?.className || document.activeElement?.tagName")} stage=${await D.eval('window.__ra.quick.stage()')} mistakes=${(await D.room()).players[await D.eval('window.__ra.state.net.uid')].s.mistakes}`);
     await D.shot(`31-quick-${id}.png`);
     if (id === 'signaltune') {
       // Stage 2 starts off target, so Enter right away is a mistake.
@@ -1047,6 +1049,74 @@ await step('group chats', async () => {
   const errs = [...G.errors, ...H.errors, ...K.errors];
   check('groups: no errors', errs.length === 0, errs.join(' | '));
   for (const t of [G, H, K]) await t.close();
+});
+
+await step('friends', async () => {
+  const F1 = await openTab('F1');
+  const F2 = await openTab('F2');
+  const F3 = await openTab('F3');
+  for (const [t, n] of [[F1, 'fay'], [F2, 'finn'], [F3, 'fox']]) {
+    await t.goto(URL_BASE);
+    await t.eval(`document.getElementById('boot')?.click()`);
+    await t.eval(`document.getElementById('nameInput').value = '${n}'`);
+    await t.eval(`document.getElementById('social').classList.add('open')`);
+  }
+  const uid = (t) => t.eval(`sessionStorage.getItem('ra-local-uid')`);
+  const [f1, f2] = [await uid(F1), await uid(F2)];
+  const addFriend = async (t, name) => {
+    if (!(await t.eval(`!!document.querySelector('.social-friends .group-new')`))) await t.click('[data-friend-add]');
+    await t.eval(`(() => { const f = document.querySelector('.social-friends .group-new'); f.querySelector('input').value = ${JSON.stringify(name)}; f.requestSubmit(); })()`);
+  };
+  const note = (t) => t.eval(`document.querySelector('.social-friends .friend-note')?.textContent || ''`);
+  await F1.waitFor(`Object.values(JSON.parse(localStorage.getItem('ra-presence') || '{}')).some((p) => p.name === 'finn')`, 15000, 'finn online with their name');
+
+  // Asking by name: unknown names get a clear message, real ones get a request.
+  await addFriend(F1, 'nobody-here');
+  await F1.waitFor(`(document.querySelector('.social-friends .friend-note')?.textContent || '').includes('No player called')`, 5000, 'unknown name note');
+  await addFriend(F1, '@Finn');
+  await F1.waitFor(`(document.querySelector('.social-friends .friend-note')?.textContent || '').includes('request sent')`, 5000, 'request sent');
+  check('friends: add by name (unknown names explained, @ and capitals ignored)', /finn/i.test(await note(F1)));
+
+  // Finn gets the request and accepts; Fox gets nothing.
+  await F2.waitFor(`!!document.querySelector('[data-faccept="${f1}"]')`, 5000, 'finn sees the request');
+  const badge = await F2.eval(`document.querySelector('.social-tab .social-unread').textContent`);
+  await F2.shot('63-friend-request.png');
+  await F2.click(`[data-faccept="${f1}"]`);
+  await F1.waitFor(`!!document.querySelector('.friend-row.online[data-friend="${f2}"]')`, 5000, 'fay sees finn as an online friend');
+  await F2.waitFor(`!!document.querySelector('.friend-row.online[data-friend="${f1}"]')`, 5000, 'finn sees fay');
+  const foxSees = await F3.eval(`!!document.querySelector('[data-faccept], .friend-row')`);
+  check('friends: requests need a yes, then both see each other online', !foxSees && Number(badge) >= 1, `badge ${badge}`);
+
+  // Inviting a friend to your room: they get a popup and join with one click.
+  await F1.click('#createBtn');
+  await F1.waitFor(`document.body.dataset.screen === 'lobby'`);
+  const code = await F1.eval('window.__ra.state.code');
+  await F1.eval(`document.getElementById('social').classList.add('open')`);
+  await F1.waitFor(`!!document.querySelector('[data-finvite="${f2}"]')`, 5000, 'invite button in the lobby');
+  await F1.click(`[data-finvite="${f2}"]`);
+  await F1.waitFor(`document.querySelector('[data-finvite="${f2}"]').disabled`);
+  await F2.waitFor(`!document.querySelector('.friend-pop').hidden && document.querySelector('.friend-pop').innerText.includes('${code}')`, 5000, 'invite popup');
+  const popText = await F2.eval(`document.querySelector('.friend-pop').innerText`);
+  await F2.shot('64-friend-invite.png');
+  await F2.click(`[data-fjoin="${f1}"]`);
+  await F2.waitFor(`document.body.dataset.screen === 'lobby' && window.__ra.state.code === '${code}'`, 8000, 'finn joined the room');
+  await F2.waitFor(`document.querySelector('.friend-pop').hidden`, 3000, 'popup gone');
+  check('friends: invite a friend to your room, and they join from the popup', /fay/.test(popText));
+  await F1.shot('65-friend-lobby.png');
+
+  const tr = await F1.eval(`JSON.parse(localStorage.getItem('ra-trophies') || '{}').unlocked || {}`);
+  check('friends: friend trophies unlock', !!(tr['friend-made'] && tr['friend-invite']));
+
+  // Unfriending asks twice and removes the friend on both sides.
+  await F1.click(`[data-funfriend="${f2}"]`);
+  const sure = await F1.eval(`document.querySelector('[data-funfriend="${f2}"]').textContent`);
+  await F1.click(`[data-funfriend="${f2}"]`);
+  await F1.waitFor(`!document.querySelector('[data-friend="${f2}"]')`, 5000, 'gone for fay');
+  await F2.waitFor(`!document.querySelector('[data-friend="${f1}"]')`, 5000, 'gone for finn');
+  check('friends: unfriending asks first and removes both sides', sure === 'sure?');
+  const errs = [...F1.errors, ...F2.errors, ...F3.errors];
+  check('friends: no errors', errs.length === 0, errs.join(' | '));
+  for (const t of [F1, F2, F3]) await t.close();
 });
 
 await step('small screen', async () => {

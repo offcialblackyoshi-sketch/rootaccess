@@ -140,6 +140,22 @@ export function createRulesSim(rulesDoc, initial = {}, { now = 1_000_000 } = {})
       data = newTree;
       return true;
     },
+    // Several paths at once, like Firebase update(): every path is checked
+    // against the data before, and validation sees all the changes together.
+    update(uid, changes) {
+      const auth = authFor(uid);
+      let newTree = data;
+      for (const [path, value] of Object.entries(changes)) newTree = setAt(newTree, split(path), value);
+      for (const path of Object.keys(changes)) {
+        const parts = split(path);
+        const ok = walk(parts).some(({ node, depth, vars }) => node['.write'] !== undefined && evaluate(node['.write'], {
+          root: new Snap(data, []), data: new Snap(data, parts.slice(0, depth)), newData: new Snap(newTree, parts.slice(0, depth)), auth, vars,
+        }));
+        if (!ok || !validates(newTree, parts, auth)) return false;
+      }
+      data = newTree;
+      return true;
+    },
     canRead(uid, path) {
       const parts = split(path);
       return walk(parts).some(({ node, depth, vars }) => node['.read'] !== undefined && evaluate(node['.read'], {
@@ -148,6 +164,8 @@ export function createRulesSim(rulesDoc, initial = {}, { now = 1_000_000 } = {})
     },
     // Put data in place directly (as if set up by an admin).
     seed(path, value) { data = setAt(data, split(path), value); },
-    now,
+    get now() { return now; },
+    // Move the clock forward (for time limits).
+    tick(ms) { now += ms; },
   };
 }

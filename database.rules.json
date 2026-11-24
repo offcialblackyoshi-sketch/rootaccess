@@ -234,6 +234,66 @@
           ".validate": "newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 24 && newData.child('at').val() <= now && (!newData.child('text').exists() || (newData.child('text').isString() && newData.child('text').val().length <= 300)) && (!newData.child('by').exists() || (newData.child('by').isString() && newData.child('by').val().length >= 0 && newData.child('by').val().length <= 16 && (!newData.child('by').val().toLowerCase().contains('brisky2swifty') || (root.child('roles').child(auth.uid).val() === 'owner' || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('roles').child(root.child('sessions').child(auth.uid).val()).val() === 'owner'))))) && (!newData.child('from').exists() || newData.child('from').isString()) && (!newData.child('invite').exists() || newData.child('invite').isBoolean())"
         }
       }
+    },
+    "friendReqs": {
+      "$to": {
+        ".read": "auth != null && auth.uid === $to",
+        "$from": {
+          ".write": "auth != null && ((auth.uid === $from && (!newData.exists() || (root.child('users').child(auth.uid).exists() && $from !== $to && !root.child('friends').child($from).child($to).exists() && root.child('friends').child($from).numChildren() < 100 && !(root.child('bans').child(auth.uid).child('until').val() > now || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('bans').child(root.child('sessions').child(auth.uid).val()).child('until').val() > now))))) || (auth.uid === $to && !newData.exists()))",
+          ".validate": "newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && (!newData.child('name').val().toLowerCase().contains('brisky2swifty') || (root.child('roles').child(auth.uid).val() === 'owner' || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('roles').child(root.child('sessions').child(auth.uid).val()).val() === 'owner'))) && newData.child('at').isNumber() && newData.child('at').val() <= now",
+          "name": {
+            ".validate": true
+          },
+          "at": {
+            ".validate": true
+          },
+          "$extra": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "friends": {
+      "$acct": {
+        ".read": "auth != null && auth.uid === $acct",
+        "$other": {
+          ".write": "auth != null && ((newData.exists() && ((auth.uid === $acct && (data.exists() || root.child('friendReqs').child($acct).child($other).exists())) || (auth.uid === $other && root.child('friendReqs').child($other).child($acct).exists()))) || (!newData.exists() && (auth.uid === $acct || auth.uid === $other)))",
+          ".validate": "newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && (!newData.child('name').val().toLowerCase().contains('brisky2swifty') || (root.child('roles').child(auth.uid).val() === 'owner' || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('roles').child(root.child('sessions').child(auth.uid).val()).val() === 'owner'))) && newData.child('at').isNumber() && newData.child('at').val() <= now",
+          "name": {
+            ".validate": true
+          },
+          "at": {
+            ".validate": true
+          },
+          "$extra": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "finvites": {
+      "$to": {
+        ".read": "auth != null && auth.uid === $to",
+        "$from": {
+          ".write": "auth != null && ((auth.uid === $from && (!newData.exists() || (root.child('friends').child($to).child($from).exists() && !(root.child('bans').child(auth.uid).child('until').val() > now || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('bans').child(root.child('sessions').child(auth.uid).val()).child('until').val() > now))))) || (auth.uid === $to && !newData.exists()))",
+          ".validate": "newData.hasChildren(['name', 'at']) && newData.child('name').isString() && newData.child('name').val().length >= 1 && newData.child('name').val().length <= 16 && (!newData.child('name').val().toLowerCase().contains('brisky2swifty') || (root.child('roles').child(auth.uid).val() === 'owner' || (root.child('sessions').child(auth.uid).isString() && root.child('acctSessions').child(root.child('sessions').child(auth.uid).val()).child(auth.uid).val() === true && root.child('roles').child(root.child('sessions').child(auth.uid).val()).val() === 'owner'))) && newData.child('at').isNumber() && newData.child('at').val() <= now && newData.child('code').isString() && newData.child('code').val().matches(/^[A-Z]{4}$/) && (!newData.child('mode').exists() || (newData.child('mode').isString() && newData.child('mode').val().length <= 24))",
+          "code": {
+            ".validate": true
+          },
+          "mode": {
+            ".validate": true
+          },
+          "name": {
+            ".validate": true
+          },
+          "at": {
+            ".validate": true
+          },
+          "$extra": {
+            ".validate": false
+          }
+        }
+      }
     }
   }
 }

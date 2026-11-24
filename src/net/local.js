@@ -268,6 +268,42 @@ export function createLocalNet() {
         await kvMutate(GROUPS, (all) => { delete all[gid]; });
       },
     },
+    // Friends between tabs on this computer. Handles are looked up among the
+    // players online here (local play has no accounts).
+    friends: {
+      me: () => uid,
+      available: () => true,
+      async lookup(handle) {
+        const want = String(handle).toLowerCase();
+        const hit = Object.entries(freshPresence(kvGet(PRESENCE))).find(([id, p]) => id !== uid && String(p.name || '').toLowerCase() === want);
+        return hit ? { id: hit[0], name: hit[1].name } : null;
+      },
+      async request(id, myName) {
+        if (banned()) throw new Error('PERMISSION_DENIED: banned');
+        if (id === uid || kvGet('ra-friends-' + uid)[id]) throw new Error('PERMISSION_DENIED');
+        await kvMutate('ra-freq-' + id, (r) => { r[uid] = { name: myName, at: Date.now() }; });
+      },
+      requests: (cb) => kvWatch('ra-freq-' + uid, cb),
+      async accept(id, theirName, myName) {
+        if (!kvGet('ra-freq-' + uid)[id]) throw new Error('PERMISSION_DENIED');
+        await kvMutate('ra-friends-' + id, (f) => { f[uid] = { name: myName, at: Date.now() }; });
+        await kvMutate('ra-friends-' + uid, (f) => { f[id] = { name: theirName, at: Date.now() }; });
+        await kvMutate('ra-freq-' + uid, (r) => { delete r[id]; });
+      },
+      decline: (id) => kvMutate('ra-freq-' + uid, (r) => { delete r[id]; }),
+      list: (cb) => kvWatch('ra-friends-' + uid, cb),
+      async remove(id) {
+        await kvMutate('ra-friends-' + uid, (f) => { delete f[id]; });
+        await kvMutate('ra-friends-' + id, (f) => { delete f[uid]; });
+      },
+      async invite(id, info) {
+        if (banned()) throw new Error('PERMISSION_DENIED: banned');
+        if (!kvGet('ra-friends-' + id)[uid]) throw new Error('PERMISSION_DENIED');
+        await kvMutate('ra-finv-' + id, (v) => { v[uid] = { ...info, at: Date.now() }; });
+      },
+      invites: (cb) => kvWatch('ra-finv-' + uid, cb),
+      clearInvite: (from) => kvMutate('ra-finv-' + uid, (v) => { delete v[from]; }),
+    },
     mod: {
       announceWatch: (cb) => kvWatch(ANNOUNCE, (v) => cb(v && v.text ? v : null)),
       bansWatch: (cb) => kvWatch(BANS, cb),

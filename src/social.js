@@ -8,12 +8,14 @@ import { convId } from './net/shared.js';
 import { avatarEl } from './avatar.js';
 import { describeBan, toast } from './owner.js';
 import { createGroups } from './groups.js';
+import { createFriends } from './friends.js';
 
 const ONLINE_STALE_MS = 120000;
 
 // owner: { isOwner(), banOf(ids), ban(ids, length, name), unban(ids) } for the owner's moderation buttons.
 // flag(name): marks a trophy flag (group chat trophies).
-export function createSocial({ getNet, profile, status, sfx, owner = null, flag = () => {} }) {
+// roomInfo(): { code, mode } when friends could join your room; onJoin(code) joins one.
+export function createSocial({ getNet, profile, status, sfx, owner = null, flag = () => {}, roomInfo = () => null, onJoin = async () => {} }) {
   let net = null;
   let offPresence = null;
   let offInbox = null;
@@ -41,11 +43,13 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
   const headCount = el('span', { class: 'dim' });
   const chatsEl = el('div', { class: 'social-chats' });
   const groupsSlot = el('div', { class: 'social-groups-slot' });
+  const friendsSlot = el('div', { class: 'social-groups-slot social-friends-slot' });
   const list = el('ul', { class: 'social-list' });
   const panel = el('div', { class: 'social-panel panel' },
     el('div', { class: 'acct-head' }, el('h2', {}, '// ONLINE ', headCount), el('button', { type: 'button', class: 'icon-x', 'aria-label': 'Hide online players', onclick: () => setOpen(false) }, '«')),
     search,
     el('div', { class: 'social-toggle small' }, el('span', { class: 'dim' }, 'Private messages:'), dmToggle),
+    friendsSlot,
     groupsSlot,
     chatsEl,
     list);
@@ -78,6 +82,14 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
     onOpen: () => closeDm(),
   });
   groupsSlot.append(groups.section);
+  const friends = createFriends({
+    profile, flag, roomInfo, onJoin,
+    online: () => others(),
+    isBlocked: (id) => blocked.has(id),
+    openProfile: (tabId) => openProfile(tabId),
+    onChange: () => render(),
+  });
+  friendsSlot.append(friends.section);
 
   // ---- Helpers ----
   const me = () => net?.uid;
@@ -128,7 +140,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
     const n = others().length;
     countEl.textContent = String(n);
     headCount.textContent = `(${n})`;
-    const u = unreadChats().length + groups.unread();
+    const u = unreadChats().length + groups.unread() + friends.unread();
     unreadEl.hidden = !u;
     unreadEl.textContent = String(u);
     if (u > lastUnread) { sfx?.chat(); tab.classList.remove('ping'); void tab.offsetWidth; tab.classList.add('ping'); }
@@ -137,6 +149,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
     renderChats();
     renderList();
     groups.refresh();
+    friends.refresh();
   }
 
   function renderList() {
@@ -321,6 +334,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
       if (acctId && net.acctChat) offAcctInbox = net.acctChat.inbox((box) => { acctInbox = box || {}; render(); });
     }
     groups.attach(net);
+    friends.attach(net);
   }
 
   render();

@@ -1156,7 +1156,7 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 .toast.out { opacity: 0; transform: translateY(8px); }
 
 /* ---- Group chats ---- */
-.social-groups-slot { flex: 0 0 auto; min-height: 0; max-height: 40%; overflow-y: auto; }
+.social-groups-slot { flex: 0 0 auto; min-height: 0; max-height: 30%; overflow-y: auto; }
 .social-groups { display: grid; gap: 4px; }
 .groups-head { display: flex; justify-content: space-between; align-items: center; }
 .group-new { display: flex; gap: 6px; }
@@ -1173,3 +1173,17 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 .group-member-list li { display: flex; align-items: center; gap: 4px; }
 .group-member-list .mini-btn { margin-left: auto; }
 .group-invites { display: flex; flex-wrap: wrap; gap: 4px; }
+
+/* ---- Friends ---- */
+.social-friends { display: grid; gap: 4px; }
+.friend-row { display: flex; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 6px; }
+.friend-row:hover { background: rgba(255, 255, 255, 0.04); }
+.friend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim, #555); flex: none; opacity: 0.6; }
+.friend-row.online .friend-dot { background: var(--accent); opacity: 1; box-shadow: 0 0 6px var(--accent); }
+.friend-who { flex: 1; min-width: 0; display: block; justify-content: flex-start; text-align: left; background: none; border: none; padding: 0; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.friend-who:disabled { cursor: default; opacity: 0.6; }
+.friend-row .mini-btn { padding: 2px 8px; flex: none; }
+.friend-note { padding: 2px 0; }
+.friend-pop { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; max-width: calc(100vw - 32px); top: 112px; z-index: 40; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-color: var(--accent); background: var(--panel-solid); animation: screen-in 0.25s ease-out; }
+.friend-pop[hidden] { display: none; }
+.friend-pop .actions { display: flex; gap: 6px; }

@@ -107,6 +107,40 @@ export async function createFirebaseNet(config) {
     };
   }
 
+  function friendApi() {
+    const me = () => signedIn()?.uid || null;
+    const ref = (path) => D.ref(account().db, path);
+    const stamp = () => D.serverTimestamp();
+    const watch = (path, cb) => (me() ? D.onValue(ref(path), (s) => cb(s.val() || {}), () => cb({})) : (cb({}), () => {}));
+    return {
+      me,
+      available: () => !!me(),
+      // Find a player by their handle (account name). null if nobody has it.
+      async lookup(handle) {
+        const id = (await D.get(D.ref(db, `handles/${String(handle).toLowerCase()}`))).val();
+        if (!id) return null;
+        const user = (await D.get(D.ref(db, `users/${id}`)).catch(() => null))?.val();
+        return { id, name: user?.handle || handle };
+      },
+      request: (id, myName) => D.set(ref(`friendReqs/${id}/${me()}`), { name: myName, at: stamp() }),
+      requests: (cb) => watch(`friendReqs/${me()}`, cb),
+      async accept(id, theirName, myName) {
+        await D.set(ref(`friends/${id}/${me()}`), { name: myName, at: stamp() });
+        await D.set(ref(`friends/${me()}/${id}`), { name: theirName, at: stamp() });
+        await D.remove(ref(`friendReqs/${me()}/${id}`));
+      },
+      decline: (id) => D.remove(ref(`friendReqs/${me()}/${id}`)),
+      list: (cb) => watch(`friends/${me()}`, cb),
+      async remove(id) {
+        await D.remove(ref(`friends/${me()}/${id}`));
+        await D.remove(ref(`friends/${id}/${me()}`)).catch(() => {});
+      },
+      invite: (id, info) => D.set(ref(`finvites/${id}/${me()}`), { ...info, at: stamp() }),
+      invites: (cb) => watch(`finvites/${me()}`, cb),
+      clearInvite: (from) => D.remove(ref(`finvites/${me()}/${from}`)).catch(() => {}),
+    };
+  }
+
   const net = {
     kind: 'online',
     uid: user.uid,
@@ -248,6 +282,10 @@ export async function createFirebaseNet(config) {
     // groupMsgs/<gid>/<msg>, and ginbox/<id>/<gid> = newest message or an invite.
     // Signed-in players take part as their account, guests as this tab.
     groups: groupApi(),
+
+    // ---- Friends (signed-in accounts only) ----
+    // friendReqs/<to>/<from>, friends/<me>/<friend> (both sides), finvites/<to>/<from>.
+    friends: friendApi(),
 
     // ---- Public lobby: open rooms + lobby chat ----
     lobbyWatch(cb) {

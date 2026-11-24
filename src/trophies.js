@@ -114,6 +114,8 @@ export const TROPHIES = [
   t('chat', 'Social', '💬', 'Hello, World', 'Send a chat message.', (c) => !!c.chatSent),
   t('group-made', 'Social', '👥', 'Squad Up', 'Create a group chat.', (c) => !!c.groupMade),
   t('group-joined', 'Social', '🤝', 'Plus One', 'Join someone else\'s group chat.', (c) => !!c.groupJoined),
+  t('friend-made', 'Social', '🫂', 'Best Buds', 'Make a friend.', (c) => !!c.friendMade),
+  t('friend-invite', 'Social', '💌', 'Party Starter', 'Invite a friend to your room.', (c) => !!c.friendInvite),
   t('group-chat', 'Social', '📣', 'Group Text', 'Send a message in a group chat.', (c) => !!c.groupChat),
   count(3, 'bestDayStreak', 'Habits', '🔥', 'Three in a Row', 'Play on 3 days in a row.'),
   count(7, 'bestDayStreak', 'Habits', '📅', 'Full Week', 'Play on 7 days in a row.'),

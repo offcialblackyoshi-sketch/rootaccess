@@ -6,7 +6,7 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
 
 1. [x] **Lots more trophies**: 60+ new ones, including secret ones.
 2. [x] **Group chats**: create a group, invite online players, group chat window.
-3. [ ] **Friends list**: add by handle, see online friends, invite to a room.
+3. [x] **Friends list**: add by handle, see online friends, invite to a room.
 4. [ ] **Kid safety**: chat word filter, plus a Report button with a reports inbox for the owner.
 5. [ ] **Chat emotes and quick-chat**.
 6. [ ] **Spectate games in progress**.
@@ -52,3 +52,21 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
   - **Unit tests (62 passing):** about 40 permission checks against the real rules. Only you can make a group; joining needs a member's invite plus your own yes; no self-invites or fake re-invites; only members read or post, as themselves; banned players can't post; only the maker removes people or deletes the group; 12 is the limit; a deleted group can't be brought back by an old invite. Also inbox sorting and unread counting, and who can be invited.
   - **Browser test** with 3 tabs: Gina makes "Byte Squad" and invites Hank and Kim. Kim says no thanks and sees nothing; Hank joins. They chat both ways, and unread shows and clears. The 3 trophies unlock. Gina removes Hank (Hank can't remove anyone), then deletes the group. No errors.
 - **Rules:** new `groups`, `groupMsgs` and `ginbox` sections (included in the combined update at the bottom).
+
+### 3. Friends list
+- **New "Friends" section** at the top of the 👥 panel. **+ add** takes a player name: a leading @ and capital letters are ignored, and unknown names get a clear message.
+- **Requests need a yes:** "🤝 fay wants to be friends" with **Accept** or **No thanks**. Requests count toward the 👥 badge. If you add someone who already asked you, you simply become friends.
+- **Friends list:** online friends come first, each with a green dot and what they're doing ("in a room", "on the menu"). Clicking an online friend opens their profile. **✕** removes a friend from both lists, after a "sure?".
+- **Invite to your room:** while you wait in a room's lobby, online friends get an **invite** button.
+  - They get a popup: "🎮 fay invited you to play Terminal Race! · **Join JPUB** · Not now". Join takes them straight into the room, leaving any room they're in.
+  - Invites expire after 2 minutes, and only come from current friends who aren't blocked.
+- **Accounts:** online, friends are signed-in accounts, because guests become a new player every visit. Guests see "Sign in to add friends and invite them to games." Practice rooms aren't offered, since they're on this computer only.
+- **2 new trophies:** Best Buds (make a friend) and Party Starter (invite a friend to your room). Now 135 in total.
+- **Verified:**
+  - **Unit tests (64 passing):** about 30 permission checks against the real rules.
+    - Requests only as yourself, only from real accounts, never to yourself. Nobody can add themselves to someone's list without a request, or accept on someone else's behalf.
+    - Friends lists and requests are private.
+    - Room invites only between friends, only with real 4-letter room codes, and not while banned. Either friend can unfriend; outsiders can't.
+    - Also friend sorting by online status (matched by account or tab), and invite expiry.
+  - **Browser test** with 3 tabs: Fay types an unknown name (clear message), then "@Finn". Finn sees the request with a badge and accepts; Fox sees nothing. Both see each other online. Fay makes a room and invites Finn, who joins from the popup. The trophies unlock. Fay unfriends Finn (asks first), and it's gone on both sides. No errors.
+- **Rules:** new `friendReqs`, `friends` and `finvites` sections (in the combined update at the bottom).

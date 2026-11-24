@@ -1254,6 +1254,59 @@ await step('chat fun', async () => {
   for (const t of [E1, E2]) await t.close();
 });
 
+await step('spectate', async () => {
+  const V1 = await openTab('V1');
+  const V2 = await openTab('V2');
+  const V3 = await openTab('V3');
+  for (const [t, n] of [[V1, 'vic'], [V2, 'val'], [V3, 'wes']]) {
+    await t.goto(URL_BASE);
+    await t.eval(`window.dispatchEvent(new Event('pointerdown'))`); // skip the first-visit intro
+    await t.eval(`document.getElementById('nameInput').value = '${n}'; window.confirm = () => true`);
+  }
+  await V1.click('#createBtn');
+  await V1.waitFor(`document.body.dataset.screen === 'lobby'`);
+  const code = await V1.eval('window.__ra.state.code');
+  await V2.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await V2.click('#joinBtn');
+  await V2.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await V2.click('#readyBtn');
+  await V1.waitFor(`!!document.getElementById('startBtn') && !document.getElementById('startBtn').disabled`, 5000, 'start enabled');
+  await V1.click('#startBtn');
+  for (const t of [V1, V2]) await t.waitFor(`document.body.dataset.screen === 'game'`, 5000, 'game started');
+
+  // Wes joins mid-game: he watches instead of being turned away.
+  await V3.eval(`document.getElementById('codeInput').value = '${code}'`);
+  await V3.click('#joinBtn');
+  await V3.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('screen-game').classList.contains('spectating')`, 8000, 'spectating');
+  await V3.waitFor(`document.querySelectorAll('.spectate-row').length === 2`, 5000, 'scoreboard rows');
+  const board = await V3.eval(`document.querySelector('.spectate').innerText`);
+  const label = await V3.eval(`document.getElementById('gameRoom').textContent`);
+  const termHidden = await V3.eval(`getComputedStyle(document.getElementById('term')).display === 'none'`);
+  check('spectate: joining a running game lets you watch, with a live scoreboard', /vic/.test(board) && /val/.test(board) && !/wes/.test(board) && /SPECTATING/.test(label) && termHidden, board.replace(/\n/g, ' | '));
+  await V3.shot('70-spectate.png');
+  const inGame = await V1.eval(`window.__ra.state.room.players && Object.values(window.__ra.state.room.players).filter((p) => !p.spectator).length`);
+  check('spectate: the players\' game ignores the spectator', inGame === 2 && !(await V1.eval(`document.getElementById('side').innerText.includes('wes')`)));
+
+  // The spectator can chat with the players.
+  await V3.eval(`(() => { const f = document.querySelector('#gameChat .chat-form'); f.querySelector('input').value = 'go vic!'; f.requestSubmit(); })()`);
+  await V1.waitFor(`document.querySelector('#gameChat .chat-log').innerText.includes('go vic!')`, 5000, 'spectator chat');
+  check('spectate: spectators can cheer in the chat', true);
+
+  // Round ends (Val roots the server): the spectator sees results (without XP), then plays next round.
+  await V2.eval(`(() => { const { net, code } = window.__ra.state; return net.update(code, { ['players/' + net.uid + '/s/layer']: 5, ['players/' + net.uid + '/s/at']: net.now() }); })()`);
+  for (const t of [V1, V2, V3]) await t.waitFor(`document.body.dataset.screen === 'results'`, 8000, 'results');
+  const resText = await V3.eval(`document.getElementById('resultsList').innerText`);
+  check('spectate: spectators see the results but aren\'t in them', !/wes/.test(resText) && (await V3.eval(`document.getElementById('xpGain').hidden`)), resText.replace(/\n/g, ' | '));
+  await V1.click('#againBtn');
+  await V3.waitFor(`document.body.dataset.screen === 'lobby'`, 5000, 'lobby');
+  const wesId = await V3.eval(`window.__ra.state.net.uid`);
+  await V1.waitFor(`!!window.__ra.state.room.players['${wesId}'] && !window.__ra.state.room.players['${wesId}'].spectator && document.getElementById('lobbyPlayers').innerText.includes('wes')`, 5000, 'wes is a player now');
+  check('spectate: back in the lobby, spectators become players', true);
+  const errs = [...V1.errors, ...V2.errors, ...V3.errors];
+  check('spectate: no errors', errs.length === 0, errs.join(' | '));
+  for (const t of [V1, V2, V3]) await t.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

@@ -1214,3 +1214,42 @@ test('chat commands, smileys and quick-chat', async () => {
   assert.deepEqual(quickChats('mystery'), ['gl hf!', 'gg', 'nice! 👏', 'brb', 'ready! 👍']);
   for (const m of ['race', 'duel', 'defend', 'heist', 'gauntlet']) assert.ok(quickChats(m, m === 'gauntlet' ? 'quick' : '').length <= 6);
 });
+
+test('spectating: watchers are left out of the game, and the scoreboard shows progress', async () => {
+  const { playerList } = await import('../src/util.js');
+  const { progressOf, spectateRows, spectators } = await import('../src/spectate.js');
+  const room = {
+    mode: 'race',
+    players: {
+      a: { name: 'amy', joinedAt: 1, s: { layer: 2 } },
+      b: { name: 'ben', joinedAt: 2, s: { layer: 4 } },
+      w: { name: 'wes', joinedAt: 3, spectator: true },
+    },
+  };
+  assert.deepEqual(playerList(room).map((p) => p.id), ['a', 'b'], 'spectators are not players');
+  assert.deepEqual(spectators(room).map((p) => p.id), ['w']);
+  assert.deepEqual(spectateRows(room).map((r) => [r.p.id, r.label]), [['b', 'layer 5/5'], ['a', 'layer 3/5']], 'furthest first');
+  assert.deepEqual(progressOf('race', { layer: 5 }), { value: 1, label: 'ROOTED ✓' });
+  assert.deepEqual(progressOf('duel', { hp: 40 }), { value: 0.4, label: 'firewall 40' });
+  assert.deepEqual(progressOf('duel', { out: true, hp: 0 }), { value: 0, label: 'OUT' });
+  assert.equal(progressOf('letterlock', { stage: 2 }).label, 'stage 3/5');
+  assert.equal(progressOf('gauntlet', { stage: 5 }).label, 'ALL CLEAR ✓');
+  assert.equal(progressOf('heist', { role: 'analyst' }).label, 'analyst');
+  const defend = { mode: 'defend', players: { a: { name: 'amy', s: { nodes: {}, loot: 30 } }, b: { name: 'ben', s: { nodes: {}, loot: 60 } } } };
+  assert.deepEqual(spectateRows(defend).map((r) => [r.p.id, r.value]), [['b', 1], ['a', 0.5]], 'defend scores scale to the leader');
+});
+
+test('database rules: you can join a running game only as a spectator', async () => {
+  const { createRulesSim } = await import('./rules-sim.mjs');
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const db = createRulesSim(rules);
+  db.seed('rooms/QXFT', { hostId: 'H', mode: 'race', status: 'playing', round: 1, players: { H: { name: 'host', color: '#33ff66' } } });
+  const me = { name: 'wes', color: '#4dd9ff' };
+  assert.equal(db.set('W', 'rooms/QXFT/players/W', me), false, 'not as a player once it started');
+  assert.equal(db.set('W', 'rooms/QXFT/players/W', { ...me, spectator: true }), true, 'as a spectator');
+  db.seed('rooms/QXFT/status', 'lobby');
+  assert.equal(db.set('W', 'rooms/QXFT/players/W/spectator', null), true, 'back in the lobby, they become a player');
+  db.seed('rooms/QXFT/kicked/K', true);
+  db.seed('rooms/QXFT/status', 'playing');
+  assert.equal(db.set('K', 'rooms/QXFT/players/K', { name: 'kim', color: '#ffb000', spectator: true }), false, 'kicked players cannot watch either');
+});

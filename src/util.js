@@ -65,8 +65,10 @@ export const COLORS = ['#33ff66', '#4dd9ff', '#ffb000', '#ff4dd2', '#ff6b4d', '#
 export const BOT_NAMES = ['n3m0', 'gh0st', 'cr4sh', 'b1tl0rd', 'r00tkit', 'sp00f', 'z3r0day', 'gl1tch'];
 
 // Players sorted by when they joined (stable order for every client).
+// Players in the game (spectators, who joined mid-game to watch, are left out).
 export function playerList(room) {
   return Object.entries(room?.players || {})
+    .filter(([, p]) => p && !p.spectator)
     .map(([id, p]) => ({ id, ...p }))
     .sort((a, b) => (a.joinedAt || 0) - (b.joinedAt || 0) || a.id.localeCompare(b.id));
 }

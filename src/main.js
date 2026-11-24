@@ -3,6 +3,7 @@ import { getLocalNet, getOnlineNet, onlineConfigured } from './net/index.js';
 import { isRoomCode } from './net/shared.js';
 import { hasBadWords } from './filter.js';
 import { quickChats } from './emotes.js';
+import { createSpectate } from './spectate.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
@@ -601,9 +602,11 @@ async function joinCode(code) {
   const room = await net.getRoom(code);
   if (!room || !room.players) return menuMessage(`No room called ${code}. Check the code${net.kind === 'local' ? ' (local mode only sees rooms in this browser)' : ''}.`);
   if (room.kicked?.[net.uid]) return menuMessage('The host removed you from that room.');
-  if (room.status !== 'lobby') return menuMessage('That game has already started. Ask the host to go back to the lobby.');
   if (Object.keys(room.players).length >= 8) return menuMessage('That room is full (8 players).');
-  await net.joinRoom(code, makePlayer(net, room));
+  // A game already running: join as a spectator and play from the next round.
+  const watching = room.status !== 'lobby';
+  await net.joinRoom(code, { ...makePlayer(net, room), ...(watching ? { spectator: true } : {}) });
+  if (watching) toast('That game already started, so you\'re watching. You\'ll play next round!');
   enterRoom(net, code);
 }
 $('joinBtn').addEventListener('click', (e) => withBusy(e.target, join));
@@ -736,6 +739,7 @@ function sendChat(text) {
 }
 
 // Esc in the chat box jumps back to the terminal (in a game).
+const spectate = createSpectate({ now: () => state.net?.now?.() ?? Date.now() });
 const chat = createChat({
   sfx,
   onSend: sendChat,
@@ -825,16 +829,29 @@ function onRoom(room) {
   if (!room.players[room.hostId]) {
     const next = playerList(room).find((p) => !p.bot);
     if (next?.id === me) state.net.update(state.code, { hostId: me });
+    // Only spectators left: the first one takes the room back to the lobby.
+    const watcher = Object.keys(room.players).sort()[0];
+    if (!next && watcher === me) state.net.update(state.code, { hostId: me, status: 'lobby' });
   }
+  const watching = !!room.players[me]?.spectator;
 
   chat.render(room, me);
 
+  if (room.status !== 'playing') spectate.stop();
+  document.getElementById('screen-game').classList.toggle('spectating', watching && room.status === 'playing');
   if (room.status === 'lobby') {
+    // Back in the lobby, spectators become players.
+    if (watching) state.net.update(state.code, { [`players/${me}/spectator`]: null, [`players/${me}/ready`]: false });
     stopSession();
     state.shownResultsFor = null;
     chat.mount($('lobbyChat'));
     renderLobby({ room, net: state.net, code: state.code, onLeave: () => leaveRoom(), canModerate: ownerMode(), onArrive: ownerArrives });
     show('lobby');
+  } else if (room.status === 'playing' && watching) {
+    stopSession();
+    chat.mount($('gameChat'));
+    spectate.render(room);
+    show('game');
   } else if (room.status === 'playing') {
     if (!state.session || state.session.round !== room.round) {
       stopSession();
@@ -1148,6 +1165,7 @@ social = createSocial({
   status: () => {
     const scr = document.body.dataset.screen;
     const room = state.room;
+    if (scr === 'game' && room?.players?.[state.net?.uid]?.spectator) return `watching ${MODES[room.mode]?.name || 'a game'}`;
     if (scr === 'game' && room) return `playing ${MODES[room.mode]?.name || 'a game'}`;
     if (scr === 'results') return 'finishing a round';
     if (scr === 'lobby') return room?.practice ? 'practicing' : 'in a room';

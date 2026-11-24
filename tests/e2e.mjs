@@ -1465,6 +1465,31 @@ await step('how to play', async () => {
   await H.close();
 });
 
+await step('connection banner', async () => {
+  const N = await openTab('N');
+  await N.goto(URL_BASE);
+  await N.eval(`window.dispatchEvent(new Event('pointerdown'))`);
+  await N.send('Network.enable');
+  const offline = (on) => N.send('Network.emulateNetworkConditions', { offline: on, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  // A short blip is ignored.
+  await offline(true);
+  await sleep(400);
+  await offline(false);
+  await sleep(2000);
+  check('connection: short blips don\'t flash a banner', !(await N.eval('window.__ra.conn.visible')));
+  // A real drop shows the banner, then "Back online".
+  await offline(true);
+  await N.waitFor(`window.__ra.conn.visible && window.__ra.conn.text.includes('offline')`, 5000, 'offline banner');
+  const text = await N.eval('window.__ra.conn.text');
+  await N.shot('76-offline-banner.png');
+  await offline(false);
+  await N.waitFor(`window.__ra.conn.text.includes('Back online')`, 5000, 'back online');
+  await N.waitFor(`!window.__ra.conn.visible`, 6000, 'banner goes away');
+  check('connection: going offline shows a banner with what still works, then "Back online"', /Practice/.test(text), text);
+  check('connection: no errors', N.errors.length === 0, N.errors.join(' | '));
+  await N.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

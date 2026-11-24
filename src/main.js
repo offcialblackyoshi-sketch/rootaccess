@@ -6,6 +6,7 @@ import { quickChats } from './emotes.js';
 import { createSpectate } from './spectate.js';
 import { createMusic, trackFor } from './music.js';
 import { showHowTo } from './howto.js';
+import { createConnBanner } from './connection.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
@@ -31,6 +32,11 @@ import { TROPHIES, getTrophyState, saveTrophyState, applyRound, roundEvent, week
 import { getProgress, saveProgress, levelFor, titlesFor, currentTitle, awardRound, UNLOCK_COLORS } from './progress.js';
 
 const $ = (id) => document.getElementById(id);
+
+// Connection banner (see updateConn): made early so any screen change can use it.
+const conn = createConnBanner();
+let serverUp = null; // null until online play connects
+let watchingServer = false;
 
 // ---------------------------------------------------------------------------
 // Owner: decided by the database (roles/<account id> = "owner"). On this
@@ -117,6 +123,7 @@ function show(name) {
   document.body.dataset.screen = name;
   social?.setScreen(name);
   updateMusic();
+  updateConn();
   if (changed) scrambleHeadings(document.getElementById('screen-' + name));
 }
 
@@ -488,6 +495,7 @@ async function connectOnline() {
   const res = await getOnlineNet();
   if (res.net) {
     state.online = res.net;
+    if (!watchingServer && res.net.onConnection) { watchingServer = true; res.net.onConnection((up) => { serverUp = up; updateConn(); }); }
     social?.touch(); // move the online-players panel onto the real network
     status.innerHTML = '';
     status.append(el('span', { class: 'ok' }, '● ONLINE'), ' Ready to create or join rooms.');
@@ -499,6 +507,13 @@ async function connectOnline() {
 }
 window.addEventListener('online', connectOnline);
 window.addEventListener('offline', connectOnline);
+
+// Connection banner: tells you when the internet or the game server drops out.
+function updateConn() {
+  conn.update({ online: navigator.onLine, serverUp, inOnlineRoom: state.net?.kind === 'online' && !!state.code });
+}
+window.addEventListener('online', updateConn);
+window.addEventListener('offline', updateConn);
 
 function roomNet() {
   return state.online || getLocalNet();
@@ -1150,7 +1165,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // Exposed for automated tests.
-window.__ra = { state, sfx, rain, renderAccount, music };
+window.__ra = { state, sfx, rain, renderAccount, music, conn };
 startBadges(); // special titles next to names everywhere
 settingsTrophies(); // the style you start with counts toward Fashion Hacker
 // Dialogs "decrypt" their headings as they open.

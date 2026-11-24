@@ -1375,3 +1375,13 @@ test('trophy progress: locked count trophies show how close you are', async () =
     }
   }
 });
+
+test('connection banner: says what is wrong and what still works', async () => {
+  const { connectionMessage } = await import('../src/connection.js');
+  assert.equal(connectionMessage({ online: true, serverUp: true, inOnlineRoom: true }), null);
+  assert.equal(connectionMessage({ online: true, serverUp: null, inOnlineRoom: false }), null, 'local play: nothing to say');
+  assert.equal(connectionMessage({ online: true, serverUp: false, inOnlineRoom: false }), null, 'no banner on the menu for a server blip');
+  assert.match(connectionMessage({ online: true, serverUp: false, inOnlineRoom: true }).text, /Reconnecting/);
+  assert.match(connectionMessage({ online: false, serverUp: true, inOnlineRoom: true }).text, /catch up/);
+  assert.match(connectionMessage({ online: false, serverUp: null, inOnlineRoom: false }).text, /Practice/);
+});

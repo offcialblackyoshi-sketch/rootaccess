@@ -64,6 +64,8 @@ const played = {};
 
 export const sfx = {
   unlock,
+  // The shared AudioContext (made on first use), for the music.
+  audioContext() { unlock(); return audio; },
   played,
   isMuted: () => muted,
   toggleMute() {

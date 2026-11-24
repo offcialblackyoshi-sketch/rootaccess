@@ -4,12 +4,13 @@ import { isRoomCode } from './net/shared.js';
 import { hasBadWords } from './filter.js';
 import { quickChats } from './emotes.js';
 import { createSpectate } from './spectate.js';
+import { createMusic, trackFor } from './music.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
 import { createChat } from './chat.js';
 import { sfx } from './sfx.js';
-import { el, load, save, playerList, COLORS, fmtTime } from './util.js';
+import { el, load, save, playerList, COLORS, fmtTime, roundTime } from './util.js';
 import { initSettingsDialog, getSettings, applySettings } from './settings.js';
 import { createOwnerTools, toast, describeBan } from './owner.js';
 import { createMatrixRain } from './matrix.js';
@@ -70,7 +71,18 @@ window.addEventListener('ra-fx', (e) => {
 });
 updateRain();
 
-initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); updateRain(); settingsTrophies(); } });
+// Background music: calm on the menu, driving in game, faster for the last 30 seconds.
+const music = createMusic({ getAudio: () => sfx.audioContext(), volume: () => getSettings().music, muted: () => sfx.isMuted() });
+function msLeftInRound() {
+  const room = state.room;
+  const mode = room && MODES[room.mode];
+  const limit = mode ? roundTime(mode, room.roundLength) : 0;
+  return limit && room.status === 'playing' ? (room.startedAt || 0) + limit - (state.net?.now?.() ?? Date.now()) : Infinity;
+}
+function updateMusic() { if (musicStarted) music.setTrack(trackFor(document.body.dataset.screen, msLeftInRound())); }
+let musicStarted = false; // browsers only allow sound after you click or press a key
+setInterval(updateMusic, 1000);
+initSettingsDialog({ onChange: () => { sfx.unlock(); sfx.tick(); updateRain(); settingsTrophies(); music.update(); } });
 
 // Icons on the menu buttons.
 for (const b of document.querySelectorAll('button[data-icon]')) b.prepend(iconEl(b.dataset.icon));
@@ -103,6 +115,7 @@ function show(name) {
   }
   document.body.dataset.screen = name;
   social?.setScreen(name);
+  updateMusic();
   if (changed) scrambleHeadings(document.getElementById('screen-' + name));
 }
 
@@ -1085,6 +1098,7 @@ renderMute();
 muteBtn.addEventListener('click', () => {
   sfx.unlock();
   sfx.toggleMute();
+  music.update();
   renderMute();
   muteBtn.blur();
 });
@@ -1106,6 +1120,8 @@ installBtn.addEventListener('click', async () => {
 window.addEventListener('appinstalled', () => (installBtn.hidden = true));
 
 document.addEventListener('pointerdown', () => sfx.unlock(), { once: true });
+// Music starts with your first click or key press.
+for (const ev of ['pointerdown', 'keydown']) document.addEventListener(ev, () => { if (!musicStarted) { musicStarted = true; updateMusic(); } }, { once: true });
 document.addEventListener('keydown', () => sfx.unlock(), { once: true });
 
 // ---------------------------------------------------------------------------
@@ -1128,7 +1144,7 @@ if ('serviceWorker' in navigator) {
 }
 
 // Exposed for automated tests.
-window.__ra = { state, sfx, rain, renderAccount };
+window.__ra = { state, sfx, rain, renderAccount, music };
 startBadges(); // special titles next to names everywhere
 settingsTrophies(); // the style you start with counts toward Fashion Hacker
 // Dialogs "decrypt" their headings as they open.

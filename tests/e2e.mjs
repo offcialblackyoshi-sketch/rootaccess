@@ -1307,6 +1307,49 @@ await step('spectate', async () => {
   for (const t of [V1, V2, V3]) await t.close();
 });
 
+await step('music', async () => {
+  const M = await openTab('M');
+  await M.goto(URL_BASE);
+  await M.eval(`window.confirm = () => true; localStorage.removeItem('ra-muted')`);
+  const music = () => M.eval('window.__ra.music.state()');
+  check('music: silent until you click or press a key (browser rule)', (await music()).track === null);
+  await M.eval(`window.dispatchEvent(new Event('pointerdown')); document.dispatchEvent(new Event('pointerdown'))`);
+  await M.waitFor(`window.__ra.music.state().track === 'menu' && window.__ra.music.state().playing`, 3000, 'menu music');
+  const n0 = (await music()).notes;
+  await M.waitFor(`window.__ra.music.state().notes > ${n0}`, 5000, 'notes keep coming');
+  check('music: the calm menu track plays after your first click', true);
+
+  // Settings: the Music slider turns it down or off; Mute silences it too.
+  await M.click('#settingsBtn');
+  const setMusic = (v) => M.eval(`(() => { const f = document.querySelector('#settingsDialog form'); f.music.value = ${v}; f.music.dispatchEvent(new Event('input')); })()`);
+  await setMusic(0);
+  const off = await music();
+  await setMusic(30);
+  const back = await music();
+  await M.shot('71-music-setting.png');
+  await M.eval(`document.getElementById('settingsDialog').close()`);
+  check('music: the Music slider turns it off and back on', off.level === 0 && !off.playing && back.playing && Math.abs(back.level - 0.3) < 0.01, `${JSON.stringify(off)} ${JSON.stringify(back)}`);
+  await M.click('#muteBtn');
+  const muted = await music();
+  await M.click('#muteBtn');
+  check('music: Mute silences the music too', muted.level === 0 && (await music()).playing);
+
+  // In a game: the game track, then the tense one in the last 30 seconds.
+  await M.click('#practiceBtn');
+  await M.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await M.click('#startBtn');
+  await M.waitFor(`document.body.dataset.screen === 'game'`, 5000, 'game');
+  await M.waitFor(`window.__ra.music.state().track === 'game'`, 3000, 'game music');
+  await M.eval(`(async () => { const { roundTime } = await import('./src/util.js'); const { MODES } = await import('./src/modes/index.js'); const { room, net, code } = window.__ra.state; const limit = roundTime(MODES[room.mode], room.roundLength); await net.update(code, { startedAt: net.now() - limit + 20000 }); })()`);
+  await M.waitFor(`window.__ra.music.state().track === 'tense'`, 4000, 'tense music');
+  check('music: in-game track, then a faster one for the last 30 seconds', true);
+  await M.click('#gameLeave');
+  await M.waitFor(`document.body.dataset.screen === 'menu' && window.__ra.music.state().track === 'menu'`, 5000, 'menu again');
+  check('music: back to the menu track after the game', true);
+  check('music: no errors', M.errors.length === 0, M.errors.join(' | '));
+  await M.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

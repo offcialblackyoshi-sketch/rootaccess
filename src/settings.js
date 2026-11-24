@@ -8,7 +8,7 @@ export const TEXT_SIZES = ['normal', 'large', 'xlarge'];
 export const STYLES = ['green', 'cyber', 'amber', 'gold']; // gold is for the owner only
 
 export function defaultSettings(prefersReducedMotion = false) {
-  return { scanlines: !prefersReducedMotion, textSize: 'normal', reduceMotion: prefersReducedMotion, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: !prefersReducedMotion, rainbowRain: false, style: 'green' };
+  return { scanlines: !prefersReducedMotion, textSize: 'normal', reduceMotion: prefersReducedMotion, highContrast: false, volume: 0.7, music: 0.3, keyClicks: false, matrixRain: !prefersReducedMotion, rainbowRain: false, style: 'green' };
 }
 
 // Fills in anything missing or invalid, so old or broken saves can't break the page.
@@ -21,6 +21,7 @@ export function normalizeSettings(raw, prefersReducedMotion = false) {
     reduceMotion: typeof s.reduceMotion === 'boolean' ? s.reduceMotion : d.reduceMotion,
     highContrast: typeof s.highContrast === 'boolean' ? s.highContrast : d.highContrast,
     volume: typeof s.volume === 'number' && Number.isFinite(s.volume) ? Math.min(1, Math.max(0, s.volume)) : d.volume,
+    music: typeof s.music === 'number' && Number.isFinite(s.music) ? Math.min(1, Math.max(0, s.music)) : d.music,
     keyClicks: typeof s.keyClicks === 'boolean' ? s.keyClicks : d.keyClicks,
     matrixRain: typeof s.matrixRain === 'boolean' ? s.matrixRain : d.matrixRain,
     rainbowRain: typeof s.rainbowRain === 'boolean' ? s.rainbowRain : d.rainbowRain,
@@ -72,6 +73,7 @@ export function initSettingsDialog({ onChange } = {}) {
     form.highContrast.checked = s.highContrast;
     form.textSize.value = s.textSize;
     form.volume.value = Math.round(s.volume * 100);
+    form.music.value = Math.round(s.music * 100);
     form.keyClicks.checked = s.keyClicks;
     form.matrixRain.checked = s.matrixRain;
     form.rainbowRain.checked = s.rainbowRain;
@@ -84,6 +86,7 @@ export function initSettingsDialog({ onChange } = {}) {
       highContrast: form.highContrast.checked,
       textSize: form.textSize.value,
       volume: Number(form.volume.value) / 100,
+      music: Number(form.music.value) / 100,
       keyClicks: form.keyClicks.checked,
       matrixRain: form.matrixRain.checked,
       rainbowRain: form.rainbowRain.checked,
@@ -92,6 +95,7 @@ export function initSettingsDialog({ onChange } = {}) {
     onChange?.();
   });
   form.volume.addEventListener('input', () => form.dispatchEvent(new Event('change')));
+  form.music.addEventListener('input', () => form.dispatchEvent(new Event('change')));
   document.getElementById('settingsBtn').addEventListener('click', (e) => {
     e.currentTarget.blur();
     fill();

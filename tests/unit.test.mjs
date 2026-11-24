@@ -298,9 +298,11 @@ test('display settings: bad saves fall back to defaults', () => {
   assert.deepEqual(normalizeSettings({ textSize: 'large', scanlines: false }), { ...defaultSettings(), textSize: 'large', scanlines: false });
   assert.equal(normalizeSettings({ volume: 5 }).volume, 1, 'volume is clamped');
   assert.equal(normalizeSettings({ volume: 'loud' }).volume, defaultSettings().volume);
+  assert.equal(normalizeSettings({ music: -2 }).music, 0, 'music volume is clamped');
+  assert.equal(normalizeSettings({ music: 'loud' }).music, defaultSettings().music);
   assert.equal(normalizeSettings({ keyClicks: true }).keyClicks, true);
   // The system's reduced-motion preference turns off motion and scanlines by default.
-  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false, volume: 0.7, keyClicks: false, matrixRain: false, rainbowRain: false, style: 'green' });
+  assert.deepEqual(defaultSettings(true), { scanlines: false, textSize: 'normal', reduceMotion: true, highContrast: false, volume: 0.7, music: 0.3, keyClicks: false, matrixRain: false, rainbowRain: false, style: 'green' });
   assert.equal(defaultSettings(false).matrixRain, true, 'rain is on by default');
 });
 
@@ -1252,4 +1254,34 @@ test('database rules: you can join a running game only as a spectator', async ()
   db.seed('rooms/QXFT/kicked/K', true);
   db.seed('rooms/QXFT/status', 'playing');
   assert.equal(db.set('K', 'rooms/QXFT/players/K', { name: 'kim', color: '#ffb000', spectator: true }), false, 'kicked players cannot watch either');
+});
+
+test('music: three tracks in A minor, faster when tense, right track for the moment', async () => {
+  const { TRACKS, patternFor, triad, midiToFreq, trackFor } = await import('../src/music.js');
+  assert.ok(TRACKS.menu.bpm < TRACKS.game.bpm && TRACKS.game.bpm < TRACKS.tense.bpm, 'calm menu, faster game, fastest at the end');
+  assert.equal(Math.round(midiToFreq(69)), 440);
+  assert.deepEqual(triad(57), [57, 60, 64], 'A minor');
+  assert.deepEqual(triad(53), [53, 57, 60], 'F major');
+  assert.deepEqual(triad(52), [52, 56, 59], 'E major');
+  // Every pitched note fits A harmonic minor (A B C D E F G#) or the chord's own notes.
+  const scale = new Set([9, 11, 0, 2, 4, 5, 7, 8]);
+  for (const name of Object.keys(TRACKS)) {
+    for (let bar = 0; bar < 8; bar++) {
+      const notes = patternFor(name, bar);
+      assert.deepEqual(notes, patternFor(name, bar), 'the same every time');
+      for (const n of notes) {
+        assert.ok(n.beat >= 0 && n.beat < 4 && n.dur > 0, `${name} timing`);
+        if (n.midi) assert.ok(scale.has(n.midi % 12), `${name} bar ${bar}: note ${n.midi} in key`);
+        assert.ok(TRACKS[name].voices.includes(n.voice), `${name} uses its own instruments`);
+      }
+    }
+  }
+  assert.ok(!patternFor('menu', 0).some((n) => n.voice === 'kick'), 'no drums on the menu');
+  assert.ok(patternFor('tense', 0).filter((n) => n.voice === 'kick').length > patternFor('game', 0).filter((n) => n.voice === 'kick').length, 'more drums when tense');
+  assert.deepEqual(patternFor('nope', 0), []);
+  assert.equal(trackFor('menu'), 'menu');
+  assert.equal(trackFor('lobby'), 'menu');
+  assert.equal(trackFor('game', 120000), 'game');
+  assert.equal(trackFor('game', 25000), 'tense');
+  assert.equal(trackFor('game', Infinity), 'game', 'modes without a time limit');
 });

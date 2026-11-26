@@ -1502,3 +1502,23 @@ test('crazygames: room sharing, invites and instant multiplayer (fake SDK)', asy
     Object.assign(CG.cg, { active: false, sdk: null });
   }
 });
+
+test('database rules: everyday play works for players who were never banned (regression)', async () => {
+  // Firebase errors when a missing value (like a ban that doesn't exist) is compared
+  // with a number, which silently blocked rooms and chat. The checker now behaves the same.
+  const { createRulesSim } = await import('./rules-sim.mjs');
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const db = createRulesSim(rules);
+  const t = db.now - 5;
+  assert.equal(db.set('A', 'rooms/QXFT', { hostId: 'A', mode: 'race', status: 'lobby', round: 0, players: { A: { name: 'amy', color: '#33ff66' } } }), true, 'create a room');
+  assert.equal(db.set('B', 'rooms/QXFT/players/B', { name: 'ben', color: '#4dd9ff' }), true, 'join a room');
+  assert.equal(db.set('B', 'rooms/QXFT/chat/m1', { uid: 'B', name: 'ben', text: 'hi', at: t }), true, 'room chat');
+  assert.equal(db.set('A', 'lobby/chat/m1', { uid: 'A', name: 'amy', text: 'hello lobby', at: t }), true, 'lobby chat');
+  assert.equal(db.set('A', 'lobby/rooms/QXFT', { host: 'A', name: 'amy\'s room', mode: 'race', players: 2, at: t }), true, 'list a public room');
+  assert.equal(db.set('A', 'dms/A_B/m1', { from: 'A', name: 'amy', text: 'hi', at: t }), true, 'private message');
+  assert.equal(db.update('A', { 'reports/r1': { by: 'A', byName: 'amy', target: 'B', targetName: 'ben', reason: 'mean', at: db.now }, 'reportsBy/A': db.now }), true, 'first report');
+  // And a real ban still blocks.
+  db.seed('bans/C', { until: db.now + 1000, at: t });
+  assert.equal(db.set('C', 'rooms/ZZZZ', { hostId: 'C', status: 'lobby' }), false, 'banned players still cannot make rooms');
+  assert.equal(db.set('C', 'lobby/chat/m2', { uid: 'C', name: 'cal', text: 'x', at: t }), false, 'or chat');
+});

@@ -42,9 +42,13 @@ function setAt(tree, parts, value) {
   return prune(out) || {};
 }
 
+// A missing value. === comparisons work (NULL === NULL), but < > <= >= throw,
+// like in Firebase, where that's an error that makes the whole rule false.
+const NULL = Object.freeze({ valueOf() { throw new TypeError('compared a missing value'); }, toString() { return 'null'; } });
+
 class Snap {
   constructor(tree, parts) { this.tree = tree; this.parts = parts; }
-  val() { return clone(getAt(this.tree, this.parts)); }
+  val() { const v = getAt(this.tree, this.parts); return v === null ? NULL : clone(v); }
   child(path) { return new Snap(this.tree, [...this.parts, ...split(String(path))]); }
   parent() { return new Snap(this.tree, this.parts.slice(0, -1)); }
   exists() { return getAt(this.tree, this.parts) !== null; }
@@ -89,6 +93,8 @@ export function createRulesSim(rulesDoc, initial = {}, { now = 1_000_000 } = {})
     try {
       return !!fn(ctx.root, ctx.data, ctx.newData, ctx.auth, now, ...names.map((n) => ctx.vars[n]));
     } catch (e) {
+      // Firebase treats an error in a rule (like comparing a missing value) as false.
+      if (e instanceof TypeError) return false;
       throw new Error(`rule failed to run: ${expr}\n${e.message}`);
     }
   }

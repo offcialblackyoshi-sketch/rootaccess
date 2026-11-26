@@ -1309,3 +1309,5 @@ html.no-chat .social-chats, html.no-chat .quick-chat { display: none !important;
 .trophy-pop .trophy-icon { filter: drop-shadow(0 0 7px var(--tier)); }
 .trophy-pop::after { animation: trophy-shine 1.1s ease-out both; animation-delay: calc(1.1s + var(--i) * 0.2s); }
 @keyframes trophy-shine { 0% { left: -60%; opacity: 1; } 100% { left: 130%; opacity: 1; } }
+/* Friends need an account, and other logins aren't allowed on CrazyGames. */
+html.on-crazygames .social-friends-slot { display: none !important; }

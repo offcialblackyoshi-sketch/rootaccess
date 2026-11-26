@@ -72,3 +72,49 @@ export function watchSettings(onChange) {
   onChange(read());
   safe((sdk) => sdk.game.addSettingsChangeListener(() => onChange(read())));
 }
+
+// ---- Multiplayer: instant multiplayer, invites and room status ----
+// Test switches for their local test mode only: ?cgInstant=1 and ?roomId=ABCD.
+const localTest = () => cg.active && cg.sdk.environment === 'local';
+const query = () => new URLSearchParams(typeof location === 'undefined' ? '' : location.search);
+
+// Started from CrazyGames' multiplayer button: go straight into a new private room.
+export function instantMultiplayer() {
+  if (!cg.active) return false;
+  try { if (cg.sdk.game.isInstantMultiplayer) return true; } catch { /* older SDK */ }
+  return localTest() && query().has('cgInstant');
+}
+
+// The room code from a CrazyGames invite link (or null).
+export function invitedRoom() {
+  if (!cg.active) return null;
+  let code = null;
+  try { code = cg.sdk.game.inviteParams?.roomId || cg.sdk.game.getInviteParam('roomId'); } catch { code = null; }
+  if (!code && localTest()) code = query().get('roomId');
+  return code ? String(code).toUpperCase() : null;
+}
+
+// A friend's invite clicked while the game is already open.
+export function onJoinRoom(cb) {
+  safe((sdk) => sdk.game.addJoinRoomListener((params) => { if (params?.roomId) cb(String(params.roomId).toUpperCase()); }));
+}
+
+// Tell CrazyGames which room you're in, so friends can join from their UI.
+let shared = '';
+export function shareRoom(code, joinable) {
+  const key = `${code}:${joinable}`;
+  if (!cg.active || key === shared) return;
+  shared = key;
+  safe((sdk) => sdk.game.updateRoom({ roomId: code, isJoinable: !!joinable, inviteParams: { roomId: code } }));
+}
+export function leftRoom() {
+  if (!cg.active || !shared) return;
+  shared = '';
+  safe((sdk) => sdk.game.leftRoom());
+}
+
+// A CrazyGames invite link for a room (null when not on CrazyGames).
+export function inviteLinkFor(code) {
+  if (!cg.active) return null;
+  try { return cg.sdk.game.inviteLink({ roomId: code }); } catch { return null; }
+}

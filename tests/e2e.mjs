@@ -1544,6 +1544,30 @@ await step('guides', async () => {
   await W.close();
 });
 
+await step('crazygames multiplayer', async () => {
+  // Their multiplayer button: straight into a new private room, no menu clicks.
+  const I = await openTab('CI');
+  await I.goto(URL_BASE + '&useLocalSdk=true&cgInstant=1');
+  await I.waitFor(`document.body.dataset.screen === 'lobby' && !!window.__ra.state.code`, 15000, 'instant multiplayer room');
+  const code = await I.eval('window.__ra.state.code');
+  check('crazygames: instant multiplayer starts a private room right away', /^[A-Z]{4}$/.test(code) && !(await I.eval('window.__ra.state.room.public')), code);
+  const link = await I.eval(`(async () => { window.prompt = (msg, url) => { window.__shown = url; return null; }; document.getElementById('inviteBtn').click(); await new Promise((r) => setTimeout(r, 300)); return window.__shown || document.getElementById('inviteBtn').textContent; })()`);
+  // A friend's invite link drops them into that room.
+  const F = await openTab('CF');
+  await F.goto(URL_BASE + '&useLocalSdk=true&roomId=' + code);
+  await F.waitFor(`document.body.dataset.screen === 'lobby' && window.__ra.state.code === '${code}'`, 15000, 'friend joined from invite');
+  await I.waitFor(`Object.keys(window.__ra.state.room.players).length === 2`, 5000, 'two players');
+  check('crazygames: an invite link joins your friend\'s room', true);
+  // Friends (needs an account) and every "sign in" prompt are gone there.
+  const signIn = await F.eval(`[...document.querySelectorAll('body *')].filter((e) => e.offsetParent && e.children.length === 0 && /sign in/i.test(e.textContent)).map((e) => e.textContent)`);
+  const friends = await F.eval(`!!document.querySelector('.social-friends-slot') && getComputedStyle(document.querySelector('.social-friends-slot')).display !== 'none'`);
+  check('crazygames: no sign-in prompts and no friends list', !signIn.length && !friends, signIn.join(' | '));
+  await I.waitFor('document.getElementById("boot").hidden', 3000, 'no intro on CrazyGames');
+  await I.shot('80-crazygames-instant.png');
+  check('crazygames multiplayer: no errors', [...I.errors, ...F.errors].length === 0, [...I.errors, ...F.errors].join(' | ') + ' ' + link);
+  for (const t of [I, F]) await t.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

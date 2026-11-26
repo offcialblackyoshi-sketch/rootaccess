@@ -94,7 +94,7 @@ export function createGroups({ profile, online, isBlocked, onChange, onOpen, fla
         el('span', { class: 'pname' }, '👥 ', cleanText(g.name)),
         el('span', { class: 'small dim' }, g.text ? ` ${g.from === me() ? 'you' : cleanText(g.by)}: ${cleanText(g.text).slice(0, 30)}` : ' new group')));
     }
-    if (!groups.length && !invites.length && !creating) section.append(el('div', { class: 'small dim' }, net?.accountUid?.() ? 'Make a group to chat with a few friends at once.' : 'Make a group to chat with a few friends at once. Guest groups end when you close this tab.'));
+    if (!groups.length && !invites.length && !creating) section.append(el('div', { class: 'small dim' }, net?.accountUid?.() || document.documentElement.classList.contains('on-crazygames') ? 'Make a group to chat with a few friends at once.' : 'Make a group to chat with a few friends at once. Guest groups end when you close this tab.'));
   }
 
   async function create(text) {

@@ -215,7 +215,7 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
         el('button', { type: 'button', class: 'primary', disabled: !canDm, title: canDm ? '' : !dmOn ? 'Your private messages are off' : blockedNow ? 'Unblock them first' : 'They have private messages off', onclick: () => { prof.close(); openDm(t); } }, '💬 Message'),
         el('button', { type: 'button', onclick: () => { toggleBlock(id, p); openProfile(id); } }, blockedNow ? 'Unblock' : '🚫 Block'),
         net?.reports ? el('button', { type: 'button', class: 'danger-btn', 'data-report-open': id, onclick: () => openReport(id, p) }, '🚩 Report') : null),
-      canDm ? el('p', { class: 'small dim' }, t.kind === 'acct' ? 'You\'re both signed in, so this chat is saved.' : 'Guest chat: it lasts while you\'re both online. Sign in (both of you) to save chats.') : null,
+      canDm ? el('p', { class: 'small dim' }, t.kind === 'acct' ? 'You\'re both signed in, so this chat is saved.' : (document.documentElement.classList.contains('on-crazygames') ? 'This chat lasts while you\'re both online.' : 'Guest chat: it lasts while you\'re both online. Sign in (both of you) to save chats.')) : null,
       !canDm && p.dm === false ? el('p', { class: 'small dim' }, `${p.name} has private messages turned off.`) : null,
       owner?.isOwner() ? modSection(id, p) : null].filter(Boolean));
     if (!prof.open) prof.showModal();

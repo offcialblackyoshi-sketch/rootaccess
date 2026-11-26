@@ -289,3 +289,21 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
 - **Verified:**
   - **Unit test (76 passing):** for 40 different race puzzles, every step's Try buttons use real commands and never contain the password, PIN, key, fragments or backdoor port, and the password tips point to where it's actually hidden. Defend puts attacks first, then repairs, then stealing. Heist gives each role its own job, and guard alerts come first.
   - **Browser test:** clicking "cat mission.txt" types it and Enter shows the mission. Defend shows "Steal data!".
+
+### 14. CrazyGames Basic requirements: instant multiplayer, invites, no sign-in prompts
+- **Instant multiplayer:** when CrazyGames starts the game from its multiplayer button (`isInstantMultiplayer`, including the QA tool's "Reload with Instant Multiplayer"), the game skips the menu. It goes straight into a new private room that friends can join.
+- **Invites:**
+  - **Invite button:** "Copy invite link" makes a CrazyGames invite link there.
+  - **Opening an invite link** drops a friend straight into that room.
+  - **Already playing:** a friend's invite clicked while the game is open moves you to their room.
+  - **Room status:** the game tells CrazyGames which room you're in and whether it has space (`updateRoom`, joinable while fewer than 8 people), and reports when you leave (`leftRoom`).
+- **No external login, finished:** on CrazyGames the friends list (it needs an account) and every "sign in…" prompt are hidden, along with the sign-in card and Install button from before. The first-visit "booting" intro is skipped there too.
+- **Mobile:** you chose desktop only, so the iOS/Android and QR-code checks don't apply. Leave mobile unticked on the form.
+- **Already met:** download size (about 0.2 MB) and no ads.
+- **Merged first:** a trophy-tier update (🥉🥈🥇) that was already on GitHub `main` was merged with tonight's work and pushed.
+- **Verified:**
+  - **Unit test (78 passing):** with a fake CrazyGames SDK, the room status is only sent when it changes, invites are read from either place they can come from, leaving is reported once, and nothing happens off CrazyGames.
+  - **Browser test** (their SDK's local mode):
+    - `cgInstant=1` lands in a new private room's lobby with no clicks.
+    - A second tab opened with that room's invite joins it, and the invite button makes a real CrazyGames invite link.
+    - There are no "sign in" texts and no friends list.

@@ -7,7 +7,7 @@ import { createSpectate } from './spectate.js';
 import { createMusic, trackFor } from './music.js';
 import { showHowTo } from './howto.js';
 import { createConnBanner } from './connection.js';
-import { cg, setPlaying, loadingDone, watchSettings } from './crazygames.js';
+import { cg, setPlaying, loadingDone, watchSettings, instantMultiplayer, invitedRoom, onJoinRoom, shareRoom, leftRoom, inviteLinkFor } from './crazygames.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
@@ -150,7 +150,7 @@ function typeInto(node, speed = 28) {
 
 // First visit on this device: a quick "booting" intro (click or key skips it).
 function bootIntro() {
-  if (load('ra-booted', false) || reducedMotion()) return;
+  if (load('ra-booted', false) || reducedMotion() || cg.active) return; // CrazyGames has its own loading screen
   save('ra-booted', true);
   const box = $('boot');
   const pre = box.querySelector('pre');
@@ -698,7 +698,7 @@ async function renderBoard(listEl, noteEl) {
     el('span', { class: 'dim' }, r.mistakes ? `${fmtTime(r.ms)} + ${r.mistakes}×${PENALTY_MS / 1000}s` : fmtTime(r.ms)),
     el('strong', {}, fmtScore(r.score)))));
   const best = myBest(date);
-  noteEl.textContent = `${date} (UTC) · ${where === 'online' ? 'everyone online' : 'this device only'}${best !== null ? ` · your best ${fmtScore(best)}` : ''}${where === 'online' && !accountState().handle ? ' · sign in with Google to get on the board' : ''}`;
+  noteEl.textContent = `${date} (UTC) · ${where === 'online' ? 'everyone online' : 'this device only'}${best !== null ? ` · your best ${fmtScore(best)}` : ''}${where === 'online' && !accountState().handle && !cg.active ? ' · sign in with Google to get on the board' : ''}`;
 }
 const fmtScore = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
@@ -718,7 +718,7 @@ async function renderStatsBoard() {
     el('span', {}, `${r.wins}/${r.rounds}`),
     el('span', {}, String(r.trophies ?? '–')))));
   $('statsNote').textContent = where !== 'online' ? 'This device only (online play is not set up or not reachable).'
-    : accountState().handle ? 'Everyone online · top 50' : 'Everyone online · top 50 · sign in with Google to get on the board';
+    : accountState().handle || cg.active ? 'Everyone online · top 50' : 'Everyone online · top 50 · sign in with Google to get on the board';
 }
 function showTab(which) {
   for (const [t, pane] of [['tabAll', 'paneAll'], ['tabToday', 'paneToday']]) {
@@ -815,7 +815,8 @@ function enterRoom(net, code) {
   state.shownResultsFor = null;
   chat.reset();
   state.unwatch = net.watch(code, onRoom);
-  if (net.kind === 'online') history.replaceState(null, '', '?room=' + code);
+  if (cg.active) shareRoom(code, true);
+  else if (net.kind === 'online') history.replaceState(null, '', '?room=' + code);
 }
 
 async function leaveRoom(message = '') {
@@ -824,13 +825,14 @@ async function leaveRoom(message = '') {
   if (net?.lobbyList && state.room?.public && state.room.hostId === net.uid) net.lobbyList(code, null).catch(() => {});
   lastListing = '';
   rememberSeat(null);
+  leftRoom(); // CrazyGames: you're no longer joinable
   if (state.unwatch) state.unwatch();
   state.unwatch = null;
   stopSession();
   state.net = null;
   state.code = null;
   state.room = null;
-  history.replaceState(null, '', location.pathname);
+  if (!cg.active) history.replaceState(null, '', location.pathname);
   show('menu');
   menuMessage(message, 'warn');
   $('tutorialBadge').hidden = !!load(TUTORIAL_DONE_KEY, false);
@@ -855,6 +857,7 @@ function onRoom(room) {
   }
   state.room = room;
   syncListing(room);
+  if (cg.active) shareRoom(state.code, Object.keys(room.players || {}).length < 8);
 
   // If the host left, the longest-waiting human takes over.
   if (!room.players[room.hostId]) {
@@ -1097,7 +1100,7 @@ $('lobbyCode').addEventListener('click', async () => {
   } catch { /* clipboard blocked: the code is on screen anyway */ }
 });
 $('inviteBtn').addEventListener('click', async () => {
-  const url = `${location.origin}${location.pathname}?room=${state.code}`;
+  const url = inviteLinkFor(state.code) || `${location.origin}${location.pathname}?room=${state.code}`;
   try {
     await navigator.clipboard.writeText(url);
     $('inviteBtn').textContent = 'Copied!';
@@ -1163,7 +1166,32 @@ if (invited && isRoomCode(invited.toUpperCase())) {
   $('codeInput').value = invited.toUpperCase();
   menuMessage(`You've been invited to room ${invited.toUpperCase()}. Pick a name and press Join.`, 'ok');
 }
-connectOnline().then(() => { renderOwner(); return invited ? false : resumeSeat(); });
+connectOnline().then(async () => {
+  renderOwner();
+  if (cg.active) {
+    // CrazyGames: an invite link drops you into your friend's room; their
+    // multiplayer button starts you in a new private room friends can join.
+    const cgRoom = invitedRoom();
+    if (cgRoom || instantMultiplayer()) {
+      if (onlineConfigured() && !state.online) { // (test mode ?local=1 plays in this browser)
+        menuMessage('Online play can\'t connect right now, so multiplayer isn\'t available. Practice still works!', 'err');
+        return false;
+      }
+      try {
+        if (cgRoom) await joinCode(cgRoom);
+        else await createRoom(false);
+      } catch (e) { menuMessage(`Couldn't start multiplayer: ${e.message}`, 'err'); }
+      return true;
+    }
+  }
+  return invited ? false : resumeSeat();
+});
+// CrazyGames: a friend's invite clicked while you're already playing.
+onJoinRoom(async (code) => {
+  if (state.code === code) return;
+  if (state.code) await leaveRoom();
+  await joinCode(code).catch((e) => menuMessage(`Couldn't join: ${e.message}`, 'err'));
+});
 renderOwner();
 initAccount(renderAccount).catch((e) => console.warn('account:', e.message));
 

@@ -1452,3 +1452,53 @@ test('trophy tiers: every trophy has one, and all tiers are used', async () => {
   assert.equal(T.tierOf(T.TROPHIES.find((t) => t.id === 'level-20')), 'gold');
   for (const x of T.TIERS) assert.ok(T.TIER_LABEL[x]);
 });
+
+test('crazygames: room sharing, invites and instant multiplayer (fake SDK)', async () => {
+  const CG = await import('../src/crazygames.js');
+  // Off CrazyGames, nothing happens.
+  assert.equal(CG.cg.active, false);
+  assert.equal(CG.instantMultiplayer(), false);
+  assert.equal(CG.invitedRoom(), null);
+  assert.equal(CG.inviteLinkFor('QXFT'), null);
+  CG.shareRoom('QXFT', true); // no error, no SDK
+  // With a fake SDK.
+  const calls = [];
+  const fake = {
+    environment: 'crazygames',
+    game: {
+      isInstantMultiplayer: true,
+      inviteParams: { roomId: 'abcd' },
+      getInviteParam: () => null,
+      updateRoom: (r) => calls.push(['updateRoom', r]),
+      leftRoom: () => calls.push(['leftRoom']),
+      inviteLink: (p) => `https://www.crazygames.com/game/root-access?roomId=${p.roomId}`,
+      addJoinRoomListener: (fn) => { fake.join = fn; },
+    },
+  };
+  Object.assign(CG.cg, { active: true, sdk: fake });
+  try {
+    assert.equal(CG.instantMultiplayer(), true);
+    assert.equal(CG.invitedRoom(), 'ABCD', 'room codes are upper case');
+    fake.game.inviteParams = null;
+    fake.game.getInviteParam = (k) => (k === 'roomId' ? 'wxyz' : null);
+    assert.equal(CG.invitedRoom(), 'WXYZ', 'falls back to getInviteParam');
+    CG.shareRoom('QXFT', true);
+    CG.shareRoom('QXFT', true);
+    CG.shareRoom('QXFT', false);
+    assert.deepEqual(calls, [
+      ['updateRoom', { roomId: 'QXFT', isJoinable: true, inviteParams: { roomId: 'QXFT' } }],
+      ['updateRoom', { roomId: 'QXFT', isJoinable: false, inviteParams: { roomId: 'QXFT' } }],
+    ], 'only tells CrazyGames when something changes');
+    CG.leftRoom();
+    CG.leftRoom();
+    assert.deepEqual(calls.at(-1), ['leftRoom']);
+    assert.equal(calls.filter((c) => c[0] === 'leftRoom').length, 1, 'leaving is reported once');
+    assert.match(CG.inviteLinkFor('QXFT'), /roomId=QXFT/);
+    let joined = null;
+    CG.onJoinRoom((code) => { joined = code; });
+    fake.join({ roomId: 'zzzz' });
+    assert.equal(joined, 'ZZZZ');
+  } finally {
+    Object.assign(CG.cg, { active: false, sdk: null });
+  }
+});

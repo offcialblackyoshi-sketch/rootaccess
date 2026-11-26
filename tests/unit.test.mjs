@@ -1049,11 +1049,10 @@ test('database rules: group chats only let members in, and invites need a yes', 
   assert.equal(db.set('A', 'groups/gAAAAAA1/members/B', null), true, 'the owner removes B');
   assert.equal(db.canRead('B', 'groupMsgs/gAAAAAA1'), false, 'removed players cannot read any more');
 
-  // Full groups refuse new members.
-  const many = Array.from({ length: 12 }, (_, i) => `M${i}`);
-  db.seed('groups/gFULL0001', group('M0', many));
-  db.seed('ginbox/Z/gFULL0001', invite('M0'));
-  assert.equal(db.set('Z', 'groups/gFULL0001/members/Z', { name: 'Z', at: t }), false, '12 is the limit');
+  // (The 12-member limit is kept by the game: Firebase rules can't count children.)
+  // A group can't be made with someone else already in it, even with an invite trick.
+  db.seed('ginbox/Y/gTRICK001', invite('A'));
+  assert.equal(db.set('A', 'groups/gTRICK001', group('A', ['A', 'Y'])), false, 'new groups start with just their maker');
 
   // Deleting: the owner clears messages, then the group.
   assert.equal(db.set('B', 'groupMsgs/gAAAAAA1', null), false);
@@ -1384,4 +1383,21 @@ test('connection banner: says what is wrong and what still works', async () => {
   assert.match(connectionMessage({ online: true, serverUp: false, inOnlineRoom: true }).text, /Reconnecting/);
   assert.match(connectionMessage({ online: false, serverUp: true, inOnlineRoom: true }).text, /catch up/);
   assert.match(connectionMessage({ online: false, serverUp: null, inOnlineRoom: false }).text, /Practice/);
+});
+
+test('database rules only use methods Firebase supports', () => {
+  // Firebase rule expressions have a small, fixed set of methods (no numChildren, for example).
+  const ALLOWED = new Set(['child', 'parent', 'hasChild', 'hasChildren', 'exists', 'getPriority', 'isNumber', 'isString', 'isBoolean', 'val',
+    'contains', 'beginsWith', 'endsWith', 'replace', 'toLowerCase', 'toUpperCase', 'matches']);
+  const rules = JSON.parse(fs.readFileSync(new URL('../database.rules.json', import.meta.url)));
+  const bad = [];
+  const walk = (node, path) => {
+    for (const [k, v] of Object.entries(node)) {
+      if (typeof v === 'string' && k.startsWith('.')) {
+        for (const [, name] of v.matchAll(/\.(\w+)\(/g)) if (!ALLOWED.has(name)) bad.push(`${path}/${k}: ${name}()`);
+      } else if (v && typeof v === 'object' && !Array.isArray(v)) walk(v, `${path}/${k}`);
+    }
+  };
+  walk(rules.rules, '');
+  assert.deepEqual(bad, [], 'unsupported methods in the rules');
 });

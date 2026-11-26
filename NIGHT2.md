@@ -34,6 +34,7 @@
 `groups`, `groupMsgs` and `ginbox` (group chats), `friendReqs`, `friends` and `finvites` (friends), and `reports` and `reportsBy` (reports). Nothing that was already there was loosened. Each new section was tested against the real rules file with the new rules checker (`tests/rules-sim.mjs`), using about 80 allowed and refused cases.
 
 ### Good to know
+- **Rules fix after the first paste:** Firebase rejected `numChildren()`, which its rule language doesn't have. The rules now check new group members by invite instead, and the 12-per-group limit is kept by the game. A unit test now checks that the rules only use methods Firebase supports.
 - **Before the rules are published,** the online version of group chats, friends and reports will say it can't do that ("permission denied"). Everything else works right away.
 - **Music is on at 30%.** Players can turn it off with Settings → Music at 0 or with 🔇.
 - **The chat filter's word list is in `src/filter.js`, encoded.** The file explains how to edit it.

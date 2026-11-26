@@ -54,7 +54,6 @@ class Snap {
     if (v === null || typeof v !== 'object') return false;
     return keys ? keys.every((k) => k in v) : Object.keys(v).length > 0;
   }
-  numChildren() { const v = getAt(this.tree, this.parts); return v && typeof v === 'object' ? Object.keys(v).length : 0; }
   isString() { return typeof getAt(this.tree, this.parts) === 'string'; }
   isNumber() { return typeof getAt(this.tree, this.parts) === 'number'; }
   isBoolean() { return typeof getAt(this.tree, this.parts) === 'boolean'; }

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Preview check</title></head>
+<body>
+<!-- Checks a recorded preview without playing it: reads the MP4 with mp4box,
+     decodes every frame with Chrome's video decoder (works headless), and
+     returns the length, size and still frames at the requested times. -->
+<script type="module">
+  import { createFile, DataStream } from 'https://cdn.jsdelivr.net/npm/mp4box@0.5.2/+esm';
+
+  window.__check = async (file, times) => {
+    const buf = await (await fetch('../../dist/video/' + file)).arrayBuffer();
+    buf.fileStart = 0;
+    const mp4 = createFile();
+    const info = await new Promise((ok, fail) => { mp4.onReady = ok; mp4.onError = fail; mp4.appendBuffer(buf); mp4.flush(); });
+    const track = info.videoTracks[0];
+    // The codec setup bytes (avcC box) the decoder needs.
+    const trak = mp4.getTrackById(track.id);
+    let description = null;
+    for (const entry of trak.mdia.minf.stbl.stsd.entries) {
+      if (entry.avcC) { const s = new DataStream(undefined, 0, DataStream.BIG_ENDIAN); entry.avcC.write(s); description = new Uint8Array(s.buffer, 8); }
+    }
+    const samples = await new Promise((ok) => {
+      const all = [];
+      mp4.onSamples = (id, user, list) => { all.push(...list); if (all.length >= track.nb_samples) ok(all); };
+      mp4.setExtractionOptions(track.id, null, { nbSamples: track.nb_samples });
+      mp4.start();
+    });
+    const w = track.video.width, h = track.video.height;
+    const c = document.createElement('canvas');
+    c.width = Math.round(w / 2); c.height = Math.round(h / 2);
+    const want = [...times];
+    const shots = [];
+    let decoded = 0;
+    let failed = null;
+    const decoder = new VideoDecoder({
+      output: (frame) => {
+        decoded++;
+        const t = frame.timestamp / 1e6;
+        if (want.length && t >= want[0]) {
+          want.shift();
+          c.getContext('2d').drawImage(frame, 0, 0, c.width, c.height);
+          shots.push([t, c.toDataURL('image/jpeg', 0.8)]);
+        }
+        frame.close();
+      },
+      error: (e) => { failed = e; },
+    });
+    decoder.configure({ codec: track.codec, codedWidth: w, codedHeight: h, description });
+    for (const s of samples) {
+      decoder.decode(new EncodedVideoChunk({ type: s.is_sync ? 'key' : 'delta', timestamp: (s.cts * 1e6) / s.timescale, duration: (s.duration * 1e6) / s.timescale, data: s.data }));
+    }
+    await decoder.flush();
+    if (failed) throw failed;
+    return { w, h, duration: info.duration / info.timescale, frames: track.nb_samples, decoded, codec: track.codec, shots };
+  };
+  window.__ready = true;
+</script>
+</body>
+</html>

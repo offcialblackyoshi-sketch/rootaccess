@@ -137,6 +137,24 @@ export const TROPHIES = [
 ];
 
 // ---------------------------------------------------------------------------
+// Tiers: how special a trophy looks (bronze → silver → gold; weekly is its own).
+// Anything not listed is bronze.
+// ---------------------------------------------------------------------------
+export const TIERS = ['bronze', 'silver', 'gold', 'weekly'];
+const SILVER = ['rounds-50', 'wins-5', 'wins-25', 'beststreak-3', 'beat-hard', 'level-3', 'level-5', 'level-8',
+  'quickclears-10', 'flawless-1', 'dailyruns-7', 'daily-flawless', 'teamwins-1', 'team-1v1', 'crowdrounds-1', 'hostrounds-1', 'dayscount-7'];
+const GOLD = ['rounds-100', 'rounds-250', 'wins-100', 'beststreak-5', 'big-win', 'level-12', 'level-16', 'level-20',
+  'quickclears-50', 'speedrun', 'daily-fast', 'team-4v4', 'dayscount-30'];
+export function tierOf(trophy) {
+  if (!trophy) return 'bronze';
+  if (trophy.week || String(trophy.id).startsWith('weekly-')) return 'weekly';
+  if (GOLD.includes(trophy.id)) return 'gold';
+  if (SILVER.includes(trophy.id)) return 'silver';
+  return 'bronze';
+}
+export const TIER_LABEL = { bronze: '🥉 BRONZE', silver: '🥈 SILVER', gold: '🥇 GOLD', weekly: '🗓️ WEEKLY' };
+
+// ---------------------------------------------------------------------------
 // Weekly trophies: one new challenge each week (Monday 00:00 UTC).
 // ---------------------------------------------------------------------------
 export function weekKey(d = new Date()) {

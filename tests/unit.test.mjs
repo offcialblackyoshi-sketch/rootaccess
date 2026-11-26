@@ -1440,3 +1440,15 @@ test('guides: plain-language help for Race, Defend and Heist, with real commands
   const H = buildHeist(SEEDS[0]);
   assert.ok(H.fs.manuals['keypads.txt'] && H.fs.security['vault.txt'] && H.fs.staff);
 });
+
+test('trophy tiers: every trophy has one, and all tiers are used', async () => {
+  const T = await import('../src/trophies.js');
+  const tiers = T.TROPHIES.map((t) => T.tierOf(t));
+  for (const x of tiers) assert.ok(['bronze', 'silver', 'gold'].includes(x), x);
+  for (const x of ['bronze', 'silver', 'gold']) assert.ok(tiers.includes(x), `${x} is used`);
+  assert.equal(T.tierOf(T.weeklyFor('2026-W48')), 'weekly');
+  assert.equal(T.tierOf(T.trophyInfo('weekly-2026-W40')), 'weekly');
+  assert.equal(T.tierOf(T.TROPHIES.find((t) => t.id === 'rounds-1')), 'bronze');
+  assert.equal(T.tierOf(T.TROPHIES.find((t) => t.id === 'level-20')), 'gold');
+  for (const x of T.TIERS) assert.ok(T.TIER_LABEL[x]);
+});

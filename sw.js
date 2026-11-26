@@ -2,7 +2,7 @@
 // Strategy: network first (so players always get the newest version when
 // online), falling back to the cache when offline. Only files from this site
 // are cached; Firebase traffic is never touched.
-const CACHE = 'root-access-v27';
+const CACHE = 'root-access-v28';
 const ASSETS = [
   './',
   './index.html',
@@ -56,6 +56,7 @@ const ASSETS = [
   './src/modes/defend.js',
   './src/modes/heist.js',
   './src/modes/koth.js',
+  './src/modes/guide.js',
   './src/modes/quickhack.js',
   './src/modes/minigames/letterlock.js',
   './src/modes/minigames/printmatch.js',

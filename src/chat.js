@@ -2,7 +2,7 @@
 // Also used for the lobby chat. Has slash commands (/me, /roll, /help…),
 // an emoji picker, and quick-chat buttons that change with the game mode.
 import { el } from './util.js';
-import { cleanText } from './filter.js';
+import { cleanText, chatGuard } from './filter.js';
 import { EMOJI, parseCommand, messageView } from './emotes.js';
 
 const MAX_SHOWN = 60;
@@ -26,6 +26,7 @@ export function createChat({ onSend, sfx, onEscape = null, canDelete = () => fal
   const form = el('form', { class: 'chat-form' }, input, emojiToggle);
   const root = el('div', { class: 'chat' }, el('div', { class: 'chat-title' }, '// COMMS'), log, quickRow, picker, form);
   let lastKey = '';
+  let lastNewest = ''; // the newest message key drawn (to spot new messages)
   let lastQuick = '';
   let me = null;
   let lastRoom = null;
@@ -41,6 +42,15 @@ export function createChat({ onSend, sfx, onEscape = null, canDelete = () => fal
       return;
     }
     if (out.text) {
+      // Rude messages and personal info aren't sent; only you see why.
+      const ok = chatGuard.check(out.text);
+      if (!ok.ok) {
+        locals.push(ok.message);
+        if (locals.length > 3) locals.shift();
+        lastKey = '';
+        draw(lastRoom);
+        return;
+      }
       if (locals.length) { locals.length = 0; lastKey = ''; } // your next message clears /help
       onSend(out.text);
     }
@@ -97,11 +107,14 @@ export function createChat({ onSend, sfx, onEscape = null, canDelete = () => fal
     const entries = Object.entries(room?.chat || {}).sort(([a], [b]) => (a < b ? -1 : 1)).slice(-MAX_SHOWN);
     const newest = entries.length ? entries[entries.length - 1][0] : '';
     // Redraw when anything changed (a new message, or one was deleted).
-    const sig = `${canDelete() ? 'mod:' : ''}${entries.map(([k]) => k).join(',')}`;
+    // (Your own notes, like /help or "message not sent", count too, even in an empty chat.)
+    const keys = entries.map(([k]) => k).join(',');
+    const sig = `${canDelete() ? 'mod:' : ''}${keys}|${locals.join('\u0001')}`;
     if (sig === lastKey) return;
     const hadOld = lastKey !== '';
-    const isNew = !lastKey.endsWith(newest);
+    const isNew = newest !== lastNewest;
     lastKey = sig;
+    lastNewest = newest;
     const stick = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
     log.innerHTML = '';
     const mod = canDelete() && onDelete;
@@ -125,6 +138,7 @@ export function createChat({ onSend, sfx, onEscape = null, canDelete = () => fal
     reset() {
       log.innerHTML = '';
       lastKey = '';
+      lastNewest = '';
       locals.length = 0;
     },
     render(room, myId) {

@@ -5,7 +5,7 @@
 
 import { el, load, save } from './util.js';
 import { toast } from './owner.js';
-import { cleanText, hasBadWords } from './filter.js';
+import { cleanText, hasBadWords, chatGuard } from './filter.js';
 import { chatBody } from './chat.js';
 import { parseCommand, messageView } from './emotes.js';
 
@@ -255,6 +255,8 @@ export function createGroups({ profile, online, isBlocked, onChange, onOpen, fla
     if (typed.local) { note.textContent = typed.local; input.value = ''; return; }
     const text = typed.text;
     if (!text || !current) return;
+    const ok = chatGuard.check(text);
+    if (!ok.ok) { note.textContent = ok.message; input.value = ''; return; }
     input.value = '';
     const p = profile();
     try {

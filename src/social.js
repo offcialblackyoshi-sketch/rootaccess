@@ -9,7 +9,7 @@ import { avatarEl } from './avatar.js';
 import { describeBan, toast, REPORT_REASONS } from './owner.js';
 import { createGroups } from './groups.js';
 import { createFriends } from './friends.js';
-import { cleanText } from './filter.js';
+import { cleanText, chatGuard } from './filter.js';
 import { chatBody } from './chat.js';
 import { parseCommand, messageView } from './emotes.js';
 
@@ -342,6 +342,8 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
     if (typed.local) { dmNote.textContent = typed.local; dmInput.value = ''; return; }
     const text = typed.text;
     if (!text || !chat) return;
+    const ok = chatGuard.check(text);
+    if (!ok.ok) { dmNote.textContent = ok.message; dmInput.value = ''; return; }
     const online = Object.values(players).find((p) => (chat.kind === 'acct' ? p.acct === chat.id : false)) || players[chat.id];
     if (online && online.dm === false) { dmNote.textContent = `${chat.name} turned private messages off.`; return; }
     dmInput.value = '';

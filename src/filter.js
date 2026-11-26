@@ -58,3 +58,49 @@ export function cleanText(text) {
 export function hasBadWords(text) {
   return cleanText(text) !== String(text ?? '');
 }
+
+// ---------------------------------------------------------------------------
+// Before sending: rude messages and personal info aren't sent at all, and
+// someone who keeps trying gets a short chat timeout.
+// ---------------------------------------------------------------------------
+export const STRIKES_FOR_TIMEOUT = 3;     // blocked messages...
+export const STRIKE_WINDOW_MS = 120000;   // ...within 2 minutes...
+export const TIMEOUT_MS = 60000;          // ...mean a 60 second chat timeout
+
+// 'personal' (phone number or email), 'rude', or null when the message is fine.
+export function outgoingProblem(text) {
+  const t = String(text ?? '');
+  if (t.replace(EMAIL_RE, '').replace(PHONE_RE, '') !== t) return 'personal';
+  if (cleanText(t) !== t) return 'rude';
+  return null;
+}
+
+// Keeps track of blocked messages (saved, so reloading doesn't reset a timeout).
+// check(text) -> { ok: true } or { ok: false, message }.
+export function createChatGuard({ now = () => Date.now(), storage = null } = {}) {
+  const KEY = 'ra-chat-guard';
+  const read = () => { try { return JSON.parse(storage?.getItem(KEY)) || { strikes: [], until: 0 }; } catch { return { strikes: [], until: 0 }; } };
+  const write = (s) => { try { storage?.setItem(KEY, JSON.stringify(s)); } catch { /* storage blocked */ } };
+  let state = read();
+  return {
+    check(text) {
+      const t = now();
+      if (state.until > t) return { ok: false, message: `You're in a chat timeout for ${Math.ceil((state.until - t) / 1000)} more seconds.` };
+      const problem = outgoingProblem(text);
+      if (!problem) return { ok: true };
+      state.strikes = [...state.strikes.filter((s) => t - s < STRIKE_WINDOW_MS), t];
+      if (state.strikes.length >= STRIKES_FOR_TIMEOUT) {
+        state = { strikes: [], until: t + TIMEOUT_MS };
+        write(state);
+        return { ok: false, message: `That message wasn't sent. You're in a chat timeout for ${TIMEOUT_MS / 1000} seconds.` };
+      }
+      write(state);
+      return { ok: false, message: problem === 'personal'
+        ? "That message wasn't sent: never share phone numbers or emails in chat."
+        : "Please keep chat friendly. That message wasn't sent." };
+    },
+  };
+}
+
+// The one guard every chat uses.
+export const chatGuard = createChatGuard({ storage: typeof localStorage === 'undefined' ? null : localStorage });

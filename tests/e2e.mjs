@@ -1152,10 +1152,22 @@ await step('kid safety', async () => {
 
   // Lobby chat: rude words and phone numbers are hidden for everyone.
   for (const t of [S2, S3]) { await t.click('#browseBtn'); await t.waitFor(`document.body.dataset.screen === 'browse'`); }
-  await S3.eval(`(() => { const f = document.querySelector('#browseChat .chat-form'); f.querySelector('input').value = 'oh ${rude} call me 555-123-4567'; f.requestSubmit(); })()`);
-  await S2.waitFor(`document.querySelector('#browseChat .chat-log').innerText.includes('[number hidden]')`, 5000, 'filtered message arrives');
+  const sayLobby = (t, text) => t.eval(`(() => { const f = document.querySelector('#browseChat .chat-form'); f.querySelector('input').value = ${JSON.stringify(text)}; f.requestSubmit(); })()`);
+  // A rude message is stopped before it's sent; only the sender is told why.
+  await sayLobby(S3, `oh ${rude}`);
+  await S3.waitFor(`/keep chat friendly/.test(document.querySelector('#browseChat .chat-log').innerText)`, 3000, 'sender told');
+  await sayLobby(S3, 'call me 555-123-4567');
+  await S3.waitFor(`/never share phone numbers/.test(document.querySelector('#browseChat .chat-log').innerText)`, 3000, 'personal info stopped');
+  await sayLobby(S3, 'hello lobby friends');
+  await S2.waitFor(`document.querySelector('#browseChat .chat-log').innerText.includes('hello lobby friends')`, 5000, 'friendly message arrives');
+  const s2log = await S2.eval(`document.querySelector('#browseChat .chat-log').innerText`);
+  check('safety: rude messages and phone numbers are not sent (friendly ones are)', !s2log.toLowerCase().includes(rude) && !s2log.includes('4567') && !/keep chat friendly/.test(s2log), s2log.split('\n').pop());
+  // A message from a modified copy of the game (skipping that check) is still starred out when shown.
+  await S3.eval(`(async () => { const { getLocalNet } = await import('./src/net/index.js'); await getLocalNet().lobbySay({ name: 'tess', color: '#33ff66', text: 'oh ${rude} call me 555-123-4567' }); })()`);
+  await S2.waitFor(`document.querySelector('#browseChat .chat-log').innerText.includes('[number hidden]')`, 5000, 'sneaky message arrives');
   const seen = await S2.eval(`document.querySelector('#browseChat .chat-log').innerText`);
-  check('safety: chat hides rude words and phone numbers', !seen.toLowerCase().includes(rude) && seen.includes('oh ****') && !seen.includes('4567'), seen.split('\n').pop());
+  check('safety: chat still hides rude words and phone numbers that slip through', !seen.toLowerCase().includes(rude) && seen.includes('oh ****') && !seen.includes('4567'), seen.split('\n').pop());
+  await S3.eval(`localStorage.removeItem('ra-chat-guard')`);
   for (const t of [S2, S3]) { await t.click('#browseBack'); await t.waitFor(`document.body.dataset.screen === 'menu'`).catch(() => {}); }
 
   // A rude name is never shown: others see "player".

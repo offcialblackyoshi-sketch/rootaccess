@@ -1522,3 +1522,34 @@ test('database rules: everyday play works for players who were never banned (reg
   assert.equal(db.set('C', 'rooms/ZZZZ', { hostId: 'C', status: 'lobby' }), false, 'banned players still cannot make rooms');
   assert.equal(db.set('C', 'lobby/chat/m2', { uid: 'C', name: 'cal', text: 'x', at: t }), false, 'or chat');
 });
+
+test('chat guard: rude messages and personal info are not sent; repeat tries get a timeout', async () => {
+  const { outgoingProblem, createChatGuard, TIMEOUT_MS, STRIKE_WINDOW_MS } = await import('../src/filter.js');
+  const rude = Buffer.from('c2hpdA==', 'base64').toString();
+  assert.equal(outgoingProblem('gg nice game'), null);
+  assert.equal(outgoingProblem('the class is fun'), null, 'normal words pass');
+  assert.equal(outgoingProblem(`oh ${rude}`), 'rude');
+  assert.equal(outgoingProblem(`oh ${rude.replace('i', '1')}`), 'rude', 'tricky spellings too');
+  assert.equal(outgoingProblem('call 555-123-4567'), 'personal');
+  assert.equal(outgoingProblem('me@example.com'), 'personal');
+  let t = 1_000_000;
+  const mem = new Map();
+  const storage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => mem.set(k, v) };
+  const guard = createChatGuard({ now: () => t, storage });
+  assert.deepEqual(guard.check('hello'), { ok: true });
+  assert.match(guard.check(`${rude}`).message, /keep chat friendly/);
+  assert.match(guard.check('555-123-4567').message, /phone numbers or emails/);
+  assert.equal(guard.check('hello again').ok, true, 'normal messages still go through');
+  assert.match(guard.check(`${rude}!`).message, /timeout for 60 seconds/, 'third blocked message in 2 minutes');
+  t += 1000;
+  assert.match(guard.check('sorry').message, /timeout for 59 more seconds/, 'even friendly messages wait out the timeout');
+  // Saved across a reload.
+  assert.equal(createChatGuard({ now: () => t, storage }).check('hi').ok, false);
+  t += TIMEOUT_MS;
+  assert.equal(guard.check('back now').ok, true, 'the timeout ends');
+  // Strikes fade after 2 minutes.
+  const g2 = createChatGuard({ now: () => t });
+  g2.check(rude); g2.check(rude);
+  t += STRIKE_WINDOW_MS + 1;
+  assert.match(g2.check(rude).message, /keep chat friendly/, 'old strikes no longer count');
+});

@@ -307,3 +307,16 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
     - `cgInstant=1` lands in a new private room's lobby with no clicks.
     - A second tab opened with that room's invite joins it, and the invite button makes a real CrazyGames invite link.
     - There are no "sign in" texts and no friends list.
+
+### 15. Chat filter: rude messages are blocked before they're sent
+- **Before:** rude words were starred out (`****`) when shown.
+- **Now they aren't sent at all.** Only the sender sees "Please keep chat friendly. That message wasn't sent."
+  - **Phone numbers and emails** are stopped the same way ("never share phone numbers or emails in chat").
+  - **Repeat tries:** 3 blocked messages within 2 minutes means a 60-second chat timeout, which also survives a reload.
+  - **Everywhere:** room, lobby, private and group chats.
+- **The display filter stays as a backup,** so a message from a modified copy of the game is still starred out.
+- **Also fixed:** a note to yourself (like /help or "message not sent") didn't appear when the chat had no messages yet.
+- **Verified:**
+  - **Unit test (80 passing):** what gets blocked and what doesn't (normal words like "class" pass), the strike count, the timeout and its end, strikes fading after 2 minutes, and the timeout surviving a reload.
+  - **Browser test:** a rude message and a phone number are stopped with the right note to the sender while friendly messages arrive. A rude message that skips the check is still starred out.
+  - **Full suite:** 172/172.

@@ -5,6 +5,7 @@
 //   Lookout:     keeps the alarm down by looping cameras in time.
 
 import { Shell } from '../commands.js';
+import { createGuide } from './guide.js';
 import { makeRng, WORDS, PETS, FIRST, LAST, caesar } from '../rng.js';
 import { el, fmtTime, playerList } from '../util.js';
 
@@ -111,6 +112,42 @@ export function buildHeist(seed) {
   };
 
   return { model, lit, serial, doorCode, doorRule: rule.rule2, user, loginHint, hintType, password, display, dial, vaultSource, word, fs };
+}
+
+// The "what to do now" card for your role and the crew's stage.
+// guard: { cam, code } when a guard is heading to a camera you watch.
+export const HEIST_STEPS = [{ icon: '🚪', label: 'Door' }, { icon: '💻', label: 'Login' }, { icon: '🏦', label: 'Vault' }];
+export function heistGuide(role, stage, guard = null) {
+  const base = { steps: HEIST_STEPS, at: Math.min(stage, 3) };
+  if (guard) {
+    return { ...base, title: `⚠ A guard is heading to CAM ${guard.cam}!`, text: 'Loop the camera fast (12 seconds) so the guard sees nothing, or the alarm goes up.', tries: [{ cmd: `loop ${guard.code}`, label: 'loop the camera' }] };
+  }
+  const say = { cmd: 'say ', label: 'talk to the crew' };
+  if (role === 'infiltrator') {
+    const s = [
+      { title: 'Infiltrator: open the door', what: 'door', act: { cmd: 'enter ', label: 'type the code they give you' } },
+      { title: 'Infiltrator: log in to the computer', what: 'terminal', act: { cmd: 'login ', label: 'type the password they give you' } },
+      { title: 'Infiltrator: open the vault', what: 'vault', act: { cmd: 'dial ', label: 'set the dial (0-25)' }, act2: { cmd: 'open ', label: 'say the code word' } },
+    ][Math.min(stage, 2)];
+    return { ...base, title: s.title,
+      text: "You're inside the building but have no files. Look closely, then tell the Analyst exactly what you see. They'll tell you what to type.",
+      tries: [{ cmd: `inspect ${s.what}`, label: 'look at it' }, say, s.act, s.act2].filter(Boolean),
+      tip: 'Wrong guesses make the alarm go up, so wait for the Analyst!' };
+  }
+  if (role === 'analyst') {
+    const look = [
+      [{ cmd: 'cat manuals/keypads.txt', label: 'the keypad manual' }],
+      [{ cmd: 'ls staff', label: 'staff records' }, { cmd: 'grep ', label: 'search the files' }],
+      [{ cmd: 'cat security/vault.txt', label: 'how the vault opens' }, { cmd: 'ls security', label: 'security files' }],
+    ][Math.min(stage, 2)];
+    return { ...base, title: 'Analyst: find the answers',
+      text: "You have all the files, but you can't see the building. Ask the Infiltrator what they see, find the answer in the files, and send it back in chat.",
+      tries: [...look, { cmd: 'ls', label: 'list your files' }, say],
+      glossary: [['ls', 'lists files'], ['cat', 'reads a file'], ['cd', 'opens a folder'], ['grep', 'searches for a word']] };
+  }
+  return { ...base, title: 'Lookout: watch the cameras',
+    text: 'Guards walk past the cameras. When one shows up, you get a loop code. Type it within 12 seconds to keep the alarm down. In between, help the crew in chat.',
+    tries: [{ cmd: 'cams', label: 'check the cameras' }, say] };
 }
 
 // "1 mistake · 3 cameras looped"
@@ -354,8 +391,10 @@ export default {
       progressEl, pendingEl));
 
     let alarmWarned = false;
+    const guide = createGuide(ctx, { className: 'heist-guide' });
     function renderStage() {
       const g = game();
+      guide.set(heistGuide(role, stage(), pending && (lookoutDuty || role === 'lookout') ? { cam: pending.cam, code: pending.code } : null));
       const a = Math.min(100, Math.max(0, g.alarm || 0));
       // Warn once each time the alarm climbs past 75%.
       if (a >= 75 && !alarmWarned) {

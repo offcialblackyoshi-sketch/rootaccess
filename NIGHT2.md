@@ -270,3 +270,22 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
 - **Verified:**
   - **Browser test:** a normal visit doesn't load the SDK. With their local test mode (`?useLocalSdk=true&muteAudio=true&disableChat=true`) their real SDK loads; sign-in and install are hidden; your name saves through the Data Module; mute and disable-chat work.
   - **Full suite:** 164/164.
+
+### 13. "What to do now" guides in Terminal Race, Hack & Defend and Co-op Heist
+- **Why:** these modes were hard to understand. The goal was printed once in the terminal and scrolled away, and the commands look like real hacking tools with nothing saying what to type next.
+- **Now:** a card above the terminal always shows what to do, in plain words, with **Try** buttons. Clicking one types the command for you; press Enter to run it. It never gives away answers.
+  - **Terminal Race:**
+    - **Tracker:** a 5-step tracker (🔑 Password → 🔓 Decode → 🔢 PIN → 🚪 Backdoor → 👑 Root).
+    - **The current step explained,** like "The account svc_backup has a password hidden somewhere on this computer. Find the NEWEST one…".
+    - **Try buttons** that point to the right place (for example `ls /etc` and `grep password /etc`), plus a 💡 Hint button.
+    - **A mini glossary:** `ls` lists files, `cat` reads a file, `cd` opens a folder, `grep` searches.
+  - **Hack & Defend:** reacts to what's happening.
+    - "⚠ You're under attack!" with the exact `kill` command.
+    - "Repair your db firewall" when one is down.
+    - Otherwise "Steal data!" with `scan` and `breach` aimed at the richest player. CPU costs are explained.
+  - **Co-op Heist:**
+    - **Your role's job for the current stage** (🚪 Door → 💻 Login → 🏦 Vault). The Infiltrator gets `inspect door`, then `enter`; the Analyst gets `cat manuals/keypads.txt`; the Lookout watches cameras.
+    - **Guard alerts** jump to the top with the `loop` code.
+- **Verified:**
+  - **Unit test (76 passing):** for 40 different race puzzles, every step's Try buttons use real commands and never contain the password, PIN, key, fragments or backdoor port, and the password tips point to where it's actually hidden. Defend puts attacks first, then repairs, then stealing. Heist gives each role its own job, and guard alerts come first.
+  - **Browser test:** clicking "cat mission.txt" types it and Enter shows the mission. Defend shows "Steal data!".

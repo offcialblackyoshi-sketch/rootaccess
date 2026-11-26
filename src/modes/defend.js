@@ -3,6 +3,7 @@
 // Most data (servers + stolen loot) when time runs out wins.
 
 import { Shell } from '../commands.js';
+import { createGuide } from './guide.js';
 import { el, fmtTime } from '../util.js';
 import { botParams } from '../bots.js';
 
@@ -35,6 +36,36 @@ export function defendStatsText(s) {
 }
 
 const tag = () => Math.random().toString(36).slice(2, 5);
+
+// The "what to do now" card: stop attacks first, then repair, then steal.
+// me: { cpu, nodes }, incoming: [{ tag, from, node }], target: name of the richest other player.
+export function defendGuide({ incoming = [], nodes = {}, cpu = 0, target = '' }) {
+  if (incoming.length) {
+    const a = incoming[0];
+    return {
+      title: '⚠ You\'re under attack!',
+      text: `${a.from} is breaking into your ${a.node} server. Stop it before the timer runs out.`,
+      tries: [...incoming.slice(0, 3).map((x) => ({ cmd: `kill ${x.tag}`, label: `stop ${x.from}` })), { cmd: 'trace', label: 'see all attacks' }],
+      tip: `kill uses ${COST.kill} CPU. The CPU bar above refills over time.`,
+    };
+  }
+  const weak = NODES.find((n) => (nodes[n]?.fw ?? 1) === 0);
+  if (weak) {
+    return {
+      title: `Repair your ${weak} firewall`,
+      text: `Your ${weak} server has no firewall left, so anyone can steal its data. Patch it!`,
+      tries: [{ cmd: `patch ${weak}`, label: 'repair it' }, { cmd: 'status', label: 'check your servers' }],
+      tip: `patch uses ${COST.patch} CPU${cpu < COST.patch ? ': wait a moment for your CPU to refill' : ''}.`,
+    };
+  }
+  const who = target || '<player>';
+  return {
+    title: 'Steal data!',
+    text: 'Pick a player, look at their 3 servers (web, db, mail), then break into one. Breaking in lowers its firewall; at 0 you steal its data.',
+    tries: [{ cmd: `scan ${who}`, label: 'look at their servers' }, { cmd: `breach ${who} `, label: 'attack: add web, db or mail' }, { cmd: 'status', label: 'your servers' }, { cmd: 'players', label: 'everyone\'s names' }],
+    tip: `Every action uses CPU (scan ${COST.scan}, breach ${COST.breach}, kill ${COST.kill}, patch ${COST.patch}). Servers with a low firewall are quicker to break.`,
+  };
+}
 
 export default {
   id: 'defend',
@@ -304,8 +335,15 @@ export default {
       el('div', { class: 'meter' }, el('span', {}, 'CPU'), el('div', { class: 'track' }, cpuFill), cpuText),
       el('div', { style: { marginTop: '6px', fontSize: '13px' } }, nodesText)));
 
+    const guide = createGuide(ctx, { className: 'defend-guide' });
     function renderStage() {
       const l = L(me);
+      const now = ctx.now();
+      const richest = others(me).sort((a, b) => score(b.s) - score(a.s))[0];
+      guide.set(defendGuide({
+        incoming: actions().filter(([, a]) => a.type === 'breach' && a.to === me && now < a.end).map(([, a]) => ({ tag: a.tag, node: a.node, from: ctx.player(a.from)?.name || '?' })),
+        nodes: l.nodes, cpu: l.cpu, target: richest?.name || '',
+      }));
       cpuFill.style.width = (l.cpu / MAX_CPU) * 100 + '%';
       cpuText.textContent = `${l.cpu}/${MAX_CPU}`;
       nodesText.textContent = NODES.map((n) => `${n}: fw ${l.nodes[n].fw} · ${l.nodes[n].data} data`).join('   |   ') + `   |   loot ${l.loot}`;

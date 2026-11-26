@@ -1268,3 +1268,22 @@ html.on-crazygames #accountCard, html.on-crazygames #installBtn { display: none 
 /* Their "disable chat" setting: hide every chat (room, lobby, private, groups). */
 html.no-chat .chat, html.no-chat .dm-box, html.no-chat .group-box, html.no-chat .social-groups-slot,
 html.no-chat .social-chats, html.no-chat .quick-chat { display: none !important; }
+
+/* ---- "What to do now" guide card (Race, Defend, Heist) ---- */
+.guide { display: grid; gap: 6px; padding: 10px 14px; }
+.guide-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; font-size: 12px; }
+.guide-steps li { padding: 2px 8px; border: 1px solid var(--line); border-radius: 10px; color: var(--dim); }
+.guide-steps li.done { color: var(--accent); border-color: var(--accent); opacity: 0.8; }
+.guide-steps li.now { color: var(--bg, #000); background: var(--accent); border-color: var(--accent); font-weight: 700; }
+.guide-title { font-size: 16px; font-weight: 700; color: var(--accent); }
+.guide-text { margin: 0; line-height: 1.4; }
+.guide-tries { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.guide-try { display: inline-flex; align-items: baseline; gap: 6px; padding: 3px 10px; text-transform: none; letter-spacing: 0; font-size: 13px; border-color: var(--line); }
+.guide-try:hover, .guide-try:focus-visible { border-color: var(--accent); }
+.guide-try code { color: var(--accent); font-weight: 700; }
+.guide-try span { color: var(--dim); }
+.guide-hint { border-color: #ffb000; }
+.guide-tip { margin: 0; border-left: 3px solid #ffb000; padding-left: 8px; }
+.guide-glossary { margin: 0; }
+.guide-glossary code { color: var(--fg); }
+@media (max-width: 700px) { .guide-try span { display: none; } }

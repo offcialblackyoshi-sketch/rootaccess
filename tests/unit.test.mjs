@@ -1401,3 +1401,42 @@ test('database rules only use methods Firebase supports', () => {
   walk(rules.rules, '');
   assert.deepEqual(bad, [], 'unsupported methods in the rules');
 });
+
+test('guides: plain-language help for Race, Defend and Heist, with real commands and no spoilers', async () => {
+  const { raceGuide, RACE_STEPS } = await import('../src/modes/race.js');
+  const { defendGuide } = await import('../src/modes/defend.js');
+  const { heistGuide } = await import('../src/modes/heist.js');
+  const RACE_CMDS = ['cat', 'ls', 'cd', 'grep', 'login', 'decrypt', 'crack', 'nmap', 'connect', 'notes', 'sudo', 'hint', 'mission'];
+  for (const seed of SEEDS.slice(0, 40)) {
+    const P = buildRace(seed);
+    for (let layer = 0; layer <= 5; layer++) {
+      const g = raceGuide(P, layer);
+      assert.ok(g.title && g.steps === RACE_STEPS && g.at === Math.min(layer, 5));
+      const all = JSON.stringify(g);
+      for (const secret of [P.pass, P.pin, P.key, P.fragA, P.fragC, String(P.backdoor)]) assert.ok(!all.includes(secret), `layer ${layer} gives away ${secret}`);
+      for (const t of g.tries || []) assert.ok(RACE_CMDS.includes(t.cmd.trim().split(' ')[0]), `real command: ${t.cmd}`);
+    }
+    // The password tips point at the right place.
+    const where = raceGuide(P, 0).tries.map((t) => t.cmd).join(' ');
+    assert.match(where, { log: /\/var\/log/, config: /\/etc/, mail: /\/var\/mail/ }[P.passSpot]);
+  }
+  // Defend: attacks first, then repairs, then stealing.
+  const attacked = defendGuide({ incoming: [{ tag: 'a1b', from: 'mallory', node: 'mail' }], nodes: { mail: { fw: 0 } }, cpu: 5 });
+  assert.match(attacked.title, /under attack/);
+  assert.equal(attacked.tries[0].cmd, 'kill a1b');
+  const weak = defendGuide({ nodes: { web: { fw: 2 }, db: { fw: 0 }, mail: { fw: 1 } }, cpu: 1 });
+  assert.equal(weak.tries[0].cmd, 'patch db');
+  assert.match(weak.tip, /wait/);
+  const calm = defendGuide({ nodes: { web: { fw: 2 }, db: { fw: 2 }, mail: { fw: 2 } }, cpu: 8, target: 'bob' });
+  assert.deepEqual(calm.tries.slice(0, 2).map((t) => t.cmd), ['scan bob', 'breach bob ']);
+  // Heist: each role gets its own job, and a guard alert comes first.
+  assert.equal(heistGuide('infiltrator', 0).tries[0].cmd, 'inspect door');
+  assert.equal(heistGuide('infiltrator', 1).tries[0].cmd, 'inspect terminal');
+  assert.ok(heistGuide('infiltrator', 2).tries.some((t) => t.cmd === 'dial '));
+  assert.equal(heistGuide('analyst', 0).tries[0].cmd, 'cat manuals/keypads.txt');
+  assert.match(heistGuide('lookout', 1).title, /Lookout/);
+  assert.equal(heistGuide('analyst', 2, { cam: 3, code: '4821' }).tries[0].cmd, 'loop 4821');
+  // Every heist suggestion is a real file in the analyst's files.
+  const H = buildHeist(SEEDS[0]);
+  assert.ok(H.fs.manuals['keypads.txt'] && H.fs.security['vault.txt'] && H.fs.staff);
+});

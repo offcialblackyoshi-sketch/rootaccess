@@ -5,6 +5,7 @@ import { Shell } from '../commands.js';
 import { makeRng, WORDS, FIRST, LAST, HOSTS, caesar, b64encode, b64decode, reverse, atbash, hexEncode, hexDecode } from '../rng.js';
 import { el, bar, fmtTime } from '../util.js';
 import { botParams, between } from '../bots.js';
+import { createGuide } from './guide.js';
 
 const LAYERS = ['RECON', 'DECRYPT', 'CRACK', 'PIVOT', 'ROOT'];
 const TIME_LIMIT = 12 * 60 * 1000;
@@ -187,6 +188,48 @@ export function raceHints(P) {
   ];
 }
 
+// The "what to do now" card for each layer, in plain words. The Try buttons
+// show useful commands without giving away answers.
+export const RACE_STEPS = [
+  { icon: '🔑', label: 'Password' }, { icon: '🔓', label: 'Decode' }, { icon: '🔢', label: 'PIN' },
+  { icon: '🚪', label: 'Backdoor' }, { icon: '👑', label: 'Root' },
+];
+export function raceGuide(P, layer) {
+  const base = { steps: RACE_STEPS, at: Math.min(layer, 5), hint: layer < 5 };
+  const where = {
+    log: [{ cmd: 'ls /var/log', label: 'see the log files' }, { cmd: 'cat /var/log/auth.log', label: 'read the login log' }],
+    config: [{ cmd: 'ls /etc', label: 'see the settings folders' }, { cmd: 'grep password /etc', label: 'search for "password"' }],
+    mail: [{ cmd: 'ls /var/mail', label: 'see the mailboxes' }, { cmd: `cat /var/mail/${P.target}`, label: 'read their email' }],
+  }[P.passSpot];
+  switch (layer) {
+    case 0: return { ...base,
+      title: 'Step 1 of 5: find the password',
+      text: `The account ${P.target} has a password hidden somewhere on this computer. Find the NEWEST one (old ones don't work), then log in.`,
+      tries: [{ cmd: 'cat mission.txt', label: 'read your mission' }, ...where, { cmd: `login ${P.target} `, label: 'log in: add the password' }],
+      glossary: [['ls', 'lists files'], ['cat', 'reads a file'], ['cd', 'opens a folder'], ['grep', 'searches for a word']] };
+    case 1: return { ...base,
+      title: 'Step 2 of 5: decode the secret file',
+      text: "You're in! The file vault.enc is scrambled. The note next to it says how it was scrambled. Decode it to get FRAGMENT A.",
+      tries: [{ cmd: 'cat note.txt', label: 'read the note' }, { cmd: 'cat vault.enc', label: 'see the scrambled file' }, { cmd: 'decrypt vault.enc ', label: 'decode: add the method' }],
+      tip: 'Methods: caesar <number>, base64, reverse, hex, atbash. The note tells you which one.' };
+    case 2: return { ...base,
+      title: 'Step 3 of 5: crack the 4-digit PIN',
+      text: 'Guess the vault PIN. All 4 digits are different. After each guess you get clues.',
+      tries: [{ cmd: 'crack 0123', label: 'a first guess' }, { cmd: 'crack 4567', label: 'another guess' }, { cmd: 'crack ', label: 'your own guess' }],
+      tip: '"right spot" = a correct digit in the correct place. "wrong spot" = a correct digit in the wrong place. Use the clues to narrow it down.' };
+    case 3: return { ...base,
+      title: 'Step 4 of 5: find the backdoor',
+      text: 'Someone left a secret way in (a "backdoor") on another computer. todo.txt says which one. nmap shows its doors (ports): the backdoor is the one marked "unknown".',
+      tries: [{ cmd: 'cat todo.txt', label: 'which computer?' }, { cmd: 'cat /etc/hosts', label: 'list the computers' }, { cmd: 'nmap ', label: 'scan: add the computer' }, { cmd: 'connect ', label: 'connect: add computer and port' }],
+      tip: 'Careful: other computers can have a fake "unknown" port (a trap). Scan the one todo.txt names.' };
+    case 4: return { ...base,
+      title: 'Step 5 of 5: take over!',
+      text: 'Put your 3 fragments together as A-B-C (B is the PIN) and use sudo to get root.',
+      tries: [{ cmd: 'notes', label: 'see your fragments' }, { cmd: 'sudo ', label: 'type the key: A-B-C' }] };
+    default: return { ...base, title: '👑 You got root!', text: 'You own this computer. Waiting for the others to finish…' };
+  }
+}
+
 // "fastest: CRACK 0:31 · 2 hints" from a player's race progress.
 export function raceStatsText(s) {
   const splits = s?.splits || [];
@@ -252,7 +295,9 @@ export default {
     const hints = raceHints(P);
     const hintsUsed = [0, 0, 0, 0, 0];
 
+    const guide = createGuide(ctx, { className: 'race-guide' });
     function showObjective() {
+      guide.set(raceGuide(P, layer));
       if (layer >= 5) return;
       term.printParts([[`[LAYER ${layer + 1}/5 ${LAYERS[layer]}] `, 'hi'], [objectives[layer]]]);
     }
@@ -273,6 +318,7 @@ export default {
         term.print('You own this box. Waiting for the others…', 'dim');
         sh.user = 'root';
         sh.updatePrompt();
+        guide.set(raceGuide(P, 5));
         return;
       }
       term.print(`>> ${LAYERS[layer - 1]} complete.`, 'ok');

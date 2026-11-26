@@ -1513,6 +1513,37 @@ await step('crazygames', async () => {
   await G.close();
 });
 
+await step('guides', async () => {
+  const W = await openTab('W');
+  await W.goto(URL_BASE);
+  await W.eval(`window.dispatchEvent(new Event('pointerdown')); window.confirm = () => true`);
+  await W.click('#practiceBtn');
+  await W.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await W.click('#startBtn');
+  await W.waitFor(`document.body.dataset.screen === 'game' && !!document.querySelector('.race-guide [data-try]') && !document.querySelector('#term input').disabled`, 10000, 'race guide');
+  const title = await W.eval(`document.querySelector('.race-guide .guide-title').textContent`);
+  await W.click('.race-guide [data-try="cat mission.txt"]');
+  const typed = await W.eval(`document.querySelector('#term input').value`);
+  await W.eval(`document.querySelector('#term input').form.requestSubmit()`);
+  await W.waitFor(`document.querySelector('#term .term-out').innerText.includes('MISSION: get root')`, 3000, 'mission read');
+  await W.shot('78-race-guide.png');
+  check('guides: Race shows the current step in plain words, and Try buttons type the command', /Step 1 of 5/.test(title) && typed === 'cat mission.txt', `${title} / ${typed}`);
+  await W.click('#gameLeave');
+  await W.waitFor(`document.body.dataset.screen === 'menu'`);
+  await W.click('#practiceBtn');
+  await W.waitFor(`document.body.dataset.screen === 'lobby'`);
+  await W.click('.mode-card[data-mode=defend]');
+  await W.waitFor(`window.__ra.state.room.mode === 'defend'`);
+  await W.click('#startBtn');
+  await W.waitFor(`!!document.querySelector('.defend-guide .guide-title')`, 10000, 'defend guide');
+  const d = await W.eval(`document.querySelector('.defend-guide').innerText`);
+  await W.shot('79-defend-guide.png');
+  check('guides: Hack & Defend says what to do right now', /Steal data|under attack|Repair/.test(d), d.split('\n')[0]);
+  check('guides: no errors', W.errors.length === 0, W.errors.join(' | '));
+  await W.click('#gameLeave');
+  await W.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

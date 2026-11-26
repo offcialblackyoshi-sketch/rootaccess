@@ -320,3 +320,15 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
   - **Unit test (80 passing):** what gets blocked and what doesn't (normal words like "class" pass), the strike count, the timeout and its end, strikes fading after 2 minutes, and the timeout surviving a reload.
   - **Browser test:** a rude message and a phone number are stopped with the right note to the sender while friendly messages arrive. A rude message that skips the check is still starred out.
   - **Full suite:** 172/172.
+
+### 16. A friendlier first minute (after the CrazyGames "quality" rejection)
+- **▶ PLAY NOW** is the first thing on the menu: one click starts a quick game against easy bots, with no lobby.
+  - The first game is the Hack Gauntlet (no typing). After that it rotates through King of the Hill and the quick hacks.
+  - The results screen has **▶ Play next** to go straight on to another game.
+- **A simpler menu:**
+  - Name, color and rank are folded into "Your hacker". Your level and XP still show on that line.
+  - The online players panel starts closed (the 👥 tab opens it).
+- **itch.io:** the game no longer tries CrazyGames' tools on itch.io or GitHub Pages.
+- **Verified:**
+  - **Browser test:** the menu leads with Play now; it starts the gauntlet against 2 bots straight away; "Play next" starts King of the Hill. No errors.
+  - **Earlier checks:** the XP check now uses the "Your hacker" line, and the Letter Lock check records how often it saw the letter and pressed, to track its rare failures.

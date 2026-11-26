@@ -615,6 +615,8 @@ await step('settings', async () => {
 });
 
 // ---------------------------------------------------------------------------
+let llSeen = 0;
+let llPresses = 0;
 await step('quick hacks', async () => {
   // Fresh practice room. Each quick-hack mode: play part of stage 1 with real
   // keys, check a mistake locks you out, then clear the rest and see results.
@@ -700,10 +702,14 @@ await step('quick hacks', async () => {
       // miss it on a busy machine), and each lock is confirmed before moving on.
       const end = Date.now() + 30000;
       let locked = 0;
+      llSeen = 0; llPresses = 0;
       while (locked < data.password.length && Date.now() < end) {
         const seen = await D.eval(`new Promise((r) => { const t = performance.now(); const f = () => { const c = document.querySelector('.ll-col.active span.mid'); if (c && c.textContent === ${JSON.stringify(data.password)}[${locked}]) r(true); else if (performance.now() - t > 4000) r(false); else requestAnimationFrame(f); }; f(); })`);
         if (!seen) continue;
+        llSeen++;
+        await D.eval("document.querySelector('.quick-box')?.focus()"); // keys go to the puzzle
         await key(' ');
+        llPresses++;
         await sleep(100);
         locked = await D.eval(`document.querySelectorAll('.ll-col.locked').length + (window.__ra.quick.stage() > 0 ? 99 : 0)`);
         if (!(await D.eval('window.__ra.quick.locked()'))) continue;
@@ -711,7 +717,7 @@ await step('quick hacks', async () => {
       }
       played = await D.waitFor('window.__ra.quick.stage() === 1', 3000, 'password locked').catch(() => false);
     }
-    check(`quick hacks: ${id} has keyboard focus and stage 1 is playable with real keys`, focused && played === true, `focused=${focused} played=${played} fps=${fps} active=${await D.eval("document.activeElement?.className || document.activeElement?.tagName")} stage=${await D.eval('window.__ra.quick.stage()')} mistakes=${(await D.room()).players[await D.eval('window.__ra.state.net.uid')].s.mistakes}`);
+    check(`quick hacks: ${id} has keyboard focus and stage 1 is playable with real keys`, focused && played === true, `focused=${focused} played=${played} seen=${llSeen} presses=${llPresses} fps=${fps} active=${await D.eval("document.activeElement?.className || document.activeElement?.tagName")} stage=${await D.eval('window.__ra.quick.stage()')} mistakes=${(await D.room()).players[await D.eval('window.__ra.state.net.uid')].s.mistakes}`);
     await D.shot(`31-quick-${id}.png`);
     if (id === 'signaltune') {
       // Stage 2 starts off target, so Enter right away is a mistake.
@@ -782,7 +788,7 @@ await step('daily challenge and xp', async () => {
     await D.waitFor(`document.body.dataset.screen === 'menu'`, 5000);
   }
   const xp0 = await D.eval(`JSON.parse(localStorage.getItem('ra-progress') || '{"xp":0}').xp`);
-  check('xp: earlier rounds earned XP, shown on the menu', xp0 > 0 && (await D.eval(`document.getElementById('levelXp').innerText`)).includes('XP'), `${xp0}`);
+  check('xp: earlier rounds earned XP, shown on the menu', xp0 > 0 && (await D.eval(`document.getElementById('customizeLevel').innerText`)).includes('XP'), `${xp0}`);
   await D.click('#dailyBtn');
   await D.waitFor(`document.body.dataset.screen === 'game' && document.getElementById('countdown').hidden && !!window.__ra.quick?.data()`, 10000, 'daily starts');
   const r = await D.room();
@@ -1578,6 +1584,31 @@ await step('crazygames multiplayer', async () => {
   await I.shot('80-crazygames-instant.png');
   check('crazygames multiplayer: no errors', [...I.errors, ...F.errors].length === 0, [...I.errors, ...F.errors].join(' | ') + ' ' + link);
   for (const t of [I, F]) await t.close();
+});
+
+await step('play now', async () => {
+  const Y = await openTab('Y');
+  await Y.goto(URL_BASE);
+  await Y.eval(`localStorage.removeItem('ra-play-now'); window.dispatchEvent(new Event('pointerdown')); window.confirm = () => true`);
+  // A simple first screen: one big button, the extras folded away, the players panel closed.
+  const menu = await Y.eval(`({ play: !!document.getElementById('playNowBtn') && getComputedStyle(document.getElementById('playNowBtn')).display !== 'none', folded: !document.getElementById('customize').open, panel: document.getElementById('social').classList.contains('open') })`);
+  await Y.shot('81-menu-play-now.png');
+  check('play now: the menu leads with one big Play now button', menu.play && menu.folded && !menu.panel, JSON.stringify(menu));
+  // Straight into a game against bots: no lobby.
+  await Y.click('#playNowBtn');
+  await Y.waitFor(`document.body.dataset.screen === 'game' && window.__ra.state.room?.mode === 'gauntlet'`, 8000, 'straight into the gauntlet');
+  const players = await Y.eval(`Object.values(window.__ra.state.room.players).length`);
+  check('play now: starts the Hack Gauntlet against bots right away', players === 3);
+  await Y.waitFor(`document.getElementById('countdown').hidden && !!window.__ra.quick?.data()`, 10000, 'countdown done');
+  for (let i = 0; i < 5; i++) { await Y.eval('window.__ra.quick.solve()'); await sleep(250); }
+  await Y.waitFor(`document.body.dataset.screen === 'results' && !!document.getElementById('playNextBtn')`, 10000, 'results with Play next');
+  await Y.shot('82-play-next.png');
+  await Y.click('#playNextBtn');
+  await Y.waitFor(`document.body.dataset.screen === 'game' && window.__ra.state.room?.mode === 'koth'`, 8000, 'next game');
+  check('play now: "Play next" goes straight into another kind of game', true);
+  check('play now: no errors', Y.errors.length === 0, Y.errors.join(' | '));
+  await Y.click('#gameLeave');
+  await Y.close();
 });
 
 await step('small screen', async () => {

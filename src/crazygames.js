@@ -18,6 +18,8 @@ function maybeCrazyGames() {
   let framed = false;
   try { framed = window.self !== window.top; } catch { framed = true; }
   const q = new URLSearchParams(location.search);
+  // Other sites that frame games (itch.io) aren't CrazyGames: don't load their SDK there.
+  if (/(^|\.)(itch\.zone|itch\.io|github\.io)$/i.test(location.hostname)) return q.has('useLocalSdk');
   return framed || /(^|\.)crazygames\./i.test(location.hostname) || q.has('useLocalSdk');
 }
 

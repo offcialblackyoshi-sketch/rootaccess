@@ -1311,3 +1311,16 @@ html.no-chat .social-chats, html.no-chat .quick-chat { display: none !important;
 @keyframes trophy-shine { 0% { left: -60%; opacity: 1; } 100% { left: 130%; opacity: 1; } }
 /* Friends need an account, and other logins aren't allowed on CrazyGames. */
 html.on-crazygames .social-friends-slot { display: none !important; }
+
+/* ---- PLAY NOW and the simpler menu ---- */
+.play-now { width: 100%; font-size: 26px; padding: 18px 16px; letter-spacing: 0.2em; margin-bottom: 4px; box-shadow: 0 0 24px -4px var(--accent); animation: play-pulse 2.2s ease-in-out infinite; }
+.play-now-sub { text-align: center; margin: 0 0 12px; }
+@keyframes play-pulse { 0%, 100% { box-shadow: 0 0 18px -6px var(--accent); } 50% { box-shadow: 0 0 34px 0 var(--accent); } }
+html.reduce-motion .play-now { animation: none; }
+.customize { border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; margin-bottom: 12px; }
+.customize > summary { cursor: pointer; color: var(--dim); font-size: 14px; padding: 4px 0; list-style: none; }
+.customize > summary::before { content: "▸ "; color: var(--accent); }
+.customize[open] > summary::before { content: "▾ "; }
+.customize[open] > summary { margin-bottom: 8px; }
+.lobby-btn { border-color: var(--accent); }
+.customize-level { color: #ffb000; margin: 0 4px; }

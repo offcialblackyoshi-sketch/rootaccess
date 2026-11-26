@@ -124,7 +124,8 @@ export function createSocial({ getNet, profile, status, sfx, owner = null, flag 
     open = v;
     render();
   }
-  const isOpen = () => open ?? ((screen === 'menu' || screen === 'browse') && innerWidth >= 1100);
+  // Closed until you open it, so the menu stays simple for new players.
+  const isOpen = () => open ?? false;
   function renderToggle() {
     dmToggle.textContent = dmOn ? 'on' : 'off';
     dmToggle.classList.toggle('selected', dmOn);

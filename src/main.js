@@ -216,6 +216,8 @@ function renderLevel() {
   $('levelText').textContent = `LEVEL ${level}`;
   $('levelFill').style.width = `${(100 * into) / need}%`;
   $('levelXp').textContent = `${into}/${need} XP`;
+  // Also shown on the folded 'Your hacker' line, so it's visible at a glance.
+  $('customizeLevel').textContent = `LV${level} · ${into}/${need} XP`;
   const pick = $('titlePick');
   pick.innerHTML = '';
   const now = currentTitle(p);
@@ -662,6 +664,21 @@ function practiceRoom(net, mode) {
   return room;
 }
 
+// PLAY NOW: straight into a quick game against easy bots, no lobby. The first
+// time it's the Hack Gauntlet (no typing); then it rotates through easy modes.
+export const PLAY_NOW_MODES = ['gauntlet', 'koth', 'letterlock', 'circuit', 'wirecut', 'memory', 'signaltune', 'bitflip'];
+async function playNow() {
+  const n = load('ra-play-now', 0);
+  save('ra-play-now', n + 1);
+  const mode = PLAY_NOW_MODES[n % PLAY_NOW_MODES.length];
+  const net = getLocalNet();
+  const room = { ...practiceRoom(net, mode), quickPlay: true };
+  const code = await net.createRoom(room);
+  await startGame(room, net, code);
+  enterRoom(net, code);
+}
+$('playNowBtn').addEventListener('click', (e) => withBusy(e.target, async () => { sfx.unlock(); menuMessage(''); await playNow(); }));
+
 $('practiceBtn').addEventListener('click', (e) => withBusy(e.target, async () => {
   const net = getLocalNet();
   const code = await net.createRoom(practiceRoom(net, 'race'));
@@ -941,6 +958,8 @@ function renderResults(room) {
   }
   if (isHost) actions.append(el('button', { class: 'primary', id: 'againBtn', onclick: () => backToLobby(state.room, state.net, state.code) }, '↻ Back to lobby'));
   else actions.append(el('p', { class: 'dim' }, 'Waiting for the host…'));
+  // Play Now games: straight on to the next one.
+  if (room.quickPlay) actions.append(el('button', { class: 'primary', id: 'playNextBtn', onclick: async () => { await leaveRoom(); await playNow(); } }, '▶ Play next'));
   actions.append(el('button', { onclick: () => leaveRoom() }, 'Leave'));
   finishResults(room, results, me);
 }

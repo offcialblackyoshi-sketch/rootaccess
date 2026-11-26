@@ -44,6 +44,10 @@
         <div id="accountBox" class="account-box"></div>
         <p id="accountMsg" class="acct-msg small" role="status"></p>
       </section>
+      <button id="playNowBtn" class="primary play-now" data-icon="play">Play now</button>
+      <p class="play-now-sub dim small">Jump straight into a game against bots. No typing needed to start!</p>
+      <details id="customize" class="customize">
+      <summary>Your hacker <strong id="customizeLevel" class="customize-level"></strong> <span class="dim">· name, color and rank</span></summary>
       <label class="field">
         <span>&gt; handle</span>
         <input id="nameInput" maxlength="14" autocomplete="off" spellcheck="false">
@@ -63,8 +67,9 @@
           <span id="specialTitle" class="special-title" hidden></span>
         </div>
       </div>
+      </details>
       <div class="menu-actions">
-        <button id="browseBtn" class="primary" data-icon="globe">Multiplayer lobby</button>
+        <button id="browseBtn" class="lobby-btn" data-icon="globe">Multiplayer lobby</button>
         <button id="ownerBtn" class="owner-btn" data-icon="crown" hidden>Owner tools</button>
         <button id="createBtn" data-icon="play">Create private room</button>
         <div class="join-row">

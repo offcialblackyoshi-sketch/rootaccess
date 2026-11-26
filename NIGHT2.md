@@ -257,3 +257,16 @@ Work happens on the `overnight` branch, one improvement per commit. Nothing is p
   - **Browser test:** uses Chrome's real offline switch. A 0.4-second blip shows nothing; going offline shows the banner, and coming back shows "Back online!", which then goes away. No errors.
   - **Not tested in the browser:** the "lost the connection to the game" case needs the real online server, so only its logic is unit-tested.
 - **Rules:** no change needed.
+
+### 12. CrazyGames SDK (for publishing on CrazyGames)
+- **New `src/crazygames.js`:** it only switches on when the game runs on CrazyGames. Elsewhere, like GitHub Pages and the tests, it doesn't even load their SDK.
+- **On CrazyGames:**
+  - **Saving:** saves go to their **Data Module**, so progress follows the player's CrazyGames account.
+  - **Gameplay start and stop** are reported (menus, lobby and results count as breaks), and loading is reported when it finishes.
+  - **Their settings:** "mute audio" silences sounds and music, and "disable chat" hides every chat.
+  - **Hidden there:** Google and username sign-in (CrazyGames doesn't allow other logins) and the Install button.
+  - **No offline cache,** because CrazyGames hosts the files itself.
+- **Not added yet:** ads. Ads aren't allowed in CrazyGames' Basic Launch; they can be added for Full Launch.
+- **Verified:**
+  - **Browser test:** a normal visit doesn't load the SDK. With their local test mode (`?useLocalSdk=true&muteAudio=true&disableChat=true`) their real SDK loads; sign-in and install are hidden; your name saves through the Data Module; mute and disable-chat work.
+  - **Full suite:** 164/164.

@@ -7,6 +7,7 @@ import { createSpectate } from './spectate.js';
 import { createMusic, trackFor } from './music.js';
 import { showHowTo } from './howto.js';
 import { createConnBanner } from './connection.js';
+import { cg, setPlaying, loadingDone, watchSettings } from './crazygames.js';
 import { renderLobby, backToLobby, startGame } from './lobby.js';
 import { TUTORIAL_DONE_KEY } from './modes/tutorial.js';
 import { startSession } from './game.js';
@@ -124,6 +125,7 @@ function show(name) {
   social?.setScreen(name);
   updateMusic();
   updateConn();
+  setPlaying(name === 'game'); // CrazyGames: menus, lobby and results are breaks
   if (changed) scrambleHeadings(document.getElementById('screen-' + name));
 }
 
@@ -1160,8 +1162,11 @@ connectOnline().then(() => { renderOwner(); return invited ? false : resumeSeat(
 renderOwner();
 initAccount(renderAccount).catch((e) => console.warn('account:', e.message));
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+// CrazyGames hosts the files itself, so no offline cache there.
+if ('serviceWorker' in navigator && !cg.active) {
+  const register = () => navigator.serviceWorker.register('sw.js').catch(() => {});
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register);
 }
 
 // Exposed for automated tests.
@@ -1211,3 +1216,15 @@ social = createSocial({
   },
 });
 social.setScreen(document.body.dataset.screen || 'menu'); // renderAccount: lets tests preview the account card
+
+// ---------------------------------------------------------------------------
+// CrazyGames: respect their "mute audio" and "disable chat" settings, and say
+// loading is done. (Sign-in and the install button are hidden there by CSS:
+// CrazyGames doesn't allow other logins.)
+// ---------------------------------------------------------------------------
+watchSettings(({ muteAudio, disableChat }) => {
+  sfx.setForcedMute(muteAudio);
+  music.update();
+  document.documentElement.classList.toggle('no-chat', disableChat);
+});
+loadingDone();

@@ -4,6 +4,7 @@ import { getSettings } from './settings.js';
 
 let audio = null;
 let muted = load('ra-muted', false);
+let forcedMute = false; // e.g. CrazyGames' "mute audio" setting
 
 function unlock() {
   if (!audio) {
@@ -17,7 +18,7 @@ function unlock() {
 }
 
 function tone(freq, dur, { type = 'square', to = freq, vol = 0.04, delay = 0 } = {}) {
-  if (muted || !audio) return;
+  if (muted || forcedMute || !audio) return;
   const volume = getSettings().volume;
   if (volume <= 0) return;
   const t0 = audio.currentTime + delay;
@@ -67,7 +68,8 @@ export const sfx = {
   // The shared AudioContext (made on first use), for the music.
   audioContext() { unlock(); return audio; },
   played,
-  isMuted: () => muted,
+  isMuted: () => muted || forcedMute,
+  setForcedMute(on) { forcedMute = !!on; },
   toggleMute() {
     muted = !muted;
     save('ra-muted', muted);

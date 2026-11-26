@@ -1261,3 +1261,10 @@ html:not(.is-owner) .style-pick .owner-only { display: none; }
 .conn-banner[hidden] { display: none; }
 .conn-banner.down { background: #3a2a00; color: #ffd166; border: 1px solid #ffb000; }
 .conn-banner.up { background: #0d2e18; color: #7dffa8; border: 1px solid #39ff6a; }
+
+/* ---- On CrazyGames ---- */
+/* No other logins allowed there, and the site handles installing. */
+html.on-crazygames #accountCard, html.on-crazygames #installBtn { display: none !important; }
+/* Their "disable chat" setting: hide every chat (room, lobby, private, groups). */
+html.no-chat .chat, html.no-chat .dm-box, html.no-chat .group-box, html.no-chat .social-groups-slot,
+html.no-chat .social-chats, html.no-chat .quick-chat { display: none !important; }

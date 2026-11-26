@@ -1490,6 +1490,29 @@ await step('connection banner', async () => {
   await N.close();
 });
 
+await step('crazygames', async () => {
+  // Normal visits never load the CrazyGames SDK.
+  const P = await openTab('P0');
+  await P.goto(URL_BASE);
+  check('crazygames: normal visits don\'t load their SDK', !(await P.eval('!!window.CrazyGames || document.documentElement.classList.contains("on-crazygames")')));
+  await P.close();
+  // Their local test mode (needs the internet to fetch their SDK).
+  const G = await openTab('CG');
+  await G.goto(URL_BASE + '&useLocalSdk=true&muteAudio=true&disableChat=true');
+  await G.waitFor('document.documentElement.classList.contains("on-crazygames")', 15000, 'SDK active');
+  const hidden = await G.eval('getComputedStyle(document.getElementById("accountCard")).display === "none" && getComputedStyle(document.getElementById("installBtn")).display === "none"');
+  check('crazygames: sign-in and install are hidden there', hidden);
+  await G.eval(`document.getElementById('nameInput').value = 'cgtester'; document.getElementById('createBtn').click()`);
+  await G.waitFor(`document.body.dataset.screen === 'lobby'`, 5000, 'lobby');
+  await G.waitFor(`(window.CrazyGames.SDK.data.getItem('ra-name') || '').includes('cgtester')`, 5000, 'saved to the Data Module');
+  check('crazygames: progress is saved through their Data Module', true);
+  check('crazygames: their mute setting silences the game', await G.eval('window.__ra.sfx.isMuted() && window.__ra.music.state().level === 0'));
+  check('crazygames: their disable-chat setting hides chat', await G.eval('document.documentElement.classList.contains("no-chat") && getComputedStyle(document.querySelector("#lobbyChat .chat")).display === "none"'));
+  await G.shot('77-crazygames.png');
+  check('crazygames: no errors', G.errors.length === 0, G.errors.join(' | '));
+  await G.close();
+});
+
 await step('small screen', async () => {
   await B.send('Emulation.setDeviceMetricsOverride', { width: 420, height: 800, deviceScaleFactor: 1, mobile: false });
   await B.shot('12-small-lobby.png');

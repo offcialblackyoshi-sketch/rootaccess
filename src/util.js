@@ -1,8 +1,14 @@
+// On CrazyGames this sets up their SDK before anything is loaded (see the file).
+import './crazygames.js';
+
+// Where saves go: CrazyGames' Data Module when the game runs there, else this browser.
+const store = () => globalThis.__raStore || localStorage;
+
 // Small helpers shared by the whole game.
 
 export function load(key, fallback) {
   try {
-    const v = localStorage.getItem(key);
+    const v = store().getItem(key);
     return v === null ? fallback : JSON.parse(v);
   } catch {
     return fallback;
@@ -11,7 +17,7 @@ export function load(key, fallback) {
 
 export function save(key, value) {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    store().setItem(key, JSON.stringify(value));
   } catch {
     // Storage blocked: the game still works, it just won't remember.
   }

@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Root Access cover</title>
+<!-- Cover art for game portals (CrazyGames). Render with tools/covers/render.mjs:
+     ?layout=landscape (1920x1080), portrait (800x1200) or square (800x800).
+     Only the game title appears as text, as CrazyGames requires. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@800&display=swap">
+<style>
+  html, body { margin: 0; background: #020806; overflow: hidden; }
+  #art { position: relative; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, #0b2a17 0%, #04110a 45%, #010403 100%); }
+  canvas { position: absolute; inset: 0; }
+  .band { position: absolute; left: 0; right: 0; bottom: 0; height: 46%; background: linear-gradient(to top, rgba(1, 5, 3, 0.92) 0%, rgba(1, 5, 3, 0.7) 45%, transparent 100%); }
+  .vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.75) 100%); }
+  .glow { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(57, 255, 106, 0.45) 0%, rgba(57, 255, 106, 0.12) 35%, transparent 70%); transform: translate(-50%, -50%); }
+  svg.lock { position: absolute; transform: translate(-50%, -50%); filter: drop-shadow(0 0 18px #39ff6a) drop-shadow(0 0 48px rgba(57, 255, 106, 0.6)); overflow: visible; }
+  svg.avatar { position: absolute; transform: translate(-50%, -50%); overflow: visible; }
+  .title { position: absolute; left: 0; right: 0; text-align: center; font-family: "JetBrains Mono", monospace; font-weight: 800; letter-spacing: 0.06em; line-height: 0.95; white-space: nowrap; }
+  .title .t { position: relative; display: inline-block; background: linear-gradient(180deg, #e6ffee 0%, #6bff93 45%, #18c04a 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 22px rgba(57, 255, 106, 0.75)) drop-shadow(0 6px 0 #04210f); }
+  .title .s { background: linear-gradient(180deg, #c9f6ff 0%, #4dd9ff 60%, #1490c4 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.18) 0 2px, transparent 2px 4px); pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="art"></div>
+<script type="module">
+  import { avatarCells } from '../../src/avatar.js';
+  await document.fonts.load('800 40px "JetBrains Mono"').catch(() => {});
+
+  const LAYOUTS = {
+    landscape: { w: 1920, h: 1080, lock: [960, 430, 360], title: { lines: ['ROOT//ACCESS'], size: 190, bottom: 120 }, avatars: [[470, 470, 150, '#4dd9ff', 'neo'], [1450, 470, 150, '#ff4dd2', 'trinity'], [1700, 250, 96, '#ffb000', 'byte'], [230, 260, 96, '#c6ff4d', 'glitch']] },
+    portrait: { w: 800, h: 1200, lock: [400, 470, 300], title: { lines: ['ROOT//', 'ACCESS'], size: 150, bottom: 110 }, avatars: [[140, 700, 110, '#4dd9ff', 'neo'], [660, 700, 110, '#ff4dd2', 'trinity'], [130, 200, 80, '#ffb000', 'byte'], [670, 210, 80, '#c6ff4d', 'glitch']] },
+    square: { w: 800, h: 800, lock: [400, 330, 260], title: { lines: ['ROOT//ACCESS'], size: 92, bottom: 80 }, avatars: [[120, 380, 100, '#4dd9ff', 'neo'], [680, 380, 100, '#ff4dd2', 'trinity'], [110, 120, 70, '#ffb000', 'byte'], [690, 120, 70, '#c6ff4d', 'glitch']] },
+  };
+  const L = LAYOUTS[new URLSearchParams(location.search).get('layout')] || LAYOUTS.landscape;
+  const art = document.getElementById('art');
+  art.style.width = L.w + 'px';
+  art.style.height = L.h + 'px';
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = (tag, attrs = {}, ...kids) => { const e = document.createElementNS(ns, tag); for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v); e.append(...kids); return e; };
+
+  // ---- Code rain (seeded, so every render is the same) ----
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const canvas = document.createElement('canvas');
+  canvas.width = L.w; canvas.height = L.h;
+  art.append(canvas);
+  const g = canvas.getContext('2d');
+  const glyphs = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789';
+  const cell = Math.round(L.w / 64);
+  g.font = `${cell}px "JetBrains Mono", monospace`;
+  g.textAlign = 'center';
+  for (let x = cell / 2; x < L.w; x += cell) {
+    const len = 6 + Math.floor(rnd() * 22);
+    const head = Math.floor(rnd() * (L.h / cell + len));
+    for (let i = 0; i < len; i++) {
+      const y = (head - i) * cell;
+      if (y < -cell || y > L.h + cell) continue;
+      const a = i === 0 ? 0.95 : Math.max(0, 0.55 - i / len * 0.55);
+      g.fillStyle = i === 0 ? `rgba(220,255,230,${a})` : `rgba(57,255,106,${a * 0.8})`;
+      g.fillText(glyphs[Math.floor(rnd() * glyphs.length)], x, y);
+    }
+  }
+  art.append(Object.assign(document.createElement('div'), { className: 'vignette' }));
+
+  // ---- Glow + light rays behind the lock ----
+  const [lx, ly, ls] = L.lock;
+  const glow = Object.assign(document.createElement('div'), { className: 'glow' });
+  Object.assign(glow.style, { left: lx + 'px', top: ly + 'px', width: ls * 3 + 'px', height: ls * 3 + 'px' });
+  art.append(glow);
+  const rays = svg('svg', { width: L.w, height: L.h, style: 'position:absolute;inset:0;opacity:.5' });
+  for (let i = 0; i < 18; i++) {
+    const ang = (i / 18) * Math.PI * 2 + 0.1;
+    const r1 = ls * 0.75, r2 = ls * (1.05 + (i % 3) * 0.18); // stop short of the title
+    rays.append(svg('line', { x1: lx + Math.cos(ang) * r1, y1: ly + Math.sin(ang) * r1, x2: lx + Math.cos(ang) * r2, y2: ly + Math.sin(ang) * r2, stroke: i % 4 === 0 ? '#4dd9ff' : '#39ff6a', 'stroke-width': Math.max(2, ls / 90), 'stroke-linecap': 'round', opacity: 0.35 + (i % 3) * 0.2 }));
+  }
+  art.append(rays);
+
+  // ---- The open padlock ----
+  const lock = svg('svg', { class: 'lock', width: ls, height: ls, viewBox: '0 0 100 100', style: `left:${lx}px;top:${ly}px` },
+    svg('defs', {}, svg('linearGradient', { id: 'body', x1: 0, y1: 0, x2: 0, y2: 1 },
+      svg('stop', { offset: '0', 'stop-color': '#0f3d22' }), svg('stop', { offset: '1', 'stop-color': '#062012' }))),
+    // shackle, swung open
+    svg('path', { d: 'M30 46 V30 a20 20 0 0 1 38 -9', fill: 'none', stroke: '#6bff93', 'stroke-width': 8, 'stroke-linecap': 'round', transform: 'rotate(-22 30 46) translate(-4 -6)' }),
+    svg('rect', { x: 18, y: 44, width: 64, height: 48, rx: 9, fill: 'url(#body)', stroke: '#39ff6a', 'stroke-width': 4 }),
+    // keyhole
+    svg('circle', { cx: 50, cy: 63, r: 6.5, fill: '#b8ffcc' }),
+    svg('path', { d: 'M46.5 66 L44 80 H56 L53.5 66 Z', fill: '#b8ffcc' }),
+    // circuit traces on the lock body
+    svg('path', { d: 'M24 54 h8 v10 h-5 M76 54 h-8 v14 h4 M30 86 h12 M58 86 h12', fill: 'none', stroke: '#39ff6a', 'stroke-width': 1.6, opacity: 0.8 }),
+    svg('circle', { cx: 27, cy: 64, r: 1.8, fill: '#39ff6a' }), svg('circle', { cx: 72, cy: 68, r: 1.8, fill: '#39ff6a' }));
+  art.append(lock);
+
+  // ---- Players: the game's pixel avatars, glowing in their colors ----
+  for (const [x, y, size, color, name] of L.avatars) {
+    const cells = avatarCells(name);
+    const a = svg('svg', { class: 'avatar', width: size, height: size, viewBox: '-1 -1 7 7', style: `left:${x}px;top:${y}px;filter:drop-shadow(0 0 ${size / 8}px ${color})` },
+      svg('rect', { x: -1, y: -1, width: 7, height: 7, rx: 1.4, fill: 'rgba(0,0,0,.55)', stroke: color, 'stroke-width': 0.18 }),
+      ...cells.map((on, i) => (on ? svg('rect', { x: i % 5, y: Math.floor(i / 5), width: 1.02, height: 1.02, fill: color }) : '')).filter(Boolean));
+    art.append(a);
+  }
+
+  // ---- Title (the only text allowed), on a darker band so it reads at small sizes ----
+  art.append(Object.assign(document.createElement('div'), { className: 'band' }));
+  const title = document.createElement('div');
+  title.className = 'title';
+  Object.assign(title.style, { bottom: L.title.bottom + 'px', fontSize: L.title.size + 'px' });
+  title.innerHTML = L.title.lines.map((line) => {
+    const html = line.replace('//', '<span class="s">//</span>');
+    return `<div><span class="t">${html}</span></div>`;
+  }).join('');
+  art.append(title);
+  art.append(Object.assign(document.createElement('div'), { className: 'scan' }));
+
+  // Signal the renderer once fonts are ready.
+  document.fonts.ready.then(() => { document.body.dataset.ready = '1'; });
+</script>
+</body>
+</html>
